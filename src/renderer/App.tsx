@@ -6,6 +6,7 @@ import { TerminalPanel } from './components/terminal/TerminalPanel';
 import { ResourcePanel } from './components/resources/ResourcePanel';
 import { CompactPanel } from './components/compact/CompactPanel';
 import { CommandsPanel } from './components/commands/CommandsPanel';
+import { SettingsPanel } from './components/settings/SettingsPanel';
 
 export type SidebarPanel =
   | 'terminal'
@@ -99,6 +100,8 @@ function RightPanel({
       return <CompactPanel />;
     case 'commands':
       return <CommandsPanel onSendCommand={onSendCommand} />;
+    case 'settings':
+      return <SettingsPanel />;
     default:
       return <PlaceholderPanel panel={panel} />;
   }
