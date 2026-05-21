@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
 
 interface ConnectGitHubProps {
-  onConnect: (token: string) => Promise<void>;
+  onConnect: (token: string, allowPlaintext?: boolean) => Promise<void>;
+  encryptionAvailable: boolean;
 }
 
-export function ConnectGitHub({ onConnect }: ConnectGitHubProps) {
+export function ConnectGitHub({ onConnect, encryptionAvailable }: ConnectGitHubProps) {
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [allowPlaintext, setAllowPlaintext] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token.trim()) return;
+    if (!encryptionAvailable && !allowPlaintext) {
+      setErr(
+        'OS keychain is unavailable on this system. Tick "Store in plaintext anyway" to acknowledge that the token will be written unencrypted, or unlock your keychain and try again.'
+      );
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
-      await onConnect(token.trim());
+      await onConnect(token.trim(), allowPlaintext);
       setToken('');
+      setAllowPlaintext(false);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Failed to validate token');
     } finally {
@@ -26,7 +35,7 @@ export function ConnectGitHub({ onConnect }: ConnectGitHubProps) {
 
   const openTokenPage = () => {
     void window.electronAPI.github.openExternal(
-      'https://github.com/settings/tokens/new?scopes=repo,read:user&description=Claude%20Code%20Studio'
+      'https://github.com/settings/tokens/new?scopes=public_repo&description=Claude%20Code%20Studio'
     );
   };
 
@@ -47,8 +56,17 @@ export function ConnectGitHub({ onConnect }: ConnectGitHubProps) {
         Connect GitHub
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 10 }}>
-        Paste a Personal Access Token to fetch repo, commit, PR, and issue data. The token is
-        stored locally and encrypted with the OS keychain.
+        Paste a Personal Access Token to fetch repo, commit, PR, and issue data.
+        {encryptionAvailable ? (
+          <> Token is encrypted via the OS keychain (DPAPI on Windows).</>
+        ) : (
+          <>
+            {' '}
+            <strong style={{ color: '#fda4af' }}>
+              OS keychain unavailable on this system — token would be stored as plaintext.
+            </strong>
+          </>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -118,14 +136,33 @@ export function ConnectGitHub({ onConnect }: ConnectGitHubProps) {
         </div>
       )}
 
+      {!encryptionAvailable && (
+        <label style={{
+          marginTop: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 10,
+          color: '#fda4af',
+          cursor: 'pointer',
+        }}>
+          <input
+            type="checkbox"
+            checked={allowPlaintext}
+            onChange={(e) => setAllowPlaintext(e.target.checked)}
+          />
+          Store in plaintext anyway (I accept the risk)
+        </label>
+      )}
+
       <div style={{
         marginTop: 8,
         fontSize: 10,
         color: 'var(--text-muted)',
         lineHeight: 1.5,
       }}>
-        Required scopes: <code style={codeStyle}>repo</code>{' '}
-        <code style={codeStyle}>read:user</code>
+        Default scope: <code style={codeStyle}>public_repo</code>. For private repos,
+        use a fine-grained PAT scoped to just the repos you want to browse.
       </div>
     </div>
   );

@@ -70,16 +70,16 @@ export function TerminalPanel({ onPidChange, sendRef }: TerminalPanelProps) {
       window.electronAPI.terminal.sendInput(data);
     });
 
-    window.electronAPI.terminal.onData((data) => {
+    const unsubData = window.electronAPI.terminal.onData((data) => {
       term.write(data);
     });
 
-    window.electronAPI.terminal.onReady((pid) => {
+    const unsubReady = window.electronAPI.terminal.onReady((pid) => {
       onPidChange(pid);
       setExited(false);
     });
 
-    window.electronAPI.terminal.onExit((code) => {
+    const unsubExit = window.electronAPI.terminal.onExit((code) => {
       term.writeln(`\r\n\x1b[33mClaude Code exited with code ${code}\x1b[0m`);
       term.writeln('\x1b[90mPress any key to restart...\x1b[0m');
       setExited(true);
@@ -108,6 +108,9 @@ export function TerminalPanel({ onPidChange, sendRef }: TerminalPanelProps) {
     }, 150);
 
     return () => {
+      unsubData();
+      unsubReady();
+      unsubExit();
       resizeObserver.disconnect();
       term.dispose();
     };

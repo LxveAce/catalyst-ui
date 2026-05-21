@@ -45,15 +45,17 @@ declare module 'systeminformation' {
 interface Window {
   electronAPI: {
     terminal: {
-      onData: (cb: (data: string) => void) => void;
-      onExit: (cb: (code: number) => void) => void;
-      onReady: (cb: (pid: number) => void) => void;
+      onData: (cb: (data: string) => void) => () => void;
+      onExit: (cb: (code: number) => void) => () => void;
+      onReady: (cb: (pid: number) => void) => () => void;
       sendInput: (data: string) => void;
       resize: (cols: number, rows: number) => void;
       restart: () => void;
     };
     resources: {
-      onUpdate: (cb: (data: import('./shared/types').ResourceSnapshot) => void) => void;
+      onUpdate: (
+        cb: (data: import('./shared/types').ResourceSnapshot) => void
+      ) => () => void;
       start: () => void;
       stop: () => void;
     };
@@ -74,7 +76,10 @@ interface Window {
     };
     github: {
       authState: () => Promise<import('./shared/types').GitHubAuthState>;
-      setToken: (token: string) => Promise<import('./shared/types').GitHubAuthState>;
+      setToken: (
+        token: string,
+        allowPlaintext?: boolean
+      ) => Promise<import('./shared/types').GitHubAuthState>;
       clearToken: () => Promise<import('./shared/types').GitHubAuthState>;
       getRepoInfo: (
         owner: string,

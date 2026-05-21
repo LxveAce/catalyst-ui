@@ -6,7 +6,7 @@ export function ResourcePanel() {
   const [snapshot, setSnapshot] = useState<ResourceSnapshot | null>(null);
 
   useEffect(() => {
-    window.electronAPI.resources.onUpdate((data) => {
+    return window.electronAPI.resources.onUpdate((data) => {
       setSnapshot(data as ResourceSnapshot);
     });
   }, []);

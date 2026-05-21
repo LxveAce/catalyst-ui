@@ -1,17 +1,23 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC } from '../shared/ipc-channels';
 
+function subscribe<T extends unknown[]>(
+  channel: string,
+  callback: (...args: T) => void
+): () => void {
+  const handler = (_event: unknown, ...args: T) => callback(...args);
+  ipcRenderer.on(channel, handler as never);
+  return () => ipcRenderer.removeListener(channel, handler as never);
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   terminal: {
-    onData: (callback: (data: string) => void) => {
-      ipcRenderer.on(IPC.TERMINAL_DATA, (_event, data) => callback(data));
-    },
-    onExit: (callback: (code: number) => void) => {
-      ipcRenderer.on(IPC.TERMINAL_EXIT, (_event, code) => callback(code));
-    },
-    onReady: (callback: (pid: number) => void) => {
-      ipcRenderer.on(IPC.TERMINAL_READY, (_event, pid) => callback(pid));
-    },
+    onData: (callback: (data: string) => void) =>
+      subscribe<[string]>(IPC.TERMINAL_DATA, callback),
+    onExit: (callback: (code: number) => void) =>
+      subscribe<[number]>(IPC.TERMINAL_EXIT, callback),
+    onReady: (callback: (pid: number) => void) =>
+      subscribe<[number]>(IPC.TERMINAL_READY, callback),
     sendInput: (data: string) => {
       ipcRenderer.send(IPC.TERMINAL_INPUT, data);
     },
@@ -23,9 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
   resources: {
-    onUpdate: (callback: (data: unknown) => void) => {
-      ipcRenderer.on(IPC.RESOURCE_UPDATE, (_event, data) => callback(data));
-    },
+    onUpdate: (callback: (data: unknown) => void) =>
+      subscribe<[unknown]>(IPC.RESOURCE_UPDATE, callback),
     start: () => ipcRenderer.send(IPC.RESOURCE_START),
     stop: () => ipcRenderer.send(IPC.RESOURCE_STOP),
   },
@@ -45,7 +50,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   github: {
     authState: () => ipcRenderer.invoke(IPC.GITHUB_AUTH_STATE),
-    setToken: (token: string) => ipcRenderer.invoke(IPC.GITHUB_SET_TOKEN, token),
+    setToken: (token: string, allowPlaintext = false) =>
+      ipcRenderer.invoke(IPC.GITHUB_SET_TOKEN, token, allowPlaintext),
     clearToken: () => ipcRenderer.invoke(IPC.GITHUB_CLEAR_TOKEN),
     getRepoInfo: (owner: string, repo: string) =>
       ipcRenderer.invoke(IPC.GITHUB_REPO_INFO, owner, repo),

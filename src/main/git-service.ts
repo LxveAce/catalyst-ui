@@ -27,7 +27,8 @@ export class GitService {
   private cwd: string;
 
   constructor(initialCwd?: string) {
-    this.cwd = initialCwd && fs.existsSync(initialCwd) ? initialCwd : os.homedir();
+    const sanitized = sanitizeCwd(initialCwd);
+    this.cwd = sanitized ?? os.homedir();
   }
 
   getCwd(): string {
@@ -35,14 +36,16 @@ export class GitService {
   }
 
   setCwd(next: string): string {
-    if (next && fs.existsSync(next)) {
-      this.cwd = next;
+    const sanitized = sanitizeCwd(next);
+    if (sanitized) {
+      this.cwd = sanitized;
     }
     return this.cwd;
   }
 
   async detect(startPath?: string): Promise<GitRepoState> {
-    const start = startPath && fs.existsSync(startPath) ? startPath : this.cwd;
+    const sanitized = startPath ? sanitizeCwd(startPath) : null;
+    const start = sanitized ?? this.cwd;
     const root = this.findRoot(start);
     if (!root) {
       return { ...EMPTY_STATE };
@@ -87,7 +90,12 @@ export class GitService {
 
   private async runText(cwd: string, args: string[]): Promise<string> {
     try {
-      const { stdout } = await execFileAsync('git', args, { cwd, windowsHide: true });
+      const { stdout } = await execFileAsync('git', args, {
+        cwd,
+        windowsHide: true,
+        timeout: 5000,
+        killSignal: 'SIGTERM',
+      });
       return stdout.trim();
     } catch {
       return '';
@@ -128,6 +136,28 @@ export class GitService {
     }
     return { staged, modified, untracked };
   }
+}
+
+function sanitizeCwd(input: string | null | undefined): string | null {
+  if (!input || typeof input !== 'string') return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (process.platform === 'win32' && /^[\\/][\\/]/.test(trimmed)) {
+    return null;
+  }
+  let resolved: string;
+  try {
+    resolved = fs.realpathSync(trimmed);
+  } catch {
+    return null;
+  }
+  try {
+    const stat = fs.statSync(resolved);
+    if (!stat.isDirectory()) return null;
+  } catch {
+    return null;
+  }
+  return resolved;
 }
 
 export function parseGitHubUrl(

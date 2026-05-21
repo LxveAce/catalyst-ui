@@ -98,7 +98,7 @@ export class CompactController {
         if (!settings.hooks[def.event]) settings.hooks[def.event] = [];
 
         const exists = settings.hooks[def.event].some(
-          (h) => h.command && h.command.includes('compact-controller')
+          (h) => h.command && this.isOurHookCommand(h.command)
         );
         if (exists) continue;
 
@@ -125,7 +125,7 @@ export class CompactController {
       for (const event of ['Stop', 'PreCompact', 'PostCompact']) {
         if (settings.hooks[event]) {
           settings.hooks[event] = settings.hooks[event].filter(
-            (h) => !h.command || !h.command.includes('compact-controller')
+            (h) => !h.command || !this.isOurHookCommand(h.command)
           );
           if (settings.hooks[event].length === 0) {
             delete settings.hooks[event];
@@ -147,7 +147,7 @@ export class CompactController {
 
       return ['Stop', 'PreCompact', 'PostCompact'].every((event) =>
         settings.hooks?.[event]?.some(
-          (h) => h.command && h.command.includes('compact-controller')
+          (h) => h.command && this.isOurHookCommand(h.command)
         )
       );
     } catch {
@@ -174,15 +174,40 @@ export class CompactController {
     }
   }
 
+  private isOurHookCommand(command: string): boolean {
+    const ourHooksRoot = path
+      .join(os.homedir(), 'claude-compact-controller', 'hooks')
+      .replace(/\\/g, '/');
+    return command.replace(/\\/g, '/').includes(ourHooksRoot);
+  }
+
   private readSettings(): SettingsJson {
+    let raw: string;
     try {
-      return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
-    } catch {
-      return {};
+      raw = fs.readFileSync(SETTINGS_FILE, 'utf8');
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return {};
+      throw e;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      throw new Error(
+        `Refusing to modify ${SETTINGS_FILE}: file exists but is not valid JSON (${(e as Error).message}). ` +
+          `Fix the file manually or back it up before installing.`
+      );
     }
   }
 
   private writeSettings(settings: SettingsJson): void {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const backup = SETTINGS_FILE + '.bak';
+      try {
+        fs.copyFileSync(SETTINGS_FILE, backup);
+      } catch {
+        // best-effort backup; don't block the write
+      }
+    }
     const tmpFile = SETTINGS_FILE + '.tmp';
     fs.writeFileSync(tmpFile, JSON.stringify(settings, null, 2));
     fs.renameSync(tmpFile, SETTINGS_FILE);

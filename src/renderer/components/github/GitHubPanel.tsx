@@ -92,8 +92,8 @@ export function GitHubPanel() {
     await refreshGit();
   };
 
-  const handleConnect = async (token: string) => {
-    const next = await window.electronAPI.github.setToken(token);
+  const handleConnect = async (token: string, allowPlaintext = false) => {
+    const next = await window.electronAPI.github.setToken(token, allowPlaintext);
     setAuth(next);
   };
 
@@ -142,7 +142,10 @@ export function GitHubPanel() {
       />
 
       {!auth?.hasToken && (
-        <ConnectGitHub onConnect={handleConnect} />
+        <ConnectGitHub
+          onConnect={handleConnect}
+          encryptionAvailable={auth?.encryptionAvailable ?? true}
+        />
       )}
 
       {auth?.hasToken && (
