@@ -22,6 +22,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.send(IPC.TERMINAL_RESTART);
     },
   },
+  resources: {
+    onUpdate: (callback: (data: unknown) => void) => {
+      ipcRenderer.on(IPC.RESOURCE_UPDATE, (_event, data) => callback(data));
+    },
+    start: () => ipcRenderer.send(IPC.RESOURCE_START),
+    stop: () => ipcRenderer.send(IPC.RESOURCE_STOP),
+  },
+  compact: {
+    getStatus: () => ipcRenderer.invoke(IPC.COMPACT_STATUS),
+    install: () => ipcRenderer.invoke(IPC.COMPACT_INSTALL),
+    uninstall: () => ipcRenderer.invoke(IPC.COMPACT_UNINSTALL),
+    getConfig: () => ipcRenderer.invoke(IPC.COMPACT_CONFIG_GET),
+    setConfig: (config: unknown) =>
+      ipcRenderer.invoke(IPC.COMPACT_CONFIG_SET, config),
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),

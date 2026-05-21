@@ -5,9 +5,10 @@ import '@xterm/xterm/css/xterm.css';
 
 interface TerminalPanelProps {
   onPidChange: (pid: number) => void;
+  sendRef?: React.MutableRefObject<((data: string) => void) | null>;
 }
 
-export function TerminalPanel({ onPidChange }: TerminalPanelProps) {
+export function TerminalPanel({ onPidChange, sendRef }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -56,6 +57,12 @@ export function TerminalPanel({ onPidChange }: TerminalPanelProps) {
 
     termRef.current = term;
     fitRef.current = fit;
+
+    if (sendRef) {
+      sendRef.current = (data: string) => {
+        window.electronAPI.terminal.sendInput(data);
+      };
+    }
 
     term.onData((data) => {
       window.electronAPI.terminal.sendInput(data);

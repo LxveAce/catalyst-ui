@@ -8,9 +8,10 @@ interface SidebarProps {
 
 const panels: { id: SidebarPanel; label: string; icon: string }[] = [
   { id: 'terminal', label: 'Terminal', icon: '>' },
+  { id: 'commands', label: 'Commands', icon: '/' },
   { id: 'resources', label: 'Resources', icon: '#' },
-  { id: 'github', label: 'GitHub', icon: 'G' },
   { id: 'compact', label: 'Compact', icon: 'C' },
+  { id: 'github', label: 'GitHub', icon: 'G' },
   { id: 'sync', label: 'Sync', icon: 'S' },
   { id: 'auth', label: 'Account', icon: 'A' },
   { id: 'settings', label: 'Settings', icon: '*' },

@@ -1,25 +1,5 @@
 import React from 'react';
 
-declare global {
-  interface Window {
-    electronAPI: {
-      terminal: {
-        onData: (cb: (data: string) => void) => void;
-        onExit: (cb: (code: number) => void) => void;
-        onReady: (cb: (pid: number) => void) => void;
-        sendInput: (data: string) => void;
-        resize: (cols: number, rows: number) => void;
-        restart: () => void;
-      };
-      window: {
-        minimize: () => void;
-        maximize: () => void;
-        close: () => void;
-      };
-    };
-  }
-}
-
 export function TitleBar() {
   return (
     <div style={{

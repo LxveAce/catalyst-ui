@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { PtyManager } from './pty-manager';
+import { ResourceMonitor } from './resource-monitor';
+import { CompactController } from './compact-controller';
 import { IPC } from '../shared/ipc-channels';
 
 if (require('electron-squirrel-startup')) {
@@ -12,6 +14,8 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
 const ptyManager = new PtyManager();
+const resourceMonitor = new ResourceMonitor();
+const compactController = new CompactController();
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -28,6 +32,15 @@ const createWindow = () => {
     },
   });
 
+  mainWindow.on('close', () => {
+    resourceMonitor.stop();
+    ptyManager.kill();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -41,17 +54,24 @@ const createWindow = () => {
   }
 };
 
+function safeSend(channel: string, ...args: unknown[]) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args);
+  }
+}
+
 function setupTerminal() {
   ptyManager.on('data', (data: string) => {
-    mainWindow?.webContents.send(IPC.TERMINAL_DATA, data);
+    safeSend(IPC.TERMINAL_DATA, data);
   });
 
   ptyManager.on('exit', (code: number) => {
-    mainWindow?.webContents.send(IPC.TERMINAL_EXIT, code);
+    safeSend(IPC.TERMINAL_EXIT, code);
   });
 
   ptyManager.on('ready', (pid: number) => {
-    mainWindow?.webContents.send(IPC.TERMINAL_READY, pid);
+    safeSend(IPC.TERMINAL_READY, pid);
+    resourceMonitor.setClaudePid(pid);
   });
 
   ipcMain.on(IPC.TERMINAL_INPUT, (_event, data: string) => {
@@ -67,6 +87,31 @@ function setupTerminal() {
     ptyManager.spawn();
   });
 
+  ptyManager.spawn();
+}
+
+function setupResources() {
+  resourceMonitor.on('update', (snapshot) => {
+    safeSend(IPC.RESOURCE_UPDATE, snapshot);
+  });
+
+  ipcMain.on(IPC.RESOURCE_START, () => resourceMonitor.start());
+  ipcMain.on(IPC.RESOURCE_STOP, () => resourceMonitor.stop());
+
+  resourceMonitor.start();
+}
+
+function setupCompact() {
+  ipcMain.handle(IPC.COMPACT_STATUS, () => compactController.getStatus());
+  ipcMain.handle(IPC.COMPACT_INSTALL, () => compactController.install());
+  ipcMain.handle(IPC.COMPACT_UNINSTALL, () => compactController.uninstall());
+  ipcMain.handle(IPC.COMPACT_CONFIG_GET, () => compactController.getConfig());
+  ipcMain.handle(IPC.COMPACT_CONFIG_SET, (_event, config) =>
+    compactController.setConfig(config)
+  );
+}
+
+function setupWindowControls() {
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
   ipcMain.on('window:maximize', () => {
     if (mainWindow?.isMaximized()) {
@@ -76,13 +121,14 @@ function setupTerminal() {
     }
   });
   ipcMain.on('window:close', () => mainWindow?.close());
-
-  ptyManager.spawn();
 }
 
 app.whenReady().then(() => {
   createWindow();
   setupTerminal();
+  setupResources();
+  setupCompact();
+  setupWindowControls();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -93,6 +139,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   ptyManager.kill();
+  resourceMonitor.stop();
   if (process.platform !== 'darwin') {
     app.quit();
   }

@@ -6,6 +6,7 @@
   "main": ".vite/build/index.js",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/patch-node-pty.js",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
@@ -30,7 +31,8 @@
     "electron-store": "^11.0.2",
     "node-pty": "^1.1.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "systeminformation": "^5.31.6"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",

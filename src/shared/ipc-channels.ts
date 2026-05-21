@@ -7,6 +7,8 @@ export const IPC = {
   TERMINAL_RESTART: 'terminal:restart',
 
   RESOURCE_UPDATE: 'resources:update',
+  RESOURCE_START: 'resources:start',
+  RESOURCE_STOP: 'resources:stop',
 
   COMPACT_INSTALL: 'compact:install',
   COMPACT_UNINSTALL: 'compact:uninstall',
