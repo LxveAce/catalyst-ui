@@ -25,45 +25,63 @@ export class GitHubService {
   private storePath: string;
   private store: GitHubStoreSchema;
   private octokit: Octokit | null = null;
-  private cachedAuth: GitHubAuthState = { hasToken: false, login: null, scopes: [] };
+  private cachedAuth: GitHubAuthState = {
+    hasToken: false,
+    login: null,
+    scopes: [],
+    encryptionAvailable: false,
+    encrypted: false,
+  };
 
   constructor() {
     this.storePath = path.join(app.getPath('userData'), STORE_FILE);
     this.store = this.readStore();
-    this.cachedAuth = {
-      hasToken: this.hasStoredToken(),
-      login: this.store.lastLogin ?? null,
-      scopes: this.store.lastScopes ?? [],
-    };
+    this.cachedAuth = this.computeAuthState();
   }
 
   getAuthState(): GitHubAuthState {
     return { ...this.cachedAuth };
   }
 
-  async setToken(token: string): Promise<GitHubAuthState> {
+  async setToken(token: string, allowPlaintext = false): Promise<GitHubAuthState> {
     const trimmed = token.trim();
     if (!trimmed) throw new Error('Token cannot be empty');
+
+    const canEncrypt = safeStorage.isEncryptionAvailable();
+    if (!canEncrypt && !allowPlaintext) {
+      throw new Error(
+        'OS keychain (safeStorage) is not available on this system. ' +
+          'Refusing to store the token in plaintext. ' +
+          'Unlock your keychain and try again, or pass allowPlaintext to acknowledge the risk.'
+      );
+    }
 
     const octokit = this.makeOctokit(trimmed);
     const { data, headers } = await octokit.users.getAuthenticated();
     const scopes = parseScopes(headers['x-oauth-scopes']);
 
-    this.persistToken(trimmed);
-    this.store.lastLogin = data.login;
-    this.store.lastScopes = scopes;
-    this.writeStore();
+    const nextStore: GitHubStoreSchema = {
+      lastLogin: data.login,
+      lastScopes: scopes,
+    };
+    if (canEncrypt) {
+      nextStore.encryptedToken = safeStorage.encryptString(trimmed).toString('base64');
+    } else {
+      nextStore.plainToken = trimmed;
+    }
 
+    this.writeStoreAtomic(nextStore);
+    this.store = nextStore;
     this.octokit = octokit;
-    this.cachedAuth = { hasToken: true, login: data.login, scopes };
+    this.cachedAuth = this.computeAuthState();
     return { ...this.cachedAuth };
   }
 
   clearToken(): GitHubAuthState {
+    this.writeStoreAtomic({});
     this.store = {};
-    this.writeStore();
     this.octokit = null;
-    this.cachedAuth = { hasToken: false, login: null, scopes: [] };
+    this.cachedAuth = this.computeAuthState();
     return { ...this.cachedAuth };
   }
 
@@ -184,19 +202,14 @@ export class GitHubService {
     return new Octokit({ auth: token, userAgent: USER_AGENT });
   }
 
-  private hasStoredToken(): boolean {
-    return Boolean(this.store.encryptedToken || this.store.plainToken);
-  }
-
-  private persistToken(token: string): void {
-    delete this.store.encryptedToken;
-    delete this.store.plainToken;
-    if (safeStorage.isEncryptionAvailable()) {
-      this.store.encryptedToken = safeStorage.encryptString(token).toString('base64');
-    } else {
-      this.store.plainToken = token;
-    }
-    this.writeStore();
+  private computeAuthState(): GitHubAuthState {
+    return {
+      hasToken: Boolean(this.store.encryptedToken || this.store.plainToken),
+      login: this.store.lastLogin ?? null,
+      scopes: this.store.lastScopes ?? [],
+      encryptionAvailable: safeStorage.isEncryptionAvailable(),
+      encrypted: Boolean(this.store.encryptedToken),
+    };
   }
 
   private readToken(): string | null {
@@ -218,10 +231,10 @@ export class GitHubService {
     }
   }
 
-  private writeStore(): void {
+  private writeStoreAtomic(next: GitHubStoreSchema): void {
     fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
     const tmp = this.storePath + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(this.store, null, 2));
+    fs.writeFileSync(tmp, JSON.stringify(next, null, 2), { mode: 0o600 });
     fs.renameSync(tmp, this.storePath);
   }
 }

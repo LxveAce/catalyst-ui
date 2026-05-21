@@ -122,11 +122,6 @@ function PlaceholderPanel({ panel }: { panel: string }) {
       desc: 'Optional login for cross-device settings sync.',
       phase: 'Phase 5',
     },
-    settings: {
-      title: 'Settings',
-      desc: 'Customize theme, hotkeys, notifications, and more.',
-      phase: 'Phase 7',
-    },
   };
 
   const p = info[panel] || { title: panel, desc: '', phase: '' };

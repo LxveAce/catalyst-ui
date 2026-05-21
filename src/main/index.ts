@@ -38,6 +38,8 @@ const createWindow = () => {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
     },
   });
 
@@ -138,8 +140,10 @@ function setupGit() {
 
 function setupGitHub() {
   ipcMain.handle(IPC.GITHUB_AUTH_STATE, () => getGitHub().getAuthState());
-  ipcMain.handle(IPC.GITHUB_SET_TOKEN, (_event, token: string) =>
-    getGitHub().setToken(token)
+  ipcMain.handle(
+    IPC.GITHUB_SET_TOKEN,
+    (_event, token: string, allowPlaintext?: boolean) =>
+      getGitHub().setToken(token, allowPlaintext === true)
   );
   ipcMain.handle(IPC.GITHUB_CLEAR_TOKEN, () => getGitHub().clearToken());
   ipcMain.handle(IPC.GITHUB_REPO_INFO, (_event, owner: string, repo: string) =>
@@ -162,11 +166,23 @@ function setupGitHub() {
       getGitHub().listIssues(owner, repo, state)
   );
   ipcMain.handle(IPC.GITHUB_OPEN_EXTERNAL, (_event, url: string) => {
-    if (typeof url === 'string' && /^https?:\/\//.test(url)) {
-      void shell.openExternal(url);
-      return true;
+    if (typeof url !== 'string') return false;
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
     }
-    return false;
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    const allowed =
+      host === 'github.com' ||
+      host === 'gist.github.com' ||
+      host === 'docs.github.com' ||
+      host.endsWith('.githubusercontent.com');
+    if (!allowed) return false;
+    void shell.openExternal(parsed.toString());
+    return true;
   });
 }
 
@@ -181,6 +197,24 @@ function setupWindowControls() {
   });
   ipcMain.on('window:close', () => mainWindow?.close());
 }
+
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-navigate', (event, url) => {
+    const devUrl = (() => {
+      try {
+        return typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string'
+          ? MAIN_WINDOW_VITE_DEV_SERVER_URL
+          : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (devUrl && url.startsWith(devUrl)) return;
+    if (url.startsWith('file://')) return;
+    event.preventDefault();
+  });
+});
 
 app.whenReady().then(() => {
   createWindow();

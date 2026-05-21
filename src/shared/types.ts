@@ -114,14 +114,10 @@ export interface GitHubAuthState {
   hasToken: boolean;
   login: string | null;
   scopes: string[];
+  encryptionAvailable: boolean;
+  encrypted: boolean;
 }
 
-export interface ElectronAPI {
-  terminal: {
-    onData: (callback: (data: string) => void) => void;
-    onExit: (callback: (code: number) => void) => void;
-    sendInput: (data: string) => void;
-    resize: (cols: number, rows: number) => void;
-    restart: () => void;
-  };
-}
+// The full ElectronAPI shape lives in src/declarations.d.ts as an ambient
+// Window typing. Don't redeclare it here — keep this file for serializable
+// IPC payload types only.
