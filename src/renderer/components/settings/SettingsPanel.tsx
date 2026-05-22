@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { THEME_PRESETS, applyTheme, findThemePreset, type ThemePreset } from '../../theme-presets';
-import type { NotificationSettings } from '../../../shared/types';
+import type {
+  NotificationSettings,
+  UpdaterSettings,
+  UpdaterState,
+  UpdateChannel,
+} from '../../../shared/types';
 
 function hexToRgb(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -14,6 +19,11 @@ export function SettingsPanel() {
   const [hoveredTheme, setHoveredTheme] = useState<string | null>(null);
   const [notif, setNotif] = useState<NotificationSettings | null>(null);
   const [notifSupported, setNotifSupported] = useState(true);
+  const [notifError, setNotifError] = useState<string | null>(null);
+  const [updaterState, setUpdaterState] = useState<UpdaterState | null>(null);
+  const [updaterSettings, setUpdaterSettings] = useState<UpdaterSettings | null>(null);
+  const [updaterError, setUpdaterError] = useState<string | null>(null);
+  const [updaterChecking, setUpdaterChecking] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('claude-studio-theme');
@@ -22,10 +32,45 @@ export function SettingsPanel() {
       setActiveTheme(preset.name);
       applyTheme(preset);
     }
+    let cancelled = false;
     void (async () => {
-      setNotifSupported(await window.electronAPI.notifications.supported());
-      setNotif(await window.electronAPI.notifications.getSettings());
+      try {
+        const [supported, n, us, ust] = await Promise.all([
+          window.electronAPI.notifications.supported(),
+          window.electronAPI.notifications.getSettings(),
+          window.electronAPI.updater.getSettings(),
+          window.electronAPI.updater.getState(),
+        ]);
+        if (cancelled) return;
+        setNotifSupported(supported);
+        setNotif(n);
+        setUpdaterSettings(us);
+        setUpdaterState(ust);
+      } catch (e) {
+        if (!cancelled) {
+          setUpdaterError((e as Error).message ?? String(e));
+        }
+      }
     })();
+    // Live-update when main fires update-available.
+    const unsub = window.electronAPI.updater.onAvailable(() => {
+      void (async () => {
+        try {
+          const next = await window.electronAPI.updater.getState();
+          if (!cancelled) setUpdaterState(next);
+        } catch {
+          // ignore
+        }
+      })();
+    });
+    return () => {
+      cancelled = true;
+      try {
+        unsub();
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   const handleThemeChange = (preset: ThemePreset) => {
@@ -34,8 +79,36 @@ export function SettingsPanel() {
   };
 
   const updateNotif = async (patch: Partial<NotificationSettings>) => {
-    const next = await window.electronAPI.notifications.setSettings(patch);
-    setNotif(next);
+    try {
+      const next = await window.electronAPI.notifications.setSettings(patch);
+      setNotif(next);
+      setNotifError(null);
+    } catch (e) {
+      setNotifError((e as Error).message ?? String(e));
+    }
+  };
+
+  const updateUpdater = async (patch: Partial<UpdaterSettings>) => {
+    try {
+      const next = await window.electronAPI.updater.setSettings(patch);
+      setUpdaterSettings(next);
+      setUpdaterError(null);
+    } catch (e) {
+      setUpdaterError((e as Error).message ?? String(e));
+    }
+  };
+
+  const checkForUpdatesNow = async () => {
+    setUpdaterChecking(true);
+    setUpdaterError(null);
+    try {
+      const next = await window.electronAPI.updater.checkNow();
+      setUpdaterState(next);
+    } catch (e) {
+      setUpdaterError((e as Error).message ?? String(e));
+    } finally {
+      setUpdaterChecking(false);
+    }
   };
 
   return (
@@ -177,6 +250,12 @@ export function SettingsPanel() {
               disabled={!notif.enabled}
               onChange={(v) => void updateNotif({ notifyOnSyncError: v })}
             />
+            <ToggleRow
+              label="On update available"
+              value={notif.notifyOnUpdateAvailable}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnUpdateAvailable: v })}
+            />
             <button
               onClick={() => void window.electronAPI.notifications.test()}
               style={{
@@ -192,8 +271,156 @@ export function SettingsPanel() {
             >
               Send test notification
             </button>
+            {notifError && (
+              <div style={{
+                marginTop: 6,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--danger, #ef4444)',
+                background: 'rgba(239,68,68,0.08)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                {notifError}
+              </div>
+            )}
           </>
         ) : null}
+      </div>
+
+      {/* Updates */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Updates
+        </div>
+        {updaterState ? (
+          <>
+            <SettingRow
+              label="Current version"
+              value={`v${updaterState.currentVersion}`}
+            />
+            <SettingRow
+              label="Status"
+              value={updaterStatusLabel(updaterState)}
+            />
+            <SettingRow
+              label="Last checked"
+              value={formatTimestamp(updaterState.lastCheckedAt)}
+            />
+            {updaterState.pendingVersion && (
+              <SettingRow
+                label="Pending install"
+                value={`v${updaterState.pendingVersion} (on next launch)`}
+              />
+            )}
+            {updaterSettings && (
+              <>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '5px 0',
+                  fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Channel</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {(['stable', 'beta'] as UpdateChannel[]).map((ch) => {
+                      const active = updaterSettings.channel === ch;
+                      return (
+                        <button
+                          key={ch}
+                          onClick={() => void updateUpdater({ channel: ch })}
+                          style={{
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                            borderRadius: 'var(--radius-sm)',
+                            background: active ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+                            color: active ? 'var(--accent-light)' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {ch}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {updaterSettings.channel === 'beta' && (
+                  <div style={{
+                    marginTop: 2,
+                    fontSize: 10,
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.4,
+                    fontStyle: 'italic',
+                  }}>
+                    Note: beta channel is a stored preference. The auto-updater
+                    currently always pulls from the stable Releases feed; beta
+                    routing requires manual installation until the publisher
+                    pipeline is split.
+                  </div>
+                )}
+              </>
+            )}
+            {updaterSettings && (
+              <ToggleRow
+                label="Auto-update enabled"
+                value={updaterSettings.enabled}
+                onChange={(v) => void updateUpdater({ enabled: v })}
+              />
+            )}
+            <button
+              onClick={() => void checkForUpdatesNow()}
+              disabled={updaterChecking || !updaterState.active}
+              style={{
+                marginTop: 6,
+                padding: '5px 10px',
+                fontSize: 11,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: (updaterChecking || !updaterState.active) ? 'not-allowed' : 'pointer',
+                opacity: (updaterChecking || !updaterState.active) ? 0.5 : 1,
+              }}
+            >
+              {updaterChecking ? 'Checking…' : 'Check for updates now'}
+            </button>
+            {!updaterState.active && updaterState.inactiveReason && (
+              <div style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                lineHeight: 1.4,
+              }}>
+                {inactiveReasonCopy(updaterState.inactiveReason)}
+              </div>
+            )}
+            {(updaterError || updaterState.lastError) && (
+              <div style={{
+                marginTop: 6,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--danger, #ef4444)',
+                background: 'rgba(239,68,68,0.08)',
+                borderRadius: 'var(--radius-sm)',
+                lineHeight: 1.4,
+                wordBreak: 'break-word',
+              }}>
+                {updaterError || updaterState.lastError}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Loading updater status…
+          </div>
+        )}
       </div>
 
       {/* Shortcuts */}
@@ -233,6 +460,48 @@ export function SettingsPanel() {
       </div>
     </div>
   );
+}
+
+function updaterStatusLabel(s: UpdaterState): string {
+  if (s.pendingVersion) return `Update v${s.pendingVersion} ready`;
+  if (s.active) return 'Active — checking automatically';
+  switch (s.inactiveReason) {
+    case 'dev-mode': return 'Inactive (dev mode)';
+    case 'unsupported-platform': return 'Inactive (platform not supported)';
+    case 'disabled': return 'Disabled in settings';
+    case 'unsigned': return 'Inactive (unsigned build)';
+    case 'init-error': return 'Inactive (init error)';
+    default: return 'Inactive';
+  }
+}
+
+function inactiveReasonCopy(reason: NonNullable<UpdaterState['inactiveReason']>): string {
+  switch (reason) {
+    case 'dev-mode':
+      return 'Auto-update is skipped when running from "npm start". Build a packaged installer to test the full flow.';
+    case 'unsupported-platform':
+      return 'Auto-update via Squirrel is only supported on Windows and macOS.';
+    case 'disabled':
+      return 'Auto-update is disabled. Toggle "Auto-update enabled" above and restart the app to re-enable.';
+    case 'unsigned':
+      return 'Auto-update requires a signed build on this platform.';
+    case 'init-error':
+      return 'The updater failed to initialize. See last error above.';
+  }
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return 'Never';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    // Render local date+time in a compact form.
+    const date = d.toLocaleDateString();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
+  } catch {
+    return 'Unknown';
+  }
 }
 
 function SettingRow({ label, value }: { label: string; value: string }) {
