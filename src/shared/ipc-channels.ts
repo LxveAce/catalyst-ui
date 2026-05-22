@@ -77,6 +77,11 @@ export const IPC = {
   UPDATER_CHECK_NOW: 'updater:check-now',
   UPDATER_AVAILABLE: 'updater:available',
 
+  COST_STATUS: 'cost:status',
+  COST_GET_SETTINGS: 'cost:get-settings',
+  COST_SET_SETTINGS: 'cost:set-settings',
+  COST_RESET_HISTORY: 'cost:reset-history',
+
   LMM_GET_SETTINGS: 'lmm:get-settings',
   LMM_SET_SETTINGS: 'lmm:set-settings',
   LMM_LIST_CYCLES: 'lmm:list-cycles',

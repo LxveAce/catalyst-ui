@@ -153,6 +153,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onAvailable: (callback: (version: string) => void) =>
       subscribe<[string]>(IPC.UPDATER_AVAILABLE, callback),
   },
+  cost: {
+    status: () => ipcRenderer.invoke(IPC.COST_STATUS),
+    getSettings: () => ipcRenderer.invoke(IPC.COST_GET_SETTINGS),
+    setSettings: (partial: unknown) => ipcRenderer.invoke(IPC.COST_SET_SETTINGS, partial),
+    resetHistory: () => ipcRenderer.invoke(IPC.COST_RESET_HISTORY),
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
