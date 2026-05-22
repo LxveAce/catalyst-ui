@@ -145,6 +145,55 @@ export interface LMMCycle extends LMMCycleSummary {
   };
 }
 
+export interface SyncSettings {
+  enabled: boolean;
+  owner: string | null;
+  repo: string | null;
+  deviceName: string;
+  branch: string;
+  consentAt: string | null;
+  debounceMs: number;
+}
+
+export interface SyncStatus {
+  configured: boolean;
+  enabled: boolean;
+  ghConnected: boolean;
+  ghScopeOk: boolean;
+  ghScopes: string[];
+  localVaultCount: number;
+  pushedCount: number;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  pendingCount: number;
+}
+
+export interface LocalVault {
+  name: string;
+  size: number;
+  modified: string;
+  pushed: boolean;
+}
+
+export interface RemoteVault {
+  name: string;
+  size: number;
+  sha: string;
+  path: string;
+  htmlUrl: string;
+}
+
+export interface VaultPreview {
+  name: string;
+  size: number;
+  sessionId: string | null;
+  contextTokens: number | null;
+  turnCount: number | null;
+  cwd: string | null;
+  transcriptTailExcerpt: string;
+  transcriptTailBytes: number;
+}
+
 export type AuthBackendMode = 'local-stub' | 'http';
 
 export interface AuthBackend {

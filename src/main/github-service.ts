@@ -190,6 +190,19 @@ export class GitHubService {
       }));
   }
 
+  /**
+   * Internal accessor for other main-process services (e.g., cloud-sync).
+   * Returns an Octokit instance if a token is configured, else null.
+   * The caller is responsible for surfacing a "GitHub not connected" UI.
+   */
+  getClientOrNull(): Octokit | null {
+    try {
+      return this.requireClient();
+    } catch {
+      return null;
+    }
+  }
+
   private requireClient(): Octokit {
     if (this.octokit) return this.octokit;
     const token = this.readToken();

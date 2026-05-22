@@ -121,6 +121,23 @@ interface Window {
       deleteCycle: (id: string) => Promise<boolean>;
       pickJournalDir: () => Promise<import('./shared/types').LMMSettings | null>;
     };
+    sync: {
+      getSettings: () => Promise<import('./shared/types').SyncSettings>;
+      setSettings: (
+        partial: Partial<import('./shared/types').SyncSettings>
+      ) => Promise<import('./shared/types').SyncSettings>;
+      status: () => Promise<import('./shared/types').SyncStatus>;
+      syncNow: () => Promise<import('./shared/types').SyncStatus>;
+      listLocal: () => Promise<import('./shared/types').LocalVault[]>;
+      listRemote: () => Promise<import('./shared/types').RemoteVault[]>;
+      previewVault: (name: string) => Promise<import('./shared/types').VaultPreview | null>;
+      createRepo: (repoName: string) => Promise<{ owner: string; name: string }>;
+      verifyRepo: (
+        owner: string,
+        repo: string
+      ) => Promise<{ defaultBranch: string; isPrivate: boolean }>;
+      deleteRemote: (name: string) => Promise<{ deleted: boolean }>;
+    };
     auth: {
       state: () => Promise<import('./shared/types').AuthState>;
       getBackend: () => Promise<import('./shared/types').AuthBackend>;
