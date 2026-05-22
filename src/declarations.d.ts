@@ -157,6 +157,14 @@ interface Window {
       checkNow: () => Promise<import('./shared/types').UpdaterState>;
       onAvailable: (cb: (version: string) => void) => () => void;
     };
+    cost: {
+      status: () => Promise<import('./shared/types').CostStatus>;
+      getSettings: () => Promise<import('./shared/types').CostSettings>;
+      setSettings: (
+        partial: Partial<import('./shared/types').CostSettings>
+      ) => Promise<import('./shared/types').CostSettings>;
+      resetHistory: () => Promise<boolean>;
+    };
     sync: {
       getSettings: () => Promise<import('./shared/types').SyncSettings>;
       setSettings: (

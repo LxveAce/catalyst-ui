@@ -10,6 +10,7 @@ import { GitHubPanel } from './components/github/GitHubPanel';
 import { LMMPanel } from './components/lmm/LMMPanel';
 import { AuthPanel } from './components/auth/AuthPanel';
 import { SyncPanel } from './components/sync/SyncPanel';
+import { CostPanel } from './components/cost/CostPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
 import {
   SplitLayout,
@@ -31,6 +32,7 @@ export type SidebarPanel =
   | 'commands'
   | 'resources'
   | 'github'
+  | 'cost'
   | 'compact'
   | 'lmm'
   | 'sync'
@@ -378,6 +380,8 @@ function RightPanel({
       return <ResourcePanel />;
     case 'compact':
       return <CompactPanel />;
+    case 'cost':
+      return <CostPanel />;
     case 'commands':
       return <CommandsPanel onSendCommand={onSendCommand} />;
     case 'settings':

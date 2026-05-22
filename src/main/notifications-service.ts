@@ -12,9 +12,16 @@ const DEFAULTS: NotificationSettings = {
   notifyOnPtyExit: true,
   notifyOnSyncError: true,
   notifyOnUpdateAvailable: true,
+  notifyOnCostBudget: true,
 };
 
-type NotifKind = 'pty-exit' | 'sync-error' | 'update-available' | 'test' | 'other';
+type NotifKind =
+  | 'pty-exit'
+  | 'sync-error'
+  | 'update-available'
+  | 'cost-budget'
+  | 'test'
+  | 'other';
 
 export class NotificationsService {
   private storePath: string;
@@ -59,6 +66,12 @@ export class NotificationsService {
       }
       next.notifyOnUpdateAvailable = partial.notifyOnUpdateAvailable;
     }
+    if (partial.notifyOnCostBudget !== undefined) {
+      if (typeof partial.notifyOnCostBudget !== 'boolean') {
+        throw new Error('notifyOnCostBudget must be boolean');
+      }
+      next.notifyOnCostBudget = partial.notifyOnCostBudget;
+    }
     this.settings = next;
     this.write();
     return { ...this.settings };
@@ -94,6 +107,17 @@ export class NotificationsService {
     this.show('update-available', {
       title: 'Update available',
       body: `Version ${this.truncate(version, 40)} will install on next launch.`,
+    });
+  }
+
+  notifyCostBudget(estCostUSD: number, budgetUSD: number): void {
+    if (!this.settings.enabled || !this.settings.notifyOnCostBudget) return;
+    // Format as USD with 2-dp; never inject user-controlled text into body.
+    const est = formatUSD(estCostUSD);
+    const budget = formatUSD(budgetUSD);
+    this.show('cost-budget', {
+      title: 'Daily Claude cost budget hit',
+      body: `Today's estimate (${est}) crossed your ${budget} budget. Estimates are heuristic — verify in the Anthropic console.`,
     });
   }
 
@@ -160,6 +184,10 @@ export class NotificationsService {
         typeof parsed.notifyOnUpdateAvailable === 'boolean'
           ? parsed.notifyOnUpdateAvailable
           : DEFAULTS.notifyOnUpdateAvailable,
+      notifyOnCostBudget:
+        typeof parsed.notifyOnCostBudget === 'boolean'
+          ? parsed.notifyOnCostBudget
+          : DEFAULTS.notifyOnCostBudget,
     };
   }
 
@@ -178,4 +206,9 @@ export class NotificationsService {
       throw e;
     }
   }
+}
+
+function formatUSD(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return '$0.00';
+  return `$${n.toFixed(2)}`;
 }
