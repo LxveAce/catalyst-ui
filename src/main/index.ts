@@ -12,7 +12,10 @@ import { SnippetsService } from './snippets-service';
 import { NotificationsService } from './notifications-service';
 import { UpdaterService } from './updater-service';
 import { SessionService } from './session-service';
+import { HotkeysService } from './hotkeys-service';
+import { TrayService } from './tray-service';
 import { IPC } from '../shared/ipc-channels';
+import type { HotkeyAction } from '../shared/types';
 
 if (require('electron-squirrel-startup')) {
   app.quit();
@@ -34,8 +37,12 @@ let snippetsService: SnippetsService | null = null;
 let notificationsService: NotificationsService | null = null;
 let updaterService: UpdaterService | null = null;
 let sessionService: SessionService | null = null;
+let hotkeysService: HotkeysService | null = null;
+let trayService: TrayService | null = null;
+let isQuitting = false;
 /** Pane IDs whose PTY was killed by an explicit user "restart" — suppresses
- * the imminent "Claude exited" notification once per restart. */
+ * the imminent "Claude exited" notification once per restart. Superseded the
+ * single-boolean version from 7d (paneId-aware now that 7c shipped split panes). */
 const suppressedRestartPanes = new Set<string>();
 
 function getGitHub(): GitHubService {
@@ -114,6 +121,16 @@ function getSession(): SessionService {
   return sessionService;
 }
 
+function getHotkeys(): HotkeysService {
+  if (!hotkeysService) hotkeysService = new HotkeysService();
+  return hotkeysService;
+}
+
+function getTray(): TrayService {
+  if (!trayService) trayService = new TrayService();
+  return trayService;
+}
+
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -131,9 +148,17 @@ const createWindow = () => {
     },
   });
 
-  mainWindow.on('close', () => {
-    resourceMonitor.stop();
-    ptyRegistry.killAll();
+  mainWindow.on('close', (event) => {
+    // If minimize-to-tray is on and we're not in the middle of a real quit,
+    // hide the window instead of destroying it. PTYs and resource monitor
+    // keep running in the background.
+    if (!isQuitting && trayService?.isMinimizeToTrayEnabled() && mainWindow) {
+      event.preventDefault();
+      mainWindow.hide();
+      return;
+    }
+    // Real close path — before-quit handles teardown (PTY registry + resource
+    // monitor + tray dispose).
   });
 
   mainWindow.on('closed', () => {
@@ -445,6 +470,52 @@ function setupWindowControls() {
   ipcMain.on('window:close', () => mainWindow?.close());
 }
 
+function setupHotkeys() {
+  ipcMain.handle(IPC.HOTKEYS_GET, () => getHotkeys().getSettings());
+  ipcMain.handle(
+    IPC.HOTKEYS_SET_BINDING,
+    (_event, action: unknown, chord: unknown) =>
+      getHotkeys().setBinding(action, chord)
+  );
+  ipcMain.handle(IPC.HOTKEYS_RESET, () => getHotkeys().resetDefaults());
+}
+
+function setupTray() {
+  const tray = getTray();
+  tray.attach({
+    getWindow: () => mainWindow,
+    onToggleCompact: async () => {
+      try {
+        const status = compactController.getStatus();
+        if (status.enabled) {
+          compactController.uninstall();
+        } else {
+          compactController.install();
+        }
+      } catch {
+        // If the user has a malformed settings.json we don't want the tray
+        // click to crash the app. Best-effort only.
+      }
+    },
+    onQuit: () => {
+      isQuitting = true;
+      app.quit();
+    },
+  });
+  ipcMain.handle(IPC.TRAY_GET_SETTINGS, () => getTray().getSettings());
+  ipcMain.handle(IPC.TRAY_SET_SETTINGS, (_event, partial) =>
+    getTray().setSettings(partial)
+  );
+}
+
+/** Forward a tray-triggered action to the renderer. Used by future tray
+ *  menu items that map onto renderer-side handlers. */
+function dispatchTrayAction(action: HotkeyAction): void {
+  safeSend(IPC.TRAY_INVOKE_ACTION, action);
+}
+// Re-export so unused-var doesn't bite; this hook is here for future tray menu growth.
+void dispatchTrayAction;
+
 app.on('web-contents-created', (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
   contents.on('will-navigate', (event, url) => {
@@ -478,6 +549,8 @@ app.whenReady().then(() => {
   setupUpdater();
   setupSession();
   setupWindowControls();
+  setupHotkeys();
+  setupTray();
 
   // Kick off the auto-updater after a short grace period so the window
   // is responsive first. start() is a no-op in dev mode.
@@ -492,13 +565,37 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else {
+      mainWindow?.show();
+      mainWindow?.focus();
     }
   });
 });
 
+app.on('before-quit', () => {
+  // Mark the quit so the window close handler stops intercepting.
+  isQuitting = true;
+  try {
+    resourceMonitor.stop();
+  } catch {
+    // ignore
+  }
+  try {
+    ptyRegistry.killAll();
+  } catch {
+    // ignore
+  }
+  try {
+    trayService?.dispose();
+  } catch {
+    // ignore
+  }
+});
+
 app.on('window-all-closed', () => {
-  ptyRegistry.killAll();
-  resourceMonitor.stop();
+  // If minimize-to-tray is on, the window is just hidden — Electron will not
+  // actually fire window-all-closed in that case. So when this fires, we're
+  // either on macOS (stay alive) or genuinely shutting down via before-quit.
   if (process.platform !== 'darwin') {
     app.quit();
   }

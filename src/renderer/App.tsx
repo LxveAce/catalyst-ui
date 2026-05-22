@@ -17,7 +17,13 @@ import {
   closePane,
   listPaneIds,
 } from './components/terminal/SplitLayout';
-import type { SessionState, SplitNode } from '../shared/types';
+import { buildChordMap, chordFromEvent } from './hotkeys';
+import type {
+  HotkeyAction,
+  HotkeyBinding,
+  SessionState,
+  SplitNode,
+} from '../shared/types';
 import { THEME_PRESETS, applyTheme } from './theme-presets';
 
 export type SidebarPanel =
@@ -44,6 +50,7 @@ export function App() {
   const [activePaneId, setActivePaneId] = useState<string>('p_root');
   const [pidByPane, setPidByPane] = useState<Record<string, number>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [bindings, setBindings] = useState<HotkeyBinding[]>([]);
   /** Map of paneId -> sendInput. Tracking *all* sender functions lets the
    *  palette / snippets always reach the *currently active* pane. */
   const sendersRef = useRef<Record<string, (data: string) => void>>({});
@@ -202,18 +209,81 @@ export function App() {
     });
   }, [layout]);
 
-  // --- palette hotkey --------------------------------------------------------
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
-        e.preventDefault();
-        setPaletteOpen((v) => !v);
+  // Dispatch a renderer-side action by id. Used both by the local hotkey
+  // listener and by tray-triggered events from the main process. Updated for
+  // 7c split-panes: actions that target a single PTY use activePaneId.
+  const dispatchAction = useCallback(
+    (action: HotkeyAction) => {
+      switch (action) {
+        case 'palette.open':
+          setPaletteOpen((v) => !v);
+          break;
+        case 'terminal.restart':
+          void window.electronAPI.terminal.restart(activePaneId);
+          break;
+        case 'compact.toggle':
+          setActivePanel('compact');
+          break;
+        case 'panel.lmm':
+          setActivePanel('lmm');
+          break;
+        case 'panel.github':
+          setActivePanel('github');
+          break;
+        default:
+          // unknown action id — ignore
+          break;
       }
+    },
+    [activePaneId]
+  );
+
+  // Load hotkey bindings on mount, and refresh when settings UI announces
+  // a change via a window event.
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const s = await window.electronAPI.hotkeys.get();
+        if (alive) setBindings(s.bindings);
+      } catch {
+        // Defaults will be used (empty list = no hotkeys).
+      }
+    };
+    void load();
+    const onChanged = () => void load();
+    window.addEventListener('hotkeys-changed', onChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener('hotkeys-changed', onChanged);
+    };
+  }, []);
+
+  // Subscribe to tray-triggered actions (main → renderer).
+  useEffect(() => {
+    const unsub = window.electronAPI.tray.onInvokeAction((action) => {
+      dispatchAction(action as HotkeyAction);
+    });
+    return unsub;
+  }, [dispatchAction]);
+
+  // Global hotkey dispatcher. Runs at window level so xterm's keystrokes
+  // also flow through here; we preventDefault on a match.
+  useEffect(() => {
+    const chordMap = buildChordMap(bindings);
+    if (chordMap.size === 0) return;
+    const handler = (e: KeyboardEvent) => {
+      const chord = chordFromEvent(e);
+      if (!chord) return;
+      const action = chordMap.get(chord);
+      if (!action) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dispatchAction(action);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [bindings, dispatchAction]);
 
   // Status-bar PID = the active pane's PID (multi-PTY aggregation happens in
   // main / ResourceMonitor; here we just show what's relevant to the user).
