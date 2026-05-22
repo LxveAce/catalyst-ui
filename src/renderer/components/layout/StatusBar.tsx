@@ -1,10 +1,37 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface StatusBarProps {
   pid: number;
 }
 
 export function StatusBar({ pid }: StatusBarProps) {
+  const [pendingVersion, setPendingVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Poll once at mount for already-pending updates (e.g. user re-opens
+    // Settings/StatusBar after the update fired earlier this session).
+    void (async () => {
+      try {
+        const state = await window.electronAPI.updater.getState();
+        if (!cancelled) setPendingVersion(state.pendingVersion);
+      } catch {
+        // updater may not be ready yet — ignore
+      }
+    })();
+    const unsub = window.electronAPI.updater.onAvailable((version) => {
+      if (!cancelled) setPendingVersion(version || 'new');
+    });
+    return () => {
+      cancelled = true;
+      try {
+        unsub();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
   return (
     <div style={{
       height: 28,
@@ -32,6 +59,30 @@ export function StatusBar({ pid }: StatusBarProps) {
         {pid > 0 && (
           <span style={{ color: 'var(--text-muted)' }}>
             PID {pid}
+          </span>
+        )}
+        {pendingVersion && (
+          <span
+            title={`Version ${pendingVersion} will install on next launch`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 10,
+              background: 'var(--accent-dim)',
+              color: 'var(--accent-light)',
+              fontWeight: 500,
+              fontSize: 10,
+            }}
+          >
+            <span style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              background: 'var(--accent-light)',
+            }} />
+            Update v{pendingVersion} ready
           </span>
         )}
       </div>

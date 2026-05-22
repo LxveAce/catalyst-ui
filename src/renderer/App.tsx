@@ -1,35 +1,310 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
-import { TerminalPanel } from './components/terminal/TerminalPanel';
 import { ResourcePanel } from './components/resources/ResourcePanel';
 import { CompactPanel } from './components/compact/CompactPanel';
 import { CommandsPanel } from './components/commands/CommandsPanel';
 import { SettingsPanel } from './components/settings/SettingsPanel';
+import { GitHubPanel } from './components/github/GitHubPanel';
+import { LMMPanel } from './components/lmm/LMMPanel';
+import { AuthPanel } from './components/auth/AuthPanel';
+import { SyncPanel } from './components/sync/SyncPanel';
+import { CostPanel } from './components/cost/CostPanel';
+import { CommandPalette } from './components/palette/CommandPalette';
+import {
+  SplitLayout,
+  splitPane,
+  closePane,
+  listPaneIds,
+} from './components/terminal/SplitLayout';
+import { buildChordMap, chordFromEvent } from './hotkeys';
+import type {
+  HotkeyAction,
+  HotkeyBinding,
+  SessionState,
+  SplitNode,
+} from '../shared/types';
+import { THEME_PRESETS, applyTheme } from './theme-presets';
 
 export type SidebarPanel =
   | 'terminal'
   | 'commands'
   | 'resources'
   | 'github'
+  | 'cost'
   | 'compact'
+  | 'lmm'
   | 'sync'
   | 'auth'
   | 'settings';
 
-export function App() {
-  const [activePanel, setActivePanel] = useState<SidebarPanel>('terminal');
-  const [claudePid, setClaudePid] = useState<number>(0);
-  const terminalSendRef = useRef<((data: string) => void) | null>(null);
+const DEFAULT_LAYOUT: SplitNode = {
+  type: 'pane',
+  id: 'p_root',
+  cwd: null,
+};
 
-  const handleSendCommand = useCallback((command: string) => {
-    if (terminalSendRef.current) {
-      terminalSendRef.current(command + '\r');
-    }
-    setActivePanel('terminal');
+export function App() {
+  const [hydrated, setHydrated] = useState(false);
+  const [activePanel, setActivePanel] = useState<SidebarPanel>('terminal');
+  const [layout, setLayout] = useState<SplitNode>(DEFAULT_LAYOUT);
+  const [activePaneId, setActivePaneId] = useState<string>('p_root');
+  const [pidByPane, setPidByPane] = useState<Record<string, number>>({});
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [bindings, setBindings] = useState<HotkeyBinding[]>([]);
+  /** Map of paneId -> sendInput. Tracking *all* sender functions lets the
+   *  palette / snippets always reach the *currently active* pane. */
+  const sendersRef = useRef<Record<string, (data: string) => void>>({});
+
+  // --- session load -----------------------------------------------------------
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const restored = await window.electronAPI.session.get();
+        if (cancelled) return;
+        if (restored) {
+          setLayout(restored.layout);
+          setActivePanel(restored.activePanel as SidebarPanel);
+          setActivePaneId(firstPaneId(restored.layout));
+          if (restored.theme) {
+            const preset = THEME_PRESETS.find((t) => t.name === restored.theme);
+            if (preset) applyTheme(preset);
+          }
+        }
+      } catch {
+        // Bad session file — already handled in main; we just fall back.
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  // --- session save (debounced) ----------------------------------------------
+  useEffect(() => {
+    if (!hydrated) return;
+    // Defer save to next animation frame so rapid drags coalesce. The main-side
+    // service does atomic-tmp+rename anyway, but skipping intermediate writes
+    // keeps the disk quiet during long resize gestures.
+    const handle = window.setTimeout(() => {
+      const state: SessionState = {
+        version: 1,
+        activePanel,
+        theme: null,
+        // theme is applied at the renderer; we don't persist the active preset
+        // name yet because applyTheme doesn't return it. Future enhancement.
+        layout,
+      };
+      void window.electronAPI.session.set(state).catch(() => {
+        // Persistence failure is non-fatal — user can re-arrange on next start.
+      });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [hydrated, layout, activePanel]);
+
+  // --- pane sender management -------------------------------------------------
+  const registerSender = useCallback(
+    (paneId: string, send: ((data: string) => void) | null) => {
+      if (send === null) {
+        delete sendersRef.current[paneId];
+      } else {
+        sendersRef.current[paneId] = send;
+      }
+    },
+    []
+  );
+
+  const handlePidChange = useCallback((paneId: string, pid: number) => {
+    setPidByPane((prev) => ({ ...prev, [paneId]: pid }));
+  }, []);
+
+  // --- terminal helpers (used by palette + commands panel) -------------------
+  const sendToActive = useCallback(
+    (text: string, submit: boolean) => {
+      const sender = sendersRef.current[activePaneId];
+      if (!sender) return;
+      // Strip carriage returns to defuse the "snippet body with \r auto-submits"
+      // footgun (Phase 7a security note). Only the explicit `submit` flag adds
+      // the final \r.
+      const sanitized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      sender(submit ? sanitized + '\r' : sanitized);
+    },
+    [activePaneId]
+  );
+
+  const handleSendCommand = useCallback(
+    (command: string) => {
+      sendToActive(command, true);
+      setActivePanel('terminal');
+    },
+    [sendToActive]
+  );
+
+  const handleRestartTerminal = useCallback(() => {
+    void window.electronAPI.terminal.restart(activePaneId);
+  }, [activePaneId]);
+
+  // --- split + close + focus actions ----------------------------------------
+  /** Renderer-side mirror of PtyRegistry.MAX_PANES (16). Keep in sync. */
+  const MAX_PANES_RENDERER = 16;
+
+  const handleSplit = useCallback(
+    (direction: 'horizontal' | 'vertical') => {
+      // Refuse before mutating the tree if we'd exceed the backend cap. The
+      // backend would reject the spawn anyway, but failing here keeps the UI
+      // and the PTY registry consistent (no dangling tree leaf with no PTY).
+      if (listPaneIds(layout).length >= MAX_PANES_RENDERER) return;
+      const result = splitPane(layout, activePaneId, direction);
+      if (!result) return;
+      setLayout(result.tree);
+      setActivePaneId(result.newPaneId);
+    },
+    [layout, activePaneId]
+  );
+
+  const handleClosePane = useCallback(() => {
+    const ids = listPaneIds(layout);
+    if (ids.length <= 1) {
+      // Closing the only pane is forbidden; require Reset Layout instead.
+      return;
+    }
+    const result = closePane(layout, activePaneId);
+    if (!result) return;
+    // Explicitly kill the PTY for the pane we're closing — TerminalPanel
+    // unmount does NOT auto-kill (so split/reparent doesn't lose state).
+    void window.electronAPI.terminal.kill(activePaneId).catch(() => {});
+    setLayout(result.tree);
+    setActivePaneId(result.nextFocus);
+  }, [layout, activePaneId]);
+
+  const handleFocusNext = useCallback(
+    (delta: 1 | -1) => {
+      const ids = listPaneIds(layout);
+      if (ids.length === 0) return;
+      const idx = ids.indexOf(activePaneId);
+      const safeIdx = idx === -1 ? 0 : idx;
+      const next = (safeIdx + delta + ids.length) % ids.length;
+      setActivePaneId(ids[next]);
+    },
+    [layout, activePaneId]
+  );
+
+  const handleResetLayout = useCallback(() => {
+    void window.electronAPI.session.reset().then((s) => {
+      // Kill panes that are removed by the reset (everything except the
+      // surviving p_root, which the existing TerminalPanel may keep — or
+      // re-mount and reattach via PtyRegistry.spawn's alive-reattach path).
+      const oldIds = new Set(listPaneIds(layout));
+      const newIds = new Set(listPaneIds(s.layout));
+      for (const id of oldIds) {
+        if (!newIds.has(id)) {
+          void window.electronAPI.terminal.kill(id).catch(() => {});
+        }
+      }
+      setLayout(s.layout);
+      setActivePaneId(firstPaneId(s.layout));
+      setActivePanel(s.activePanel as SidebarPanel);
+    });
+  }, [layout]);
+
+  // Dispatch a renderer-side action by id. Used both by the local hotkey
+  // listener and by tray-triggered events from the main process. Updated for
+  // 7c split-panes: actions that target a single PTY use activePaneId.
+  const dispatchAction = useCallback(
+    (action: HotkeyAction) => {
+      switch (action) {
+        case 'palette.open':
+          setPaletteOpen((v) => !v);
+          break;
+        case 'terminal.restart':
+          void window.electronAPI.terminal.restart(activePaneId);
+          break;
+        case 'compact.toggle':
+          setActivePanel('compact');
+          break;
+        case 'panel.lmm':
+          setActivePanel('lmm');
+          break;
+        case 'panel.github':
+          setActivePanel('github');
+          break;
+        default:
+          // unknown action id — ignore
+          break;
+      }
+    },
+    [activePaneId]
+  );
+
+  // Load hotkey bindings on mount, and refresh when settings UI announces
+  // a change via a window event.
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const s = await window.electronAPI.hotkeys.get();
+        if (alive) setBindings(s.bindings);
+      } catch {
+        // Defaults will be used (empty list = no hotkeys).
+      }
+    };
+    void load();
+    const onChanged = () => void load();
+    window.addEventListener('hotkeys-changed', onChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener('hotkeys-changed', onChanged);
+    };
+  }, []);
+
+  // Subscribe to tray-triggered actions (main → renderer).
+  useEffect(() => {
+    const unsub = window.electronAPI.tray.onInvokeAction((action) => {
+      dispatchAction(action as HotkeyAction);
+    });
+    return unsub;
+  }, [dispatchAction]);
+
+  // Global hotkey dispatcher. Runs at window level so xterm's keystrokes
+  // also flow through here; we preventDefault on a match.
+  //
+  // Cold-start fallback (integration-review M1): until the async
+  // hotkeys.get() resolves, `bindings` is `[]` and the chord map is
+  // empty — meaning the palette can't be opened by keyboard during the
+  // first ~50ms. We hardcode Ctrl/Cmd+Shift+P as a non-rebindable
+  // fallback that's always live, so the user is never locked out of
+  // the palette regardless of bindings state.
+  useEffect(() => {
+    const chordMap = buildChordMap(bindings);
+    const handler = (e: KeyboardEvent) => {
+      // Hardcoded fallback: Ctrl/Cmd+Shift+P always opens the palette.
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        e.stopPropagation();
+        dispatchAction('palette.open');
+        return;
+      }
+      if (chordMap.size === 0) return;
+      const chord = chordFromEvent(e);
+      if (!chord) return;
+      const action = chordMap.get(chord);
+      if (!action) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dispatchAction(action);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [bindings, dispatchAction]);
+
+  // Status-bar PID = the active pane's PID (multi-PTY aggregation happens in
+  // main / ResourceMonitor; here we just show what's relevant to the user).
+  const focusedPid = pidByPane[activePaneId] ?? 0;
   const showRightPanel = activePanel !== 'terminal';
 
   return (
@@ -55,13 +330,17 @@ export function App() {
           overflow: 'hidden',
           position: 'relative',
         }}>
-          {/* Terminal always fills available space */}
-          <TerminalPanel
-            onPidChange={setClaudePid}
-            sendRef={terminalSendRef}
-          />
+          <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
+            <SplitLayout
+              root={layout}
+              activePaneId={activePaneId}
+              onLayoutChange={setLayout}
+              onFocusPane={setActivePaneId}
+              onPidChange={handlePidChange}
+              registerSender={registerSender}
+            />
+          </div>
 
-          {/* Right Panel - slides in from right */}
           {showRightPanel && (
             <div style={{
               width: 320,
@@ -81,9 +360,27 @@ export function App() {
         </div>
       </div>
 
-      <StatusBar pid={claudePid} />
+      <StatusBar pid={focusedPid} />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onSwitchPanel={setActivePanel}
+        onSendToTerminal={sendToActive}
+        onRestartTerminal={handleRestartTerminal}
+        onSplit={handleSplit}
+        onClosePane={handleClosePane}
+        onFocusNext={() => handleFocusNext(1)}
+        onFocusPrev={() => handleFocusNext(-1)}
+        onResetLayout={handleResetLayout}
+      />
     </div>
   );
+}
+
+function firstPaneId(node: SplitNode): string {
+  if (node.type === 'pane') return node.id;
+  return firstPaneId(node.children[0]);
 }
 
 function RightPanel({
@@ -98,10 +395,20 @@ function RightPanel({
       return <ResourcePanel />;
     case 'compact':
       return <CompactPanel />;
+    case 'cost':
+      return <CostPanel />;
     case 'commands':
       return <CommandsPanel onSendCommand={onSendCommand} />;
     case 'settings':
       return <SettingsPanel />;
+    case 'github':
+      return <GitHubPanel />;
+    case 'lmm':
+      return <LMMPanel />;
+    case 'auth':
+      return <AuthPanel />;
+    case 'sync':
+      return <SyncPanel />;
     default:
       return <PlaceholderPanel panel={panel} />;
   }
@@ -109,26 +416,6 @@ function RightPanel({
 
 function PlaceholderPanel({ panel }: { panel: string }) {
   const info: Record<string, { title: string; desc: string; phase: string }> = {
-    github: {
-      title: 'GitHub Integration',
-      desc: 'Browse repos, commits, PRs, and issues directly from the sidebar.',
-      phase: 'Phase 4',
-    },
-    sync: {
-      title: 'Cloud Sync',
-      desc: 'Sync conversation vaults across devices via your GitHub repo.',
-      phase: 'Phase 6',
-    },
-    auth: {
-      title: 'Account',
-      desc: 'Optional login for cross-device settings sync.',
-      phase: 'Phase 5',
-    },
-    settings: {
-      title: 'Settings',
-      desc: 'Customize theme, hotkeys, notifications, and more.',
-      phase: 'Phase 7',
-    },
   };
 
   const p = info[panel] || { title: panel, desc: '', phase: '' };
