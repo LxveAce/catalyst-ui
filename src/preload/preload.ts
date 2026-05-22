@@ -10,23 +10,49 @@ function subscribe<T extends unknown[]>(
   return () => ipcRenderer.removeListener(channel, handler as never);
 }
 
+/**
+ * Wrap a paneId-keyed subscription so the renderer only sees events for the
+ * pane it asked about. The dispose function is returned so the renderer can
+ * unsubscribe — see SECURITY_REVIEW.md H4 for why this matters.
+ */
+function paneSubscribe<TArgs extends unknown[]>(
+  channel: string,
+  wantedPaneId: string,
+  callback: (...args: TArgs) => void
+): () => void {
+  const handler = (_event: unknown, paneId: string, ...rest: TArgs) => {
+    if (paneId !== wantedPaneId) return;
+    callback(...rest);
+  };
+  ipcRenderer.on(channel, handler as never);
+  return () => ipcRenderer.removeListener(channel, handler as never);
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   terminal: {
-    onData: (callback: (data: string) => void) =>
-      subscribe<[string]>(IPC.TERMINAL_DATA, callback),
-    onExit: (callback: (code: number) => void) =>
-      subscribe<[number]>(IPC.TERMINAL_EXIT, callback),
-    onReady: (callback: (pid: number) => void) =>
-      subscribe<[number]>(IPC.TERMINAL_READY, callback),
-    sendInput: (data: string) => {
-      ipcRenderer.send(IPC.TERMINAL_INPUT, data);
+    spawn: (paneId: string, cwd?: string | null) =>
+      ipcRenderer.invoke(IPC.TERMINAL_SPAWN, paneId, cwd ?? null),
+    kill: (paneId: string) => ipcRenderer.invoke(IPC.TERMINAL_KILL, paneId),
+    onData: (paneId: string, callback: (data: string) => void) =>
+      paneSubscribe<[string]>(IPC.TERMINAL_DATA, paneId, callback),
+    onExit: (paneId: string, callback: (code: number) => void) =>
+      paneSubscribe<[number]>(IPC.TERMINAL_EXIT, paneId, callback),
+    onReady: (paneId: string, callback: (pid: number) => void) =>
+      paneSubscribe<[number]>(IPC.TERMINAL_READY, paneId, callback),
+    sendInput: (paneId: string, data: string) => {
+      ipcRenderer.send(IPC.TERMINAL_INPUT, paneId, data);
     },
-    resize: (cols: number, rows: number) => {
-      ipcRenderer.send(IPC.TERMINAL_RESIZE, cols, rows);
+    resize: (paneId: string, cols: number, rows: number) => {
+      ipcRenderer.send(IPC.TERMINAL_RESIZE, paneId, cols, rows);
     },
-    restart: () => {
-      ipcRenderer.send(IPC.TERMINAL_RESTART);
+    restart: (paneId: string) => {
+      ipcRenderer.send(IPC.TERMINAL_RESTART, paneId);
     },
+  },
+  session: {
+    get: () => ipcRenderer.invoke(IPC.SESSION_GET),
+    set: (state: unknown) => ipcRenderer.invoke(IPC.SESSION_SET, state),
+    reset: () => ipcRenderer.invoke(IPC.SESSION_RESET),
   },
   resources: {
     onUpdate: (callback: (data: unknown) => void) =>

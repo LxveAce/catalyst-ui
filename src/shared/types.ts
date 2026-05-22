@@ -293,6 +293,50 @@ export interface AuthCredentials {
   allowPlaintextToken?: boolean;
 }
 
+// Session / split-pane layout (Phase 7c) -------------------------------------
+
+/**
+ * A node in the terminal split tree. `pane` is a leaf hosting one PTY. `split`
+ * is a 2-child container with a direction and percentage sizes that sum to
+ * 100. The tree is kept intentionally simple — n-ary splits can always be
+ * built from nested binary splits.
+ */
+export type SplitNode = SplitPaneNode | SplitContainerNode;
+
+export interface SplitPaneNode {
+  type: 'pane';
+  /** Opaque stable id; must match `^[A-Za-z0-9_\-:]+$`, ≤ 64 chars. */
+  id: string;
+  /** Best-effort cwd to restore the PTY in; null = home dir. */
+  cwd: string | null;
+}
+
+export interface SplitContainerNode {
+  type: 'split';
+  direction: 'horizontal' | 'vertical';
+  sizes: [number, number];
+  children: [SplitNode, SplitNode];
+}
+
+export type SessionPanelId =
+  | 'terminal'
+  | 'commands'
+  | 'resources'
+  | 'github'
+  | 'compact'
+  | 'lmm'
+  | 'sync'
+  | 'auth'
+  | 'settings';
+
+export interface SessionState {
+  version: number;
+  activePanel: SessionPanelId;
+  /** Theme preset name; null = renderer default. */
+  theme: string | null;
+  layout: SplitNode;
+}
+
 // The full ElectronAPI shape lives in src/declarations.d.ts as an ambient
 // Window typing. Don't redeclare it here — keep this file for serializable
 // IPC payload types only.

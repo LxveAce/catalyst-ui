@@ -33,6 +33,7 @@
     "node-pty": "^1.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-resizable-panels": "^3.0.6",
     "systeminformation": "^5.31.6",
     "update-electron-app": "^3.1.1"
   },
