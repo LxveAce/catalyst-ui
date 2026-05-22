@@ -61,6 +61,12 @@ export const IPC = {
   NOTIF_SUPPORTED: 'notif:supported',
   NOTIF_TEST: 'notif:test',
 
+  UPDATER_GET_STATE: 'updater:get-state',
+  UPDATER_GET_SETTINGS: 'updater:get-settings',
+  UPDATER_SET_SETTINGS: 'updater:set-settings',
+  UPDATER_CHECK_NOW: 'updater:check-now',
+  UPDATER_AVAILABLE: 'updater:available',
+
   LMM_GET_SETTINGS: 'lmm:get-settings',
   LMM_SET_SETTINGS: 'lmm:set-settings',
   LMM_LIST_CYCLES: 'lmm:list-cycles',

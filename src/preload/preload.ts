@@ -119,6 +119,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setSettings: (partial: unknown) => ipcRenderer.invoke(IPC.NOTIF_SET_SETTINGS, partial),
     test: () => ipcRenderer.invoke(IPC.NOTIF_TEST),
   },
+  updater: {
+    getState: () => ipcRenderer.invoke(IPC.UPDATER_GET_STATE),
+    getSettings: () => ipcRenderer.invoke(IPC.UPDATER_GET_SETTINGS),
+    setSettings: (partial: unknown) => ipcRenderer.invoke(IPC.UPDATER_SET_SETTINGS, partial),
+    checkNow: () => ipcRenderer.invoke(IPC.UPDATER_CHECK_NOW),
+    onAvailable: (callback: (version: string) => void) =>
+      subscribe<[string]>(IPC.UPDATER_AVAILABLE, callback),
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
