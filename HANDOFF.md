@@ -117,33 +117,47 @@ its own self-red-team review at the repo root (`SECURITY_REVIEW_*.md`).
 - SVG icons everywhere; design tokens for radius/shadow/transition;
   fadeIn/slideIn animations.
 
-## What's Next
+## Shipping Status
 
-Phase 7 closed the original plan. Concrete follow-ups are scoped as
-deferred Mediums in the various `SECURITY_REVIEW_*.md` files. Highest-
-leverage open items:
+Tagged ready to ship as **v1.0** on the `phase-7-integrated` branch.
+See `SHIPPING_CERTIFICATION.md` for the certifying red-team output
+(SHIP verdict, no Blockers / Criticals / Highs found).
+
+## What's Next (post-v1.0 backlog)
+
+Phase 7 closed the original plan. Items below are scoped as deferred
+Mediums in the various `SECURITY_REVIEW_*.md` files, not v1.0 blockers.
 
 1. **Tray icon HiDPI variants** — current tray icon is a single 16x16
    PNG; supply @2x for crisp Retina.
-2. **Hotkey cold-start window** — App.tsx initializes bindings to `[]`,
-   so global hotkeys (including Ctrl+Shift+P) don't work for ~50 ms
-   until the IPC resolves. Register a hardcoded palette-open fallback
-   while loading.
-3. **Cost panel model awareness** — vault data doesn't record which
+2. **Cost panel model awareness** — vault data doesn't record which
    model was used; cost is currently estimated against a single chosen
-   model. Either ship a per-day model picker or add a "rough estimate
-   only" persistent banner.
-4. **Updater channel routing** — UI lets the user pick `beta`, but the
-   `update-electron-app` publisher pipeline only points at stable
-   Releases. Either split the publisher or remove the beta toggle.
-5. **Session migration** — `SessionState` has `version: 1` but no
-   migration path for future schema bumps.
-6. **electron-store ESM landmine** — dep is listed but unused; either
-   delete it or migrate to dynamic `import()` so a future use doesn't
-   break the CJS main bundle.
-7. **Multi-pane resource-monitor UI** — backend aggregates across all
+   model + an in-panel "lower-bound" disclaimer. Either ship a per-day
+   model picker or accept the disclaimer permanently.
+3. **Updater beta-channel pipeline** — UI was reduced to "stable" only
+   (publisher pipeline is stable-only). To enable beta, split
+   `update-electron-app` config + add a beta tag to GitHub Releases,
+   then re-enable the channel picker in SettingsPanel.
+4. **Multi-pane resource-monitor UI** — backend aggregates across all
    panes; ResourcePanel could optionally show a per-pane breakdown.
-8. **Apple/macOS port** — Squirrel publisher is Windows-only today.
+5. **macOS port** — Squirrel publisher is Windows-only today; macOS
+   needs MakerDMG + code-signing + notarization, and Linux is
+   unsupported by Squirrel-style auto-update.
+6. **End-to-end installer verification** — `npm run package` exits 0
+   and Vite production bundles all build, but the Forge packaging step
+   was not verified on a regular Windows shell from this session
+   (verified via SHIPPING_CERTIFICATION.md against `.vite/build/`
+   artifacts). Run `npm run make` on a normal terminal to confirm the
+   NSIS installer materializes.
+
+### Already-closed Mediums (no longer open work)
+- ✅ Hotkey cold-start window — hardcoded Ctrl/Cmd+Shift+P fallback
+  in `App.tsx` works regardless of bindings state.
+- ✅ Session migration scaffold — `SessionService.migrate()` handles
+  forward-version bumps and "from-the-future" files (refuse + default).
+- ✅ electron-store ESM landmine — dep removed entirely.
+- ✅ Unattended-toast warning — SettingsPanel tray copy now warns that
+  background services keep running while hidden.
 
 ## Project Structure
 
