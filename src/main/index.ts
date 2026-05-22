@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
-import { PtyManager } from './pty-manager';
+import { PtyRegistry } from './pty-registry';
 import { ResourceMonitor } from './resource-monitor';
 import { CompactController } from './compact-controller';
 import { GitService } from './git-service';
@@ -11,6 +11,7 @@ import { CloudSyncService } from './cloud-sync';
 import { SnippetsService } from './snippets-service';
 import { NotificationsService } from './notifications-service';
 import { UpdaterService } from './updater-service';
+import { SessionService } from './session-service';
 import { IPC } from '../shared/ipc-channels';
 
 if (require('electron-squirrel-startup')) {
@@ -21,7 +22,7 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
-const ptyManager = new PtyManager();
+const ptyRegistry = new PtyRegistry();
 const resourceMonitor = new ResourceMonitor();
 const compactController = new CompactController();
 const gitService = new GitService();
@@ -32,7 +33,10 @@ let cloudSyncService: CloudSyncService | null = null;
 let snippetsService: SnippetsService | null = null;
 let notificationsService: NotificationsService | null = null;
 let updaterService: UpdaterService | null = null;
-let suppressNextPtyExitNotification = false;
+let sessionService: SessionService | null = null;
+/** Pane IDs whose PTY was killed by an explicit user "restart" — suppresses
+ * the imminent "Claude exited" notification once per restart. */
+const suppressedRestartPanes = new Set<string>();
 
 function getGitHub(): GitHubService {
   if (!githubService) githubService = new GitHubService();
@@ -105,6 +109,11 @@ function getUpdater(): UpdaterService {
   return updaterService;
 }
 
+function getSession(): SessionService {
+  if (!sessionService) sessionService = new SessionService();
+  return sessionService;
+}
+
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -124,7 +133,7 @@ const createWindow = () => {
 
   mainWindow.on('close', () => {
     resourceMonitor.stop();
-    ptyManager.kill();
+    ptyRegistry.killAll();
   });
 
   mainWindow.on('closed', () => {
@@ -150,15 +159,20 @@ function safeSend(channel: string, ...args: unknown[]) {
   }
 }
 
+function syncResourcePids() {
+  resourceMonitor.setClaudePids(ptyRegistry.allPids());
+}
+
 function setupTerminal() {
-  ptyManager.on('data', (data: string) => {
-    safeSend(IPC.TERMINAL_DATA, data);
+  ptyRegistry.on('data', (paneId: string, data: string) => {
+    safeSend(IPC.TERMINAL_DATA, paneId, data);
   });
 
-  ptyManager.on('exit', (code: number) => {
-    safeSend(IPC.TERMINAL_EXIT, code);
-    if (suppressNextPtyExitNotification) {
-      suppressNextPtyExitNotification = false;
+  ptyRegistry.on('exit', (paneId: string, code: number) => {
+    safeSend(IPC.TERMINAL_EXIT, paneId, code);
+    syncResourcePids();
+    if (suppressedRestartPanes.has(paneId)) {
+      suppressedRestartPanes.delete(paneId);
       return;
     }
     try {
@@ -168,26 +182,67 @@ function setupTerminal() {
     }
   });
 
-  ptyManager.on('ready', (pid: number) => {
-    safeSend(IPC.TERMINAL_READY, pid);
-    resourceMonitor.setClaudePid(pid);
+  ptyRegistry.on('ready', (paneId: string, pid: number) => {
+    safeSend(IPC.TERMINAL_READY, paneId, pid);
+    syncResourcePids();
   });
 
-  ipcMain.on(IPC.TERMINAL_INPUT, (_event, data: string) => {
-    ptyManager.write(data);
+  ipcMain.on(IPC.TERMINAL_INPUT, (_event, paneId: unknown, data: unknown) => {
+    if (!PtyRegistry.isValidPaneId(paneId)) return;
+    if (typeof data !== 'string') return;
+    ptyRegistry.write(paneId, data);
   });
 
-  ipcMain.on(IPC.TERMINAL_RESIZE, (_event, cols: number, rows: number) => {
-    ptyManager.resize(cols, rows);
+  ipcMain.on(
+    IPC.TERMINAL_RESIZE,
+    (_event, paneId: unknown, cols: unknown, rows: unknown) => {
+      if (!PtyRegistry.isValidPaneId(paneId)) return;
+      if (typeof cols !== 'number' || typeof rows !== 'number') return;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows)) return;
+      if (cols <= 0 || rows <= 0 || cols > 1000 || rows > 1000) return;
+      ptyRegistry.resize(paneId, Math.floor(cols), Math.floor(rows));
+    }
+  );
+
+  ipcMain.on(IPC.TERMINAL_RESTART, (_event, paneId: unknown) => {
+    if (!PtyRegistry.isValidPaneId(paneId)) return;
+    suppressedRestartPanes.add(paneId);
+    // Restart is a *hard* lifecycle transition (kill + spawn). spawn()'s
+    // reattach-if-alive shortcut would skip the kill, so we must kill first.
+    try {
+      ptyRegistry.kill(paneId);
+      ptyRegistry.spawn(paneId);
+    } catch {
+      // Surfaces via missing 'ready' event on the renderer.
+    }
+    // Auto-expire the suppression after a short window. The kill+spawn path
+    // disposes the old PTY's exit listener before exit fires, so the exit
+    // event never reaches our registry handler — without this auto-clear we
+    // would leak a "suppress next exit" flag that wrongly silences the
+    // *next legitimate exit* of the NEW PTY (e.g. user-driven /quit minutes
+    // later).
+    setTimeout(() => suppressedRestartPanes.delete(paneId), 1500);
   });
 
-  ipcMain.on(IPC.TERMINAL_RESTART, () => {
-    suppressNextPtyExitNotification = true;
-    ptyManager.kill();
-    ptyManager.spawn();
-  });
+  ipcMain.handle(
+    IPC.TERMINAL_SPAWN,
+    (_event, paneId: unknown, cwd: unknown) => {
+      if (!PtyRegistry.isValidPaneId(paneId)) {
+        throw new Error('invalid paneId');
+      }
+      const safeCwd =
+        typeof cwd === 'string' && cwd.length > 0 && cwd.length <= 4096 ? cwd : undefined;
+      ptyRegistry.spawn(paneId, safeCwd);
+      return true;
+    }
+  );
 
-  ptyManager.spawn();
+  ipcMain.handle(IPC.TERMINAL_KILL, (_event, paneId: unknown) => {
+    if (!PtyRegistry.isValidPaneId(paneId)) return false;
+    ptyRegistry.kill(paneId);
+    syncResourcePids();
+    return true;
+  });
 }
 
 function setupResources() {
@@ -368,6 +423,16 @@ function setupLMM() {
   });
 }
 
+function setupSession() {
+  ipcMain.handle(IPC.SESSION_GET, () => getSession().get());
+  ipcMain.handle(IPC.SESSION_SET, (_event, state: unknown) => {
+    // SessionService.sanitize() rejects anything malformed; we only need to
+    // ensure we pass *something* and not crash on null/undefined.
+    return getSession().set(state as never);
+  });
+  ipcMain.handle(IPC.SESSION_RESET, () => getSession().reset());
+}
+
 function setupWindowControls() {
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
   ipcMain.on('window:maximize', () => {
@@ -411,6 +476,7 @@ app.whenReady().then(() => {
   setupSnippets();
   setupNotifications();
   setupUpdater();
+  setupSession();
   setupWindowControls();
 
   // Kick off the auto-updater after a short grace period so the window
@@ -431,7 +497,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  ptyManager.kill();
+  ptyRegistry.killAll();
   resourceMonitor.stop();
   if (process.platform !== 'darwin') {
     app.quit();

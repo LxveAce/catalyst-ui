@@ -45,12 +45,21 @@ declare module 'systeminformation' {
 interface Window {
   electronAPI: {
     terminal: {
-      onData: (cb: (data: string) => void) => () => void;
-      onExit: (cb: (code: number) => void) => () => void;
-      onReady: (cb: (pid: number) => void) => () => void;
-      sendInput: (data: string) => void;
-      resize: (cols: number, rows: number) => void;
-      restart: () => void;
+      spawn: (paneId: string, cwd?: string | null) => Promise<boolean>;
+      kill: (paneId: string) => Promise<boolean>;
+      onData: (paneId: string, cb: (data: string) => void) => () => void;
+      onExit: (paneId: string, cb: (code: number) => void) => () => void;
+      onReady: (paneId: string, cb: (pid: number) => void) => () => void;
+      sendInput: (paneId: string, data: string) => void;
+      resize: (paneId: string, cols: number, rows: number) => void;
+      restart: (paneId: string) => void;
+    };
+    session: {
+      get: () => Promise<import('./shared/types').SessionState>;
+      set: (
+        state: import('./shared/types').SessionState
+      ) => Promise<import('./shared/types').SessionState>;
+      reset: () => Promise<import('./shared/types').SessionState>;
     };
     resources: {
       onUpdate: (

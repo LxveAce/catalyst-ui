@@ -10,10 +10,27 @@ try {
 
 export class ResourceMonitor extends EventEmitter {
   private interval: ReturnType<typeof setInterval> | null = null;
-  private claudePid: number = 0;
+  /**
+   * Set of Claude root PIDs we sum process-trees for. Phase 7c switched from a
+   * single PID to N PIDs (one per split pane); the snapshot's `claude.*` fields
+   * are *aggregated* across all live panes.
+   */
+  private claudePids: Set<number> = new Set();
 
+  /** Back-compat single-PID setter; equivalent to `setClaudePids([pid])`. */
   setClaudePid(pid: number) {
-    this.claudePid = pid;
+    this.claudePids.clear();
+    if (pid > 0) this.claudePids.add(pid);
+  }
+
+  /** Replace the tracked PID set with the supplied list (zeros ignored). */
+  setClaudePids(pids: number[]) {
+    this.claudePids.clear();
+    for (const p of pids) {
+      if (typeof p === 'number' && p > 0 && Number.isFinite(p)) {
+        this.claudePids.add(p);
+      }
+    }
   }
 
   start(intervalMs = 2000) {
@@ -37,19 +54,25 @@ export class ResourceMonitor extends EventEmitter {
         si.currentLoad(),
         si.mem(),
         si.graphics().catch(() => null),
-        this.claudePid ? si.processes() : Promise.resolve(null),
+        this.claudePids.size > 0 ? si.processes() : Promise.resolve(null),
       ]);
 
       let claudeCpu = 0;
       let claudeRam = 0;
       let claudePidCount = 0;
 
-      if (procs && this.claudePid) {
-        const claudePids = this.getProcessTree(procs.list, this.claudePid);
-        for (const proc of claudePids) {
-          claudeCpu += proc.cpu;
-          claudeRam += proc.mem_rss;
-          claudePidCount++;
+      if (procs && this.claudePids.size > 0) {
+        // Walk each root's process tree and de-dup at the leaf level. If two
+        // panes happen to share an ancestor (shouldn't, but defensive), we
+        // wouldn't double-count.
+        const seen = new Set<number>();
+        for (const root of this.claudePids) {
+          const treeProcs = this.getProcessTree(procs.list, root, seen);
+          for (const proc of treeProcs) {
+            claudeCpu += proc.cpu;
+            claudeRam += proc.mem_rss;
+            claudePidCount++;
+          }
         }
       }
 
@@ -89,10 +112,10 @@ export class ResourceMonitor extends EventEmitter {
 
   private getProcessTree(
     list: Array<{ pid: number; parentPid: number; cpu: number; mem_rss: number }>,
-    rootPid: number
+    rootPid: number,
+    visited: Set<number> = new Set()
   ): Array<{ cpu: number; mem_rss: number }> {
     const result: Array<{ cpu: number; mem_rss: number }> = [];
-    const visited = new Set<number>();
     const queue = [rootPid];
 
     while (queue.length > 0) {
