@@ -337,6 +337,29 @@ export interface SessionState {
   layout: SplitNode;
 }
 
+// Hotkeys + tray (Phase 7d) ---------------------------------------------------
+
+export type HotkeyAction =
+  | 'palette.open'
+  | 'terminal.restart'
+  | 'compact.toggle'
+  | 'panel.lmm'
+  | 'panel.github';
+
+export interface HotkeyBinding {
+  action: HotkeyAction;
+  /** Null = unbound. */
+  chord: string | null;
+}
+
+export interface HotkeySettings {
+  bindings: HotkeyBinding[];
+}
+
+export interface TraySettings {
+  minimizeToTrayOnClose: boolean;
+}
+
 // The full ElectronAPI shape lives in src/declarations.d.ts as an ambient
 // Window typing. Don't redeclare it here — keep this file for serializable
 // IPC payload types only.
