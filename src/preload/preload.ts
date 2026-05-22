@@ -92,6 +92,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pullSettings: () => ipcRenderer.invoke(IPC.AUTH_PULL_SETTINGS),
     pushSettings: (settings: unknown) => ipcRenderer.invoke(IPC.AUTH_PUSH_SETTINGS, settings),
   },
+  sync: {
+    getSettings: () => ipcRenderer.invoke(IPC.SYNC_GET_SETTINGS),
+    setSettings: (partial: unknown) => ipcRenderer.invoke(IPC.SYNC_SET_SETTINGS, partial),
+    status: () => ipcRenderer.invoke(IPC.SYNC_STATUS),
+    syncNow: () => ipcRenderer.invoke(IPC.SYNC_SYNC_NOW),
+    listLocal: () => ipcRenderer.invoke(IPC.SYNC_LIST_LOCAL),
+    listRemote: () => ipcRenderer.invoke(IPC.SYNC_LIST_REMOTE),
+    previewVault: (name: string) => ipcRenderer.invoke(IPC.SYNC_PREVIEW_VAULT, name),
+    createRepo: (repoName: string) => ipcRenderer.invoke(IPC.SYNC_CREATE_REPO, repoName),
+    verifyRepo: (owner: string, repo: string) =>
+      ipcRenderer.invoke(IPC.SYNC_VERIFY_REPO, owner, repo),
+    deleteRemote: (name: string) => ipcRenderer.invoke(IPC.SYNC_DELETE_REMOTE, name),
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),

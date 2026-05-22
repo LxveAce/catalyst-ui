@@ -10,6 +10,7 @@ import { SettingsPanel } from './components/settings/SettingsPanel';
 import { GitHubPanel } from './components/github/GitHubPanel';
 import { LMMPanel } from './components/lmm/LMMPanel';
 import { AuthPanel } from './components/auth/AuthPanel';
+import { SyncPanel } from './components/sync/SyncPanel';
 
 export type SidebarPanel =
   | 'terminal'
@@ -112,6 +113,8 @@ function RightPanel({
       return <LMMPanel />;
     case 'auth':
       return <AuthPanel />;
+    case 'sync':
+      return <SyncPanel />;
     default:
       return <PlaceholderPanel panel={panel} />;
   }
@@ -119,11 +122,6 @@ function RightPanel({
 
 function PlaceholderPanel({ panel }: { panel: string }) {
   const info: Record<string, { title: string; desc: string; phase: string }> = {
-    sync: {
-      title: 'Cloud Sync',
-      desc: 'Sync conversation vaults across devices via your GitHub repo.',
-      phase: 'Phase 6',
-    },
   };
 
   const p = info[panel] || { title: panel, desc: '', phase: '' };

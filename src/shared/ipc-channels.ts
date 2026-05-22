@@ -40,9 +40,16 @@ export const IPC = {
   AUTH_PULL_SETTINGS: 'auth:pull-settings',
   AUTH_PUSH_SETTINGS: 'auth:push-settings',
 
-  SYNC_PUSH: 'sync:push',
-  SYNC_PULL: 'sync:pull',
+  SYNC_GET_SETTINGS: 'sync:get-settings',
+  SYNC_SET_SETTINGS: 'sync:set-settings',
   SYNC_STATUS: 'sync:status',
+  SYNC_SYNC_NOW: 'sync:sync-now',
+  SYNC_LIST_LOCAL: 'sync:list-local',
+  SYNC_LIST_REMOTE: 'sync:list-remote',
+  SYNC_PREVIEW_VAULT: 'sync:preview-vault',
+  SYNC_CREATE_REPO: 'sync:create-repo',
+  SYNC_VERIFY_REPO: 'sync:verify-repo',
+  SYNC_DELETE_REMOTE: 'sync:delete-remote',
 
   LMM_GET_SETTINGS: 'lmm:get-settings',
   LMM_SET_SETTINGS: 'lmm:set-settings',

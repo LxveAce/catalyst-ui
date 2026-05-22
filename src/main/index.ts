@@ -7,6 +7,7 @@ import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import { LMMService } from './lmm-service';
 import { AuthService } from './auth-service';
+import { CloudSyncService } from './cloud-sync';
 import { IPC } from '../shared/ipc-channels';
 
 if (require('electron-squirrel-startup')) {
@@ -24,6 +25,7 @@ const gitService = new GitService();
 let githubService: GitHubService | null = null;
 let lmmService: LMMService | null = null;
 let authService: AuthService | null = null;
+let cloudSyncService: CloudSyncService | null = null;
 
 function getGitHub(): GitHubService {
   if (!githubService) githubService = new GitHubService();
@@ -38,6 +40,11 @@ function getLMM(): LMMService {
 function getAuth(): AuthService {
   if (!authService) authService = new AuthService();
   return authService;
+}
+
+function getCloudSync(): CloudSyncService {
+  if (!cloudSyncService) cloudSyncService = new CloudSyncService(getGitHub());
+  return cloudSyncService;
 }
 
 const createWindow = () => {
@@ -213,6 +220,29 @@ function setupAuth() {
   );
 }
 
+function setupCloudSync() {
+  ipcMain.handle(IPC.SYNC_GET_SETTINGS, () => getCloudSync().getSettings());
+  ipcMain.handle(IPC.SYNC_SET_SETTINGS, (_event, partial) =>
+    getCloudSync().setSettings(partial)
+  );
+  ipcMain.handle(IPC.SYNC_STATUS, () => getCloudSync().getStatus());
+  ipcMain.handle(IPC.SYNC_SYNC_NOW, () => getCloudSync().syncNow());
+  ipcMain.handle(IPC.SYNC_LIST_LOCAL, () => getCloudSync().listLocalVaults());
+  ipcMain.handle(IPC.SYNC_LIST_REMOTE, () => getCloudSync().listRemoteVaults());
+  ipcMain.handle(IPC.SYNC_PREVIEW_VAULT, (_event, name: string) =>
+    getCloudSync().previewVault(name)
+  );
+  ipcMain.handle(IPC.SYNC_CREATE_REPO, (_event, repoName: string) =>
+    getCloudSync().createRepo(repoName)
+  );
+  ipcMain.handle(IPC.SYNC_VERIFY_REPO, (_event, owner: string, repo: string) =>
+    getCloudSync().verifyRepo(owner, repo)
+  );
+  ipcMain.handle(IPC.SYNC_DELETE_REMOTE, (_event, name: string) =>
+    getCloudSync().deleteRemoteVault(name)
+  );
+}
+
 function setupLMM() {
   ipcMain.handle(IPC.LMM_GET_SETTINGS, () => getLMM().getSettings());
   ipcMain.handle(IPC.LMM_SET_SETTINGS, (_event, partial) =>
@@ -282,6 +312,7 @@ app.whenReady().then(() => {
   setupGitHub();
   setupLMM();
   setupAuth();
+  setupCloudSync();
   setupWindowControls();
 
   app.on('activate', () => {
