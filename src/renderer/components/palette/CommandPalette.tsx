@@ -19,6 +19,12 @@ interface CommandPaletteProps {
   onSwitchPanel: (panel: SidebarPanel) => void;
   onSendToTerminal: (text: string, submit: boolean) => void;
   onRestartTerminal: () => void;
+  // Phase 7c: split-pane actions.
+  onSplit: (direction: 'horizontal' | 'vertical') => void;
+  onClosePane: () => void;
+  onFocusNext: () => void;
+  onFocusPrev: () => void;
+  onResetLayout: () => void;
 }
 
 export function CommandPalette({
@@ -27,6 +33,11 @@ export function CommandPalette({
   onSwitchPanel,
   onSendToTerminal,
   onRestartTerminal,
+  onSplit,
+  onClosePane,
+  onFocusNext,
+  onFocusPrev,
+  onResetLayout,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -118,7 +129,7 @@ export function CommandPalette({
       {
         id: 'terminal:restart',
         title: 'Terminal: restart',
-        subtitle: 'Kill and re-spawn Claude',
+        subtitle: 'Kill and re-spawn Claude in the active pane',
         group: 'Actions',
         keywords: 'restart terminal claude reload',
         run: () => onRestartTerminal(),
@@ -135,8 +146,76 @@ export function CommandPalette({
       },
     ];
 
-    return [...panelActions, ...themeActions, ...snippetActions, ...snippetMgmt, ...utility];
-  }, [snippets, onSwitchPanel, onSendToTerminal, onRestartTerminal]);
+    const splitActions: PaletteAction[] = [
+      {
+        id: 'pane:split-horizontal',
+        title: 'Split horizontal',
+        subtitle: 'Open a new pane to the right of the active one',
+        group: 'Panes',
+        keywords: 'split pane horizontal right',
+        run: () => onSplit('horizontal'),
+      },
+      {
+        id: 'pane:split-vertical',
+        title: 'Split vertical',
+        subtitle: 'Open a new pane below the active one',
+        group: 'Panes',
+        keywords: 'split pane vertical bottom below',
+        run: () => onSplit('vertical'),
+      },
+      {
+        id: 'pane:close',
+        title: 'Close pane',
+        subtitle: 'Close the active pane (refuses when only one remains)',
+        group: 'Panes',
+        keywords: 'close pane remove kill',
+        run: () => onClosePane(),
+      },
+      {
+        id: 'pane:focus-next',
+        title: 'Focus next pane',
+        subtitle: 'Cycle focus to the next pane in tree order',
+        group: 'Panes',
+        keywords: 'focus next pane cycle',
+        run: () => onFocusNext(),
+      },
+      {
+        id: 'pane:focus-prev',
+        title: 'Focus previous pane',
+        subtitle: 'Cycle focus to the previous pane in tree order',
+        group: 'Panes',
+        keywords: 'focus previous prev pane cycle',
+        run: () => onFocusPrev(),
+      },
+      {
+        id: 'layout:reset',
+        title: 'Reset layout',
+        subtitle: 'Collapse all splits back to a single pane',
+        group: 'Panes',
+        keywords: 'reset layout collapse single pane default',
+        run: () => onResetLayout(),
+      },
+    ];
+
+    return [
+      ...panelActions,
+      ...themeActions,
+      ...snippetActions,
+      ...snippetMgmt,
+      ...splitActions,
+      ...utility,
+    ];
+  }, [
+    snippets,
+    onSwitchPanel,
+    onSendToTerminal,
+    onRestartTerminal,
+    onSplit,
+    onClosePane,
+    onFocusNext,
+    onFocusPrev,
+    onResetLayout,
+  ]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

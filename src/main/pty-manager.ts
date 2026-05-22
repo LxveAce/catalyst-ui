@@ -16,6 +16,7 @@ export class PtyManager extends EventEmitter {
   private childProcess: ChildProcess | null = null;
   private _pid: number = 0;
   private _usingPty: boolean = false;
+  private _cwd: string = '';
 
   get pid(): number {
     return this._pid;
@@ -25,9 +26,15 @@ export class PtyManager extends EventEmitter {
     return this._usingPty;
   }
 
+  /** Best-effort cwd we launched with — empty until `spawn()` succeeds. */
+  get cwd(): string {
+    return this._cwd;
+  }
+
   spawn(cwd?: string): void {
     const claudePath = this.findClaudePath();
     const workDir = cwd || os.homedir();
+    this._cwd = workDir;
 
     if (pty) {
       this.spawnWithPty(claudePath, workDir);

@@ -1,10 +1,20 @@
 export const IPC = {
+  // Terminal IPC is paneId-scoped (Phase 7c). For *-DATA / READY / EXIT the
+  // payload's *first* argument is always the paneId so the renderer can route
+  // to the correct xterm instance. All send-paneside IPC includes the paneId
+  // as the first arg.
   TERMINAL_DATA: 'terminal:data',
   TERMINAL_INPUT: 'terminal:input',
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_READY: 'terminal:ready',
   TERMINAL_EXIT: 'terminal:exit',
   TERMINAL_RESTART: 'terminal:restart',
+  TERMINAL_SPAWN: 'terminal:spawn',
+  TERMINAL_KILL: 'terminal:kill',
+
+  SESSION_GET: 'session:get',
+  SESSION_SET: 'session:set',
+  SESSION_RESET: 'session:reset',
 
   RESOURCE_UPDATE: 'resources:update',
   RESOURCE_START: 'resources:start',
