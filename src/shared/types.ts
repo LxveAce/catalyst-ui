@@ -157,6 +157,48 @@ export interface NotificationSettings {
   enabled: boolean;
   notifyOnPtyExit: boolean;
   notifyOnSyncError: boolean;
+  notifyOnUpdateAvailable: boolean;
+}
+
+export type UpdateChannel = 'stable' | 'beta';
+
+export interface UpdaterSettings {
+  /** When true, the updater is wired up at app start in production builds. */
+  enabled: boolean;
+  channel: UpdateChannel;
+}
+
+export interface UpdaterState {
+  /** Current installed application version (semver, from package.json). */
+  currentVersion: string;
+  /** True in production builds only; false when MAIN_WINDOW_VITE_DEV_SERVER_URL is set. */
+  productionMode: boolean;
+  /** True if the auto-updater is wired and running on this platform. */
+  active: boolean;
+  /**
+   * If active === false, why. Stable copy for the UI:
+   *   - 'dev-mode'        — running from `electron-forge start`
+   *   - 'unsupported-platform' — not Windows/macOS (Linux Squirrel not supported)
+   *   - 'unsigned'        — required code signing not present
+   *   - 'disabled'        — user disabled via settings
+   *   - 'init-error'      — wiring threw at startup; see lastError
+   */
+  inactiveReason:
+    | 'dev-mode'
+    | 'unsupported-platform'
+    | 'unsigned'
+    | 'disabled'
+    | 'init-error'
+    | null;
+  channel: UpdateChannel;
+  /** ISO timestamp of last successful check (any outcome); null until first attempt. */
+  lastCheckedAt: string | null;
+  /** ISO timestamp of last update-found event; null if none ever. */
+  lastUpdateFoundAt: string | null;
+  /** Version string of the update that's pending install on next launch, if any. */
+  pendingVersion: string | null;
+  /** Free-text last error message if the updater errored on start or during check. */
+  lastError: string | null;
 }
 
 export interface SyncSettings {

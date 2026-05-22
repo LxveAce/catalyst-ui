@@ -11,14 +11,16 @@ const DEFAULTS: NotificationSettings = {
   enabled: false,
   notifyOnPtyExit: true,
   notifyOnSyncError: true,
+  notifyOnUpdateAvailable: true,
 };
 
-type NotifKind = 'pty-exit' | 'sync-error' | 'test' | 'other';
+type NotifKind = 'pty-exit' | 'sync-error' | 'update-available' | 'test' | 'other';
 
 export class NotificationsService {
   private storePath: string;
   private settings: NotificationSettings;
   private lastShownAt = new Map<NotifKind, number>();
+  private updateNotifiedVersions = new Set<string>();
 
   constructor() {
     this.storePath = path.join(app.getPath('userData'), STORE_FILE);
@@ -51,6 +53,12 @@ export class NotificationsService {
       }
       next.notifyOnSyncError = partial.notifyOnSyncError;
     }
+    if (partial.notifyOnUpdateAvailable !== undefined) {
+      if (typeof partial.notifyOnUpdateAvailable !== 'boolean') {
+        throw new Error('notifyOnUpdateAvailable must be boolean');
+      }
+      next.notifyOnUpdateAvailable = partial.notifyOnUpdateAvailable;
+    }
     this.settings = next;
     this.write();
     return { ...this.settings };
@@ -69,6 +77,23 @@ export class NotificationsService {
     this.show('sync-error', {
       title: 'Vault sync error',
       body: this.truncate(message, 200),
+    });
+  }
+
+  /**
+   * Fire-once-per-version: caller passes the version string and we ensure
+   * the same version doesn't notify twice in a single process lifetime.
+   * The shared throttle in `show()` is per-kind, so this won't clobber
+   * a near-simultaneous PTY-exit / sync-error toast.
+   */
+  notifyUpdateAvailable(version: string): void {
+    if (!this.settings.enabled || !this.settings.notifyOnUpdateAvailable) return;
+    if (typeof version !== 'string' || version.length === 0) return;
+    if (this.updateNotifiedVersions.has(version)) return;
+    this.updateNotifiedVersions.add(version);
+    this.show('update-available', {
+      title: 'Update available',
+      body: `Version ${this.truncate(version, 40)} will install on next launch.`,
     });
   }
 
@@ -131,6 +156,10 @@ export class NotificationsService {
         typeof parsed.notifyOnSyncError === 'boolean'
           ? parsed.notifyOnSyncError
           : DEFAULTS.notifyOnSyncError,
+      notifyOnUpdateAvailable:
+        typeof parsed.notifyOnUpdateAvailable === 'boolean'
+          ? parsed.notifyOnUpdateAvailable
+          : DEFAULTS.notifyOnUpdateAvailable,
     };
   }
 

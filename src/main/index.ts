@@ -10,6 +10,7 @@ import { AuthService } from './auth-service';
 import { CloudSyncService } from './cloud-sync';
 import { SnippetsService } from './snippets-service';
 import { NotificationsService } from './notifications-service';
+import { UpdaterService } from './updater-service';
 import { IPC } from '../shared/ipc-channels';
 
 if (require('electron-squirrel-startup')) {
@@ -30,6 +31,7 @@ let authService: AuthService | null = null;
 let cloudSyncService: CloudSyncService | null = null;
 let snippetsService: SnippetsService | null = null;
 let notificationsService: NotificationsService | null = null;
+let updaterService: UpdaterService | null = null;
 let suppressNextPtyExitNotification = false;
 
 function getGitHub(): GitHubService {
@@ -68,6 +70,39 @@ function getSnippets(): SnippetsService {
 function getNotifications(): NotificationsService {
   if (!notificationsService) notificationsService = new NotificationsService();
   return notificationsService;
+}
+
+function isDevMode(): boolean {
+  try {
+    return typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string'
+      && MAIN_WINDOW_VITE_DEV_SERVER_URL.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function getUpdater(): UpdaterService {
+  if (!updaterService) {
+    updaterService = new UpdaterService({
+      isDevMode: isDevMode(),
+      callbacks: {
+        onUpdateDownloaded: (version: string) => {
+          try {
+            getNotifications().notifyUpdateAvailable(version);
+          } catch {
+            // notifications must never block updater
+          }
+          safeSend(IPC.UPDATER_AVAILABLE, version);
+        },
+        onError: (_msg: string) => {
+          // Soft-fail: lastError is captured in updater state and surfaced via UI.
+          // We intentionally do NOT fire an OS notification on every transient
+          // network error — would be spammy.
+        },
+      },
+    });
+  }
+  return updaterService;
 }
 
 const createWindow = () => {
@@ -294,6 +329,15 @@ function setupNotifications() {
   ipcMain.handle(IPC.NOTIF_TEST, () => getNotifications().fireTest());
 }
 
+function setupUpdater() {
+  ipcMain.handle(IPC.UPDATER_GET_STATE, () => getUpdater().getState());
+  ipcMain.handle(IPC.UPDATER_GET_SETTINGS, () => getUpdater().getSettings());
+  ipcMain.handle(IPC.UPDATER_SET_SETTINGS, (_event, partial) =>
+    getUpdater().setSettings(partial)
+  );
+  ipcMain.handle(IPC.UPDATER_CHECK_NOW, () => getUpdater().checkNow());
+}
+
 function setupLMM() {
   ipcMain.handle(IPC.LMM_GET_SETTINGS, () => getLMM().getSettings());
   ipcMain.handle(IPC.LMM_SET_SETTINGS, (_event, partial) =>
@@ -366,7 +410,18 @@ app.whenReady().then(() => {
   setupCloudSync();
   setupSnippets();
   setupNotifications();
+  setupUpdater();
   setupWindowControls();
+
+  // Kick off the auto-updater after a short grace period so the window
+  // is responsive first. start() is a no-op in dev mode.
+  setTimeout(() => {
+    try {
+      getUpdater().start();
+    } catch {
+      // never crash the app on updater wiring failure
+    }
+  }, 5000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
