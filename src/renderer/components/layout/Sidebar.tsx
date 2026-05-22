@@ -39,6 +39,20 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: 'cost',
+    label: 'Cost',
+    icon: (
+      // Currency-style glyph: outlined coin with an "$"-like S, kept stroke-only
+      // to match the other sidebar icons.
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M15 9.5C15 8.12 13.66 7 12 7s-3 1.12-3 2.5S10.34 12 12 12s3 1.12 3 2.5S13.66 17 12 17s-3-1.12-3-2.5" />
+        <line x1="12" y1="5" x2="12" y2="7" />
+        <line x1="12" y1="17" x2="12" y2="19" />
+      </svg>
+    ),
+  },
+  {
     id: 'compact',
     label: 'Compact',
     icon: (
@@ -46,6 +60,16 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
         <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
         <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    id: 'lmm',
+    label: 'LMM',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
       </svg>
     ),
   },
@@ -103,7 +127,7 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
       gap: 4,
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-        {panels.slice(0, 5).map((panel) => (
+        {panels.slice(0, 7).map((panel) => (
           <SidebarButton
             key={panel.id}
             icon={panel.icon}
@@ -122,7 +146,7 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
       }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {panels.slice(5).map((panel) => (
+        {panels.slice(7).map((panel) => (
           <SidebarButton
             key={panel.id}
             icon={panel.icon}

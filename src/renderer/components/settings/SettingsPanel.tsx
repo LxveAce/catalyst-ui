@@ -1,86 +1,15 @@
-import React, { useState, useEffect } from 'react';
-
-interface ThemePreset {
-  name: string;
-  accent: string;
-  accentLight: string;
-  gradient: string;
-  gradientSoft: string;
-  borderActive: string;
-  glow: string;
-}
-
-const THEME_PRESETS: ThemePreset[] = [
-  {
-    name: 'Purple',
-    accent: '#7c3aed',
-    accentLight: '#a78bfa',
-    gradient: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%)',
-    gradientSoft: 'linear-gradient(135deg, rgba(124,58,237,0.2) 0%, rgba(109,40,217,0.1) 100%)',
-    borderActive: 'rgba(124, 58, 237, 0.3)',
-    glow: '0 0 20px rgba(124, 58, 237, 0.15)',
-  },
-  {
-    name: 'Blue',
-    accent: '#3b82f6',
-    accentLight: '#93c5fd',
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-    gradientSoft: 'linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(37,99,235,0.1) 100%)',
-    borderActive: 'rgba(59, 130, 246, 0.3)',
-    glow: '0 0 20px rgba(59, 130, 246, 0.15)',
-  },
-  {
-    name: 'Emerald',
-    accent: '#10b981',
-    accentLight: '#6ee7b7',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
-    gradientSoft: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.1) 100%)',
-    borderActive: 'rgba(16, 185, 129, 0.3)',
-    glow: '0 0 20px rgba(16, 185, 129, 0.15)',
-  },
-  {
-    name: 'Rose',
-    accent: '#f43f5e',
-    accentLight: '#fda4af',
-    gradient: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #be123c 100%)',
-    gradientSoft: 'linear-gradient(135deg, rgba(244,63,94,0.2) 0%, rgba(225,29,72,0.1) 100%)',
-    borderActive: 'rgba(244, 63, 94, 0.3)',
-    glow: '0 0 20px rgba(244, 63, 94, 0.15)',
-  },
-  {
-    name: 'Amber',
-    accent: '#f59e0b',
-    accentLight: '#fcd34d',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
-    gradientSoft: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(217,119,6,0.1) 100%)',
-    borderActive: 'rgba(245, 158, 11, 0.3)',
-    glow: '0 0 20px rgba(245, 158, 11, 0.15)',
-  },
-  {
-    name: 'Cyan',
-    accent: '#06b6d4',
-    accentLight: '#67e8f9',
-    gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
-    gradientSoft: 'linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(8,145,178,0.1) 100%)',
-    borderActive: 'rgba(6, 182, 212, 0.3)',
-    glow: '0 0 20px rgba(6, 182, 212, 0.15)',
-  },
-];
-
-function applyTheme(preset: ThemePreset) {
-  const root = document.documentElement;
-  root.style.setProperty('--accent', preset.accent);
-  root.style.setProperty('--accent-light', preset.accentLight);
-  root.style.setProperty('--accent-gradient', preset.gradient);
-  root.style.setProperty('--accent-gradient-soft', preset.gradientSoft);
-  root.style.setProperty('--border-active', preset.borderActive);
-  root.style.setProperty('--shadow-glow', preset.glow);
-  root.style.setProperty('--accent-dim', preset.gradientSoft.includes('rgba')
-    ? `rgba(${hexToRgb(preset.accent)}, 0.15)`
-    : preset.gradientSoft);
-  root.style.setProperty('--gauge-purple', preset.accent);
-  root.style.setProperty('--bg-hover', `rgba(${hexToRgb(preset.accent)}, 0.08)`);
-}
+import React, { useState, useEffect, useCallback } from 'react';
+import { THEME_PRESETS, applyTheme, findThemePreset, type ThemePreset } from '../../theme-presets';
+import type {
+  HotkeyAction,
+  HotkeyBinding,
+  HotkeySettings,
+  NotificationSettings,
+  TraySettings,
+  UpdaterSettings,
+  UpdaterState,
+} from '../../../shared/types';
+import { ACTION_LABELS, chordFromEvent } from '../../hotkeys';
 
 function hexToRgb(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -92,23 +21,186 @@ function hexToRgb(hex: string): string {
 export function SettingsPanel() {
   const [activeTheme, setActiveTheme] = useState('Purple');
   const [hoveredTheme, setHoveredTheme] = useState<string | null>(null);
+  const [notif, setNotif] = useState<NotificationSettings | null>(null);
+  const [notifSupported, setNotifSupported] = useState(true);
+  const [notifError, setNotifError] = useState<string | null>(null);
+  const [updaterState, setUpdaterState] = useState<UpdaterState | null>(null);
+  const [updaterSettings, setUpdaterSettings] = useState<UpdaterSettings | null>(null);
+  const [updaterError, setUpdaterError] = useState<string | null>(null);
+  const [updaterChecking, setUpdaterChecking] = useState(false);
+  const [tray, setTray] = useState<TraySettings | null>(null);
+  const [hotkeys, setHotkeys] = useState<HotkeySettings | null>(null);
+  const [hotkeyError, setHotkeyError] = useState<string | null>(null);
+  const [recordingAction, setRecordingAction] = useState<HotkeyAction | null>(
+    null
+  );
 
   useEffect(() => {
     const saved = localStorage.getItem('claude-studio-theme');
-    if (saved) {
-      const preset = THEME_PRESETS.find((p) => p.name === saved);
-      if (preset) {
-        setActiveTheme(saved);
-        applyTheme(preset);
-      }
+    const preset = findThemePreset(saved);
+    if (preset) {
+      setActiveTheme(preset.name);
+      applyTheme(preset);
     }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [supported, n, us, ust] = await Promise.all([
+          window.electronAPI.notifications.supported(),
+          window.electronAPI.notifications.getSettings(),
+          window.electronAPI.updater.getSettings(),
+          window.electronAPI.updater.getState(),
+        ]);
+        if (cancelled) return;
+        setNotifSupported(supported);
+        setNotif(n);
+        setUpdaterSettings(us);
+        setUpdaterState(ust);
+      } catch (e) {
+        if (!cancelled) {
+          setUpdaterError((e as Error).message ?? String(e));
+        }
+      }
+      try {
+        setTray(await window.electronAPI.tray.getSettings());
+      } catch {
+        // tray API missing — show nothing for the tray section
+      }
+      try {
+        setHotkeys(await window.electronAPI.hotkeys.get());
+      } catch {
+        // hotkeys API missing — show nothing for the hotkeys section
+      }
+    })();
+    // Live-update when main fires update-available.
+    const unsub = window.electronAPI.updater.onAvailable(() => {
+      void (async () => {
+        try {
+          const next = await window.electronAPI.updater.getState();
+          if (!cancelled) setUpdaterState(next);
+        } catch {
+          // ignore
+        }
+      })();
+    });
+    return () => {
+      cancelled = true;
+      try {
+        unsub();
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   const handleThemeChange = (preset: ThemePreset) => {
     setActiveTheme(preset.name);
     applyTheme(preset);
-    localStorage.setItem('claude-studio-theme', preset.name);
   };
+
+  const updateNotif = async (patch: Partial<NotificationSettings>) => {
+    try {
+      const next = await window.electronAPI.notifications.setSettings(patch);
+      setNotif(next);
+      setNotifError(null);
+    } catch (e) {
+      setNotifError((e as Error).message ?? String(e));
+    }
+  };
+
+  const updateUpdater = async (patch: Partial<UpdaterSettings>) => {
+    try {
+      const next = await window.electronAPI.updater.setSettings(patch);
+      setUpdaterSettings(next);
+      setUpdaterError(null);
+    } catch (e) {
+      setUpdaterError((e as Error).message ?? String(e));
+    }
+  };
+
+  const checkForUpdatesNow = async () => {
+    setUpdaterChecking(true);
+    setUpdaterError(null);
+    try {
+      const next = await window.electronAPI.updater.checkNow();
+      setUpdaterState(next);
+    } catch (e) {
+      setUpdaterError((e as Error).message ?? String(e));
+    } finally {
+      setUpdaterChecking(false);
+    }
+  };
+
+  const updateTray = async (patch: Partial<TraySettings>) => {
+    try {
+      const next = await window.electronAPI.tray.setSettings(patch);
+      setTray(next);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleBind = useCallback(
+    async (action: HotkeyAction, chord: string | null) => {
+      setHotkeyError(null);
+      try {
+        const next = await window.electronAPI.hotkeys.setBinding(action, chord);
+        setHotkeys(next);
+        window.dispatchEvent(new Event('hotkeys-changed'));
+      } catch (e) {
+        setHotkeyError((e as Error).message ?? 'Failed to set binding.');
+      }
+    },
+    []
+  );
+
+  const handleResetHotkeys = useCallback(async () => {
+    setHotkeyError(null);
+    try {
+      const next = await window.electronAPI.hotkeys.reset();
+      setHotkeys(next);
+      window.dispatchEvent(new Event('hotkeys-changed'));
+    } catch (e) {
+      setHotkeyError((e as Error).message ?? 'Failed to reset bindings.');
+    }
+  }, []);
+
+  // While recording, capture the next valid chord and save it.
+  useEffect(() => {
+    if (!recordingAction) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setRecordingAction(null);
+        return;
+      }
+      // Ignore lone modifier keypresses; wait for a non-modifier.
+      if (
+        e.key === 'Control' ||
+        e.key === 'Shift' ||
+        e.key === 'Alt' ||
+        e.key === 'Meta'
+      ) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const chord = chordFromEvent(e);
+      if (!chord) {
+        setHotkeyError(
+          'Chord must include Ctrl, Cmd, or Alt plus a key. Try again.'
+        );
+        return;
+      }
+      const action = recordingAction;
+      setRecordingAction(null);
+      void handleBind(action, chord);
+    };
+    // Capture so we win against any panel-level listener.
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [recordingAction, handleBind]);
 
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
@@ -216,6 +308,262 @@ export function SettingsPanel() {
         <SettingRow label="Cursor Blink" value="On" />
       </div>
 
+      {/* Notifications */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Notifications
+        </div>
+        {!notifSupported ? (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Desktop notifications are not supported on this OS.
+          </div>
+        ) : notif ? (
+          <>
+            <ToggleRow
+              label="Enabled"
+              value={notif.enabled}
+              onChange={(v) => void updateNotif({ enabled: v })}
+            />
+            <ToggleRow
+              label="On Claude exit"
+              value={notif.notifyOnPtyExit}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnPtyExit: v })}
+            />
+            <ToggleRow
+              label="On vault sync error"
+              value={notif.notifyOnSyncError}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnSyncError: v })}
+            />
+            <ToggleRow
+              label="On update available"
+              value={notif.notifyOnUpdateAvailable}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnUpdateAvailable: v })}
+            />
+            <ToggleRow
+              label="On daily cost budget hit"
+              value={notif.notifyOnCostBudget}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnCostBudget: v })}
+            />
+            <button
+              onClick={() => void window.electronAPI.notifications.test()}
+              style={{
+                marginTop: 6,
+                padding: '5px 10px',
+                fontSize: 11,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Send test notification
+            </button>
+            {notifError && (
+              <div style={{
+                marginTop: 6,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--danger, #ef4444)',
+                background: 'rgba(239,68,68,0.08)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                {notifError}
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      {/* Updates */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Updates
+        </div>
+        {updaterState ? (
+          <>
+            <SettingRow
+              label="Current version"
+              value={`v${updaterState.currentVersion}`}
+            />
+            <SettingRow
+              label="Status"
+              value={updaterStatusLabel(updaterState)}
+            />
+            <SettingRow
+              label="Last checked"
+              value={formatTimestamp(updaterState.lastCheckedAt)}
+            />
+            {updaterState.pendingVersion && (
+              <SettingRow
+                label="Pending install"
+                value={`v${updaterState.pendingVersion} (on next launch)`}
+              />
+            )}
+            {updaterSettings && (
+              <SettingRow
+                label="Channel"
+                value="stable"
+              />
+            )}
+            {updaterSettings && (
+              <ToggleRow
+                label="Auto-update enabled"
+                value={updaterSettings.enabled}
+                onChange={(v) => void updateUpdater({ enabled: v })}
+              />
+            )}
+            <button
+              onClick={() => void checkForUpdatesNow()}
+              disabled={updaterChecking || !updaterState.active}
+              style={{
+                marginTop: 6,
+                padding: '5px 10px',
+                fontSize: 11,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: (updaterChecking || !updaterState.active) ? 'not-allowed' : 'pointer',
+                opacity: (updaterChecking || !updaterState.active) ? 0.5 : 1,
+              }}
+            >
+              {updaterChecking ? 'Checking…' : 'Check for updates now'}
+            </button>
+            {!updaterState.active && updaterState.inactiveReason && (
+              <div style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                lineHeight: 1.4,
+              }}>
+                {inactiveReasonCopy(updaterState.inactiveReason)}
+              </div>
+            )}
+            {(updaterError || updaterState.lastError) && (
+              <div style={{
+                marginTop: 6,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--danger, #ef4444)',
+                background: 'rgba(239,68,68,0.08)',
+                borderRadius: 'var(--radius-sm)',
+                lineHeight: 1.4,
+                wordBreak: 'break-word',
+              }}>
+                {updaterError || updaterState.lastError}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Loading updater status…
+          </div>
+        )}
+      </div>
+
+      {/* System Tray */}
+      {tray && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            marginBottom: 10,
+          }}>
+            System tray
+          </div>
+          <ToggleRow
+            label="Minimize to tray on close"
+            value={tray.minimizeToTrayOnClose}
+            onChange={(v) => void updateTray({ minimizeToTrayOnClose: v })}
+          />
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+            When enabled, closing the window hides it to the system tray
+            instead of quitting. Right-click the tray icon for options.
+            Background services (cost sampler, vault sync, auto-updater)
+            keep running while hidden — notifications will accumulate until
+            you bring the window back, or until you sign out / disable them.
+          </div>
+        </div>
+      )}
+
+      {/* Hotkeys */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <span>Hotkeys</span>
+          {hotkeys && (
+            <button
+              onClick={() => void handleResetHotkeys()}
+              style={{
+                padding: '3px 8px',
+                fontSize: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Reset defaults
+            </button>
+          )}
+        </div>
+        {hotkeys ? (
+          <>
+            {hotkeys.bindings.map((b) => (
+              <HotkeyRow
+                key={b.action}
+                binding={b}
+                recording={recordingAction === b.action}
+                onStartRecording={() => {
+                  setHotkeyError(null);
+                  setRecordingAction(b.action);
+                }}
+                onClear={() => void handleBind(b.action, null)}
+              />
+            ))}
+            {recordingAction && (
+              <div style={{ fontSize: 10, color: 'var(--accent-light)', marginTop: 6, lineHeight: 1.4 }}>
+                Press a key combination. Esc to cancel.
+              </div>
+            )}
+            {hotkeyError && (
+              <div
+                role="alert"
+                style={{ fontSize: 10, color: '#ff8888', marginTop: 6, lineHeight: 1.4 }}
+              >
+                {hotkeyError}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Loading…</div>
+        )}
+      </div>
+
       {/* About */}
       <div style={{
         padding: '14px 16px',
@@ -242,6 +590,48 @@ export function SettingsPanel() {
   );
 }
 
+function updaterStatusLabel(s: UpdaterState): string {
+  if (s.pendingVersion) return `Update v${s.pendingVersion} ready`;
+  if (s.active) return 'Active — checking automatically';
+  switch (s.inactiveReason) {
+    case 'dev-mode': return 'Inactive (dev mode)';
+    case 'unsupported-platform': return 'Inactive (platform not supported)';
+    case 'disabled': return 'Disabled in settings';
+    case 'unsigned': return 'Inactive (unsigned build)';
+    case 'init-error': return 'Inactive (init error)';
+    default: return 'Inactive';
+  }
+}
+
+function inactiveReasonCopy(reason: NonNullable<UpdaterState['inactiveReason']>): string {
+  switch (reason) {
+    case 'dev-mode':
+      return 'Auto-update is skipped when running from "npm start". Build a packaged installer to test the full flow.';
+    case 'unsupported-platform':
+      return 'Auto-update via Squirrel is only supported on Windows and macOS.';
+    case 'disabled':
+      return 'Auto-update is disabled. Toggle "Auto-update enabled" above and restart the app to re-enable.';
+    case 'unsigned':
+      return 'Auto-update requires a signed build on this platform.';
+    case 'init-error':
+      return 'The updater failed to initialize. See last error above.';
+  }
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return 'Never';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    // Render local date+time in a compact form.
+    const date = d.toLocaleDateString();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
+  } catch {
+    return 'Unknown';
+  }
+}
+
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{
@@ -252,6 +642,117 @@ function SettingRow({ label, value }: { label: string; value: string }) {
     }}>
       <span style={{ color: 'var(--text-muted)' }}>{label}</span>
       <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{value}</span>
+    </div>
+  );
+}
+
+function HotkeyRow({
+  binding,
+  recording,
+  onStartRecording,
+  onClear,
+}: {
+  binding: HotkeyBinding;
+  recording: boolean;
+  onStartRecording: () => void;
+  onClear: () => void;
+}) {
+  const label = ACTION_LABELS[binding.action];
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 0',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 0 }}>
+        {label}
+      </span>
+      <button
+        onClick={onStartRecording}
+        style={{
+          minWidth: 110,
+          padding: '4px 8px',
+          fontSize: 11,
+          border: `1px solid ${recording ? 'var(--accent)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-sm)',
+          background: recording ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+          color: recording ? 'var(--accent-light)' : 'var(--text-secondary)',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+        }}
+      >
+        {recording ? 'Press keys…' : binding.chord ?? '(unbound)'}
+      </button>
+      {binding.chord && !recording && (
+        <button
+          onClick={onClear}
+          title="Clear binding"
+          style={{
+            padding: '4px 6px',
+            fontSize: 11,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '5px 0',
+      fontSize: 12,
+      opacity: disabled ? 0.5 : 1,
+    }}>
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <button
+        onClick={() => !disabled && onChange(!value)}
+        disabled={disabled}
+        style={{
+          width: 32,
+          height: 18,
+          borderRadius: 9,
+          border: 'none',
+          padding: 1.5,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          background: value ? 'var(--accent)' : 'var(--gauge-grey)',
+          transition: 'background var(--transition-base)',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{
+          width: 15,
+          height: 15,
+          borderRadius: '50%',
+          background: '#fff',
+          transition: 'transform var(--transition-base)',
+          transform: `translateX(${value ? 14 : 0}px)`,
+        }} />
+      </button>
     </div>
   );
 }
