@@ -8,6 +8,10 @@
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D6.svg)
 ![Electron](https://img.shields.io/badge/Electron-42-47848F.svg)
 
+<p align="center">
+  <img src="./docs/assets/CCS.gif" alt="Claude Code Studio — embedded terminal with sliding sidebar panels" width="800">
+</p>
+
 ---
 
 ## Overview
