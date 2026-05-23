@@ -13,7 +13,7 @@ function subscribe<T extends unknown[]>(
 /**
  * Wrap a paneId-keyed subscription so the renderer only sees events for the
  * pane it asked about. The dispose function is returned so the renderer can
- * unsubscribe — see SECURITY_REVIEW.md H4 for why this matters.
+ * unsubscribe — see docs/security-reviews/SECURITY_REVIEW.md H4 for why this matters.
  */
 function paneSubscribe<TArgs extends unknown[]>(
   channel: string,

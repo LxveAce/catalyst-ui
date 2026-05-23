@@ -106,7 +106,7 @@ Phase 4 ships solid bones — `contextIsolation: true`, `nodeIntegration: false`
 - `src/main/pty-manager.ts:102-109` `kill()` is fire-and-forget with no SIGKILL escalation; can hang shutdown.
 - `forge.config.ts:41-47` sets 4 fuses but omits `OnlyLoadAppFromAsar: true` and `EnableEmbeddedAsarIntegrityValidation: true` — both cheap tamper-resistance for packaged builds.
 - `package.json:38-55` does not declare `engines.node` or `os`; postinstall `scripts/patch-node-pty.js` assumes Windows and VS Build Tools without enforcement.
-- `HANDOFF.md` per LMM journal is dated today but content is stale — fix or delete to prevent it from misleading future contributors.
+- `../HANDOFF.md` per LMM journal is dated today but content is stale — fix or delete to prevent it from misleading future contributors.
 
 ## Out of scope but worth noting
 
