@@ -138,7 +138,11 @@ export function TerminalPanel({
     let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
     const handleResize = () => {
       if (resizeTimeout) clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(fitIfChanged, 50);
+      // Short debounce (~1 frame) so the grid reflows smoothly *with* the
+      // panel-open width animation instead of clipping then snapping at the
+      // end. Safe now that fitIfChanged() is a no-op once converged and the
+      // min-width:0 fix removed the resize ratchet.
+      resizeTimeout = setTimeout(fitIfChanged, 16);
     };
 
     const resizeObserver = new ResizeObserver(handleResize);

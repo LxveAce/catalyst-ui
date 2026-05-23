@@ -114,6 +114,15 @@ html, body, #root {
   to { opacity: 1; transform: translateX(0); }
 }
 
+/* Side-panel enter: open the layout width FIRST (terminal smoothly resizes
+   into the new space), THEN fade the panel content in. The opacity is held at
+   0 until ~55% so the fade only begins once the width is essentially done. */
+@keyframes panelEnter {
+  0%   { width: 0;     opacity: 0; }
+  55%  { width: 320px; opacity: 0; }
+  100% { width: 320px; opacity: 1; }
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }

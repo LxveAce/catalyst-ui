@@ -342,19 +342,29 @@ export function App() {
           </div>
 
           {showRightPanel && (
+            // Outer wrapper animates its WIDTH (0→320) and clips; this is what
+            // makes the terminal smoothly resize into the opening space. The
+            // inner panel stays a fixed 320 so its content doesn't reflow while
+            // the width grows — it's just revealed, then faded in.
             <div style={{
-              width: 320,
-              minWidth: 320,
-              borderLeft: '1px solid var(--border)',
-              background: 'var(--bg-secondary)',
-              padding: 16,
-              overflowY: 'auto',
-              animation: 'slideIn 0.2s ease',
+              flexShrink: 0,
+              overflow: 'hidden',
+              animation: 'panelEnter 320ms ease both',
             }}>
-              <RightPanel
-                panel={activePanel}
-                onSendCommand={handleSendCommand}
-              />
+              <div style={{
+                width: 320,
+                height: '100%',
+                boxSizing: 'border-box',
+                borderLeft: '1px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                padding: 16,
+                overflowY: 'auto',
+              }}>
+                <RightPanel
+                  panel={activePanel}
+                  onSendCommand={handleSendCommand}
+                />
+              </div>
             </div>
           )}
         </div>
