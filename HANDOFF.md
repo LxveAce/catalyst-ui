@@ -119,14 +119,27 @@ its own self-red-team review at the repo root (`SECURITY_REVIEW_*.md`).
 
 ## Shipping Status
 
-Tagged ready to ship as **v1.0** on the `phase-7-integrated` branch.
+**v1.0.0 released** on 2026-05-23 (UTC). Available at:
+https://github.com/LxveAce/claude-code-studio/releases/tag/v1.0.0
+
+Three published assets:
+- `Claude.Code.Studio-1.0.0.Setup.exe` (174 MB) — Squirrel installer
+- `claude_code_studio-1.0.0-full.nupkg` (174 MB) — auto-update payload
+- `RELEASES` — Squirrel update manifest
+
 See `SHIPPING_CERTIFICATION.md` for the certifying red-team output
-(SHIP verdict, no Blockers / Criticals / Highs found).
+(SHIP verdict on the integrated code) and `SECURITY_REVIEW_PACKAGING.md`
+for the post-cert packaging fixes that produced this v1.0 build.
 
 ## What's Next (post-v1.0 backlog)
 
-Phase 7 closed the original plan. Items below are scoped as deferred
-Mediums in the various `SECURITY_REVIEW_*.md` files, not v1.0 blockers.
+Phase 7 closed the original plan. **See [`BACKLOG.md`](./BACKLOG.md)
+for spitballed ideas and known bugs that don't yet have a plan** —
+backend / database planning, macOS + Linux ports, and any reported
+bugs that haven't been triaged into a real fix go there.
+
+Smaller items scoped from prior `SECURITY_REVIEW_*.md` reviews (each
+is a deferred Medium, not a v1.0 blocker):
 
 1. **Tray icon HiDPI variants** — current tray icon is a single 16x16
    PNG; supply @2x for crisp Retina.
@@ -140,15 +153,6 @@ Mediums in the various `SECURITY_REVIEW_*.md` files, not v1.0 blockers.
    then re-enable the channel picker in SettingsPanel.
 4. **Multi-pane resource-monitor UI** — backend aggregates across all
    panes; ResourcePanel could optionally show a per-pane breakdown.
-5. **macOS port** — Squirrel publisher is Windows-only today; macOS
-   needs MakerDMG + code-signing + notarization, and Linux is
-   unsupported by Squirrel-style auto-update.
-6. **End-to-end installer verification** — `npm run package` exits 0
-   and Vite production bundles all build, but the Forge packaging step
-   was not verified on a regular Windows shell from this session
-   (verified via SHIPPING_CERTIFICATION.md against `.vite/build/`
-   artifacts). Run `npm run make` on a normal terminal to confirm the
-   NSIS installer materializes.
 
 ### Already-closed Mediums (no longer open work)
 - ✅ Hotkey cold-start window — hardcoded Ctrl/Cmd+Shift+P fallback
@@ -158,6 +162,23 @@ Mediums in the various `SECURITY_REVIEW_*.md` files, not v1.0 blockers.
 - ✅ electron-store ESM landmine — dep removed entirely.
 - ✅ Unattended-toast warning — SettingsPanel tray copy now warns that
   background services keep running while hidden.
+- ✅ Installer end-to-end verification — `npm run make` produces a
+  working Setup.exe on Node 22; v1.0.0 is the proof.
+- ✅ Renderer not in asar — `vite.renderer.config.ts` now sets explicit
+  `outDir` + `base: './'`.
+- ✅ node_modules not in asar — custom `packagerConfig.ignore` shipped.
+- ✅ node-pty DLLs stuck in asar — `asar.unpack` pattern shipped.
+- ✅ No DevTools in prod — F12 / Ctrl+Shift+I keybind in all builds.
+- ✅ Missing AppUserModelID — set in `app.whenReady()` on win32.
+
+## Known issues (open)
+
+See `BACKLOG.md` § "Known Bugs" for details. Active items:
+
+- **Terminal resize loop when sidebar narrows the window** —
+  with a side panel open and the window shrunk small, the terminal
+  flashes/loops on auto-fit. Cosmetic, doesn't crash. (Reported
+  2026-05-22 after v1.0 install.)
 
 ## Project Structure
 
