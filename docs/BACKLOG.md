@@ -65,7 +65,7 @@ synced_settings (user_id uuid pk, theme text, lmm_enabled bool, lmm_variant text
 - `src/main/auth-service.ts` — HTTP contract
 - `src/shared/types.ts` — `AuthBackend`, `AuthCredentials`, `SyncedSettings`
 - `src/renderer/components/auth/AuthPanel.tsx` — backend switcher UI
-- `SECURITY_REVIEW_PHASE5.md` — auth-side threat model
+- `docs/security-reviews/SECURITY_REVIEW_PHASE5.md` — auth-side threat model
 
 ---
 

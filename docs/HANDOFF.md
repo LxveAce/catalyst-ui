@@ -7,7 +7,8 @@ in resizable split panes, with sidebar panels for compact-controller,
 commands, GitHub, LMM journaling, vault sync, account, cost tracking,
 and settings. Auto-updater, system tray, command palette, snippets,
 notifications, and rebindable hotkeys are wired in. Each phase carries
-its own self-red-team review at the repo root (`SECURITY_REVIEW_*.md`).
+its own self-red-team review under `docs/security-reviews/`
+(`SECURITY_REVIEW_*.md`).
 
 ## What's Working
 
@@ -128,7 +129,7 @@ Three published assets:
 - `RELEASES` — Squirrel update manifest
 
 See `SHIPPING_CERTIFICATION.md` for the certifying red-team output
-(SHIP verdict on the integrated code) and `SECURITY_REVIEW_PACKAGING.md`
+(SHIP verdict on the integrated code) and `docs/security-reviews/SECURITY_REVIEW_PACKAGING.md`
 for the post-cert packaging fixes that produced this v1.0 build.
 
 ## What's Next (post-v1.0 backlog)
@@ -227,17 +228,22 @@ claude-code-studio/
 │   │       └── settings/           # SettingsPanel (theme, notif, tray, hotkeys, updater)
 │   ├── shared/{ipc-channels,types}.ts
 │   └── declarations.d.ts
-├── journal/                        # Per-source-file LMM analyses (Phase 4)
-├── SECURITY_REVIEW.md              # Phase 4 review
-├── SECURITY_REVIEW_PHASE4_5.md     # Phase 4.5 review
-├── SECURITY_REVIEW_PHASE5.md       # Phase 5 review
-├── SECURITY_REVIEW_PHASE6.md       # Phase 6 review
-├── SECURITY_REVIEW_PHASE7A.md      # Phase 7a review
-├── SECURITY_REVIEW_PHASE7B.md      # Phase 7b review
-├── SECURITY_REVIEW_PHASE7C.md      # Phase 7c review
-├── SECURITY_REVIEW_PHASE7D.md      # Phase 7d review
-├── SECURITY_REVIEW_PHASE7E.md      # Phase 7e review
-├── SECURITY_REVIEW_PHASE7_INTEGRATED.md  # cross-feature review
+├── journal/                        # Per-source-file LMM analyses (one .lmm.md per file)
+├── docs/                           # Project documentation
+│   ├── HANDOFF.md                  # this file
+│   ├── BACKLOG.md                  # post-v1.0 ideas + known bugs
+│   ├── SHIPPING_CERTIFICATION.md   # v1.0 ship certification
+│   └── security-reviews/           # per-phase self-red-team reviews
+│       ├── SECURITY_REVIEW.md      # Phase 4 review
+│       ├── SECURITY_REVIEW_PHASE4_5.md
+│       ├── SECURITY_REVIEW_PHASE5.md  …through…  SECURITY_REVIEW_PHASE7E.md
+│       ├── SECURITY_REVIEW_PACKAGING.md
+│       └── SECURITY_REVIEW_PHASE7_INTEGRATED.md  # cross-feature review
+├── .github/                        # PR + issue templates
+├── README.md
+├── LICENSE                         # MIT
+├── CONTRIBUTING.md
+├── SECURITY.md
 ├── forge.config.ts
 ├── vite.{main,renderer,preload}.config.ts
 ├── tsconfig.json
@@ -309,7 +315,7 @@ https://github.com/LxveAce/claude-code-studio
 - LMM applied as a thinking discipline on non-trivial work (see
   `journal/` for per-file analyses).
 - Red-team + remediate after each phase before commit. Every phase has
-  a self-review at `SECURITY_REVIEW_*.md` listing the Criticals + Highs
+  a self-review at `docs/security-reviews/SECURITY_REVIEW_*.md` listing the Criticals + Highs
   fixed in the same commit set, with Mediums explicitly deferred as
   documented tech debt.
 - Worktree-isolated agents per phase (see Phase 7b–e). Integration

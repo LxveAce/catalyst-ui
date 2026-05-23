@@ -63,7 +63,7 @@ SHIP — no Blocker / Critical / High found.
   returns zero matches. `package.json:27-38` does not list it as a
   dependency. Built bundle `.vite/build/index.js` contains zero
   `electron-store` strings (`grep -c "electron-store"` = 0). Historical
-  references survive only in `SECURITY_REVIEW.md` / `journal/` /
+  references survive only in `docs/security-reviews/SECURITY_REVIEW.md` / `journal/` /
   `HANDOFF.md` "What's Next" item 6 — all documentation, not load-bearing.
 
 - ✓ **vite.main.config.ts externals**: `external: ['node-pty',
