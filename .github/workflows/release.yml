@@ -72,13 +72,26 @@ jobs:
         # GH_TOKEN must have `repo` scope. The auto-provided GITHUB_TOKEN
         # has `contents: write` permission which is sufficient for creating
         # releases on the same repo.
-        run: ${{ matrix.publish_cmd }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          ${{ matrix.publish_cmd }} 2>&1 | tee dist/publish.log
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: "true"
           # Don't set DEBUG=electron-builder here — verbose logs in
           # publish runs leak the release upload URL with the token in
           # query params. Stick to standard logging.
+
+      - name: Upload publish log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-log-${{ matrix.label }}
+          path: dist/publish.log
+          retention-days: 30
+          if-no-files-found: warn
 
 permissions:
   # Required for actions/checkout to fetch + push tags, and for the

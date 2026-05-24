@@ -58,21 +58,29 @@ win:
 # workaround is right-click → Open → confirm in the dialog. Documented
 # in the per-OS README install section.
 mac:
+  # GitHub's `macos-latest` runner is Apple Silicon (arm64). Cross-
+  # compiling to x64 on an arm64 host requires Rosetta + extra setup
+  # and electron-builder's `arch: x64` on an M-series host can fail
+  # depending on the runner image version. Build arm64 only for v2.0
+  # — Apple Silicon native is the larger user base, and Intel Macs
+  # can run the arm64 build via Rosetta (slower but functional).
+  # Native x64 builds (and the future macos-13 Intel matrix entry)
+  # are tracked for v2.1.
   target:
     - target: dmg
-      arch:
-        - x64
-        - arm64
+      arch: arm64
     - target: zip
-      arch:
-        - x64
-        - arm64
+      arch: arm64
   category: public.app-category.developer-tools
   artifactName: "Claude.Code.Studio-${version}-${arch}.${ext}"
   # hardenedRuntime + entitlements only matter once we sign — for unsigned
   # dev builds, omitting them keeps the app launchable via the right-click
   # → Open workaround. Re-enable when we add notarization in v2.1.
   hardenedRuntime: false
+  # Skip signing entirely — without CSC_LINK set, electron-builder
+  # tries identityAutoDiscovery and may fail on CI runners that have
+  # stray developer certs in the keychain.
+  identity: null
 
 dmg:
   # Standard Mac drag-to-Applications layout.

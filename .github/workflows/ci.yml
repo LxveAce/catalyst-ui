@@ -52,6 +52,7 @@ jobs:
               dist/*.exe.blockmap
               dist/latest.yml
               dist/builder-debug.yml
+              dist/build.log
           - os: macos-latest
             label: macos
             dist_cmd: npm run dist:mac
@@ -61,6 +62,7 @@ jobs:
               dist/*.zip
               dist/latest-mac.yml
               dist/builder-debug.yml
+              dist/build.log
           - os: ubuntu-latest
             label: linux
             dist_cmd: npm run dist:linux
@@ -70,6 +72,7 @@ jobs:
               dist/*.rpm
               dist/latest-linux.yml
               dist/builder-debug.yml
+              dist/build.log
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +112,15 @@ jobs:
         run: npx --no-install @electron/rebuild -m . --only node-pty
 
       - name: Build installer
-        run: ${{ matrix.dist_cmd }}
+        # Tee the full build to dist/build.log so it ends up in the
+        # uploaded artifact even when the step fails. Without this,
+        # post-mortem requires GitHub Actions log API access (auth-
+        # walled), which makes external debugging impossible.
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          ${{ matrix.dist_cmd }} 2>&1 | tee dist/build.log
         env:
           CI: "true"
           DEBUG: "electron-builder"
