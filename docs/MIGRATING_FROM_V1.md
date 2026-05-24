@@ -97,6 +97,22 @@ The NSIS bootstrap can fail at four points:
 All four failures write a full log to `%TEMP%\ccs-install.log` — include
 that in any bug report.
 
+### Re-showing the first-launch onboarding modal
+
+If you clicked "Don't show again" on the first-launch onboarding and
+later need to recover (e.g., reinstall the CLI or sign in again), the
+modal won't reshow automatically — that's the persisted preference.
+
+Manual reset:
+
+```powershell
+Remove-Item "$env:APPDATA\Claude Code Studio\cli-onboarding.json"
+```
+
+Then restart Studio. The modal will reshow if `claude doctor` still
+reports missing or unauthenticated. (A SettingsPanel "Re-show CLI
+onboarding" entry is planned for a v1.1.x point release.)
+
 ## Rolling back to v1.0
 
 Not recommended (v1.0 has known bugs the v1.1 path fixes), but possible:

@@ -497,5 +497,43 @@ re-scoped to "tracked in BACKLOG, not v1.1.0-rc1 blocker".
 **Remaining for v1.1.0-rc1:** Phase 9 (integrated red-team + clean-VM
 test, tag rc1, remove `update-electron-app` from deps).
 
+**Commit:** `b84ca4f` Phase 7 (updater migration).
+
+### 2026-05-23 — Phase 9 (integrated red-team + cleanup) — COMPLETE
+
+**Cleanup this commit:**
+- `npm uninstall update-electron-app` — Phase 7 L1 closed.
+- `MIGRATING_FROM_V1.md` — added "Re-showing the first-launch
+  onboarding modal" section documenting the manual reset escape hatch.
+
+**Integrated red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER.md`
+synthesizes all 7 per-phase reviews. Findings:
+- 0 Crit
+- 2 High (IH1 = end-to-end untested pending Dev Mode; IH2 = user can
+  prematurely dismiss recovery modal — both accepted with documented
+  mitigations)
+- 4 Med (delegated trust to Anthropic + nodejs.org; latest.yml trust
+  boundary; Windows-only paths; dist/ housekeeping — all accepted)
+- 3 Low (update-electron-app cleanup CLOSED; code-signing tracked as
+  v1.2; no automated tests is existing project state)
+
+**Required maintainer validation before tagging v1.1.0-rc1:**
+1. **V1** — Enable Windows Developer Mode and run `npm run dist`.
+   Confirm `dist\Claude.Code.Studio-1.0.0-Setup.exe` produces.
+2. **V2** — Install Setup.exe on a clean Windows machine. Confirm
+   bootstrap → app launch → onboarding modal → sign-in flow works.
+3. **V3** — After tagging v1.1.0 to GitHub, bump to v1.1.1 + republish.
+   Confirm auto-update lands on the v1.1.0 install.
+4. **V4** — Simulate Phase 4 soft-fail (delete bundled runtime dir).
+   Confirm recovery path messages are correct.
+
+These cannot be self-validated; they require maintainer action.
+
+**Phases shipped:** 1, 2, 3, 4, 6, 7, 8, 9. Phase 5 (branding)
+explicitly deferred — NSIS defaults acceptable for rc1.
+
+**Branch state:** `feature/bootstrap-installer` at this commit, ready
+for PR review or direct merge to master once V1+V2 validation passes.
+
 **Commit:** to follow this entry.
 
