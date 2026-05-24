@@ -605,5 +605,94 @@ checked; takes ~5-10 min for full installer build.
 (integrated review). Task list in this session was 9 tasks (39-47); all
 completed or explicitly deferred.
 
+**Commit:** `033018a` final v1.1 journal state.
+
+### 2026-05-24 — v2.0 multi-OS pivot
+
+User decision: skip a v1.1 release, ship v2.0 with cross-platform
+support (Windows + macOS + Linux). Created new branch
+`feature/macos-support` off `feature/bootstrap-installer` for the
+multi-OS work. Per user request, source changes that affect platforms
+must keep all 3 distros in sync going forward — codified in
+`CONTRIBUTING.md` "Platform parity" and the `runtime-paths.ts` pattern.
+
+### 2026-05-24 — v2.0 macOS + Linux source — COMPLETE
+
+**Architecture:**
+- `src/main/runtime-paths.ts` (new) — single source of truth for
+  bundled-runtime location per platform:
+  - Windows packaged: `<install>/resources/runtime/` (NSIS layout).
+  - macOS + Linux packaged: `<userData>/runtime/` (in-app bootstrap,
+    app dir is RO).
+  - Windows also checks `<userData>` as fallback for soft-fail
+    recovery via the onboarding modal.
+- `PtyManager.findClaudePath` + `CliService.findClaudePath` both
+  delegate to `runtime-paths.findBundledRuntime()`.
+
+**Bootstrap mechanism:**
+- Windows: NSIS installer at install time (unchanged from v1.1).
+- macOS + Linux: in-app on first launch via
+  `CliService.bootstrapNodeRuntime()`. Downloads Node 22.22.3 from
+  nodejs.org with SHA256 verification, extracts via OS `tar`
+  (tar.gz for macOS, tar.xz for Linux), flattens the versioned dir
+  into `<userData>/runtime/`. Then the existing npm install path
+  takes over to install `@anthropic-ai/claude-code`.
+- All progress (download %, SHA verify, extract, npm install)
+  streams to the renderer modal via the existing
+  `cli:install-progress` IPC channel.
+
+**Build config:**
+- `electron-builder.yml`: added mac (dmg + zip, x64 + arm64) and
+  linux (AppImage + deb + rpm).
+- `package.json`: new scripts dist:mac, dist:linux, dist:all,
+  dist:publish:mac, dist:publish:linux.
+- `scripts/patch-node-pty.js`: skips on non-Windows (winpty patches
+  only apply to Windows backend; macOS/Linux use forkpty directly).
+- `.github/workflows/ci.yml`: build-installer job converted to matrix
+  across windows-latest, macos-latest, ubuntu-latest. Per-OS artifact
+  upload.
+
+**Docs:**
+- `README.md`: per-OS install sections (Windows / macOS / Linux),
+  per-platform SmartScreen / Gatekeeper warnings, build pipeline
+  updated.
+- `docs/RELEASE_NOTES_v1.1.0.md` → `RELEASE_NOTES_v2.0.0.md`
+  (rewritten for multi-OS, per-platform verification checklists).
+- `CONTRIBUTING.md`: new "Platform parity (v2.0+)" convention.
+- `docs/security-reviews/SECURITY_REVIEW_V2_MULTI_OS.md`: integrated
+  cross-feature red-team. 0 Crit / 3 High / 5 Med / 3 Low.
+
+**Version:** package.json 1.0.0 → 2.0.0-dev.1. StatusBar +
+SettingsPanel labels match.
+
+**Commits on `feature/macos-support`:**
+- `6be9f6b` v2.0 macOS scaffolding: cross-platform runtime paths + electron-builder mac/linux targets
+- `78b1181` feat(cli-service): in-app Node bootstrap for macOS + Linux
+- `6747b0b` v2.0 release prep: per-OS README + CI matrix build + version bump
+- `1eec480` docs(v2.0): release notes + multi-OS integrated red-team
+
+**Verified:** `vite:build` + `tsc --noEmit` clean. CI matrix in
+progress (Windows + macOS + Linux build jobs).
+
+**Untested on real macOS/Linux machines yet** — code-level reviewed
+only. Functional verification per per-platform validation checklist in
+RELEASE_NOTES_v2.0.0.md.
+
+**Remaining for v2.0.0 release:**
+1. Wait for CI matrix to confirm all 3 platforms build.
+2. Merge `feature/macos-support` → master (combines v1.1 Windows work
+   + v2.0 mac/linux work).
+3. Bump `package.json` 2.0.0-dev.1 → 2.0.0.
+4. Tag v2.0.0.
+5. `npm run dist:publish` from a Windows host; `dist:publish:mac` from
+   a Mac; `dist:publish:linux` from a Linux host (or trigger CI publish
+   with `GH_TOKEN` env wired up).
+6. Promote draft release to published.
+
+**For picking back up on v2.0:** read this Progress Log bottom-up.
+Latest branch: `feature/macos-support` at `1eec480` on GitHub. Tasks
+48-51 in the session task list; 48-50 complete, 51 in progress
+(waiting on CI + maintainer validation).
+
 **Commit:** to follow if any further edits.
 
