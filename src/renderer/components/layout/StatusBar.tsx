@@ -119,7 +119,7 @@ export function StatusBar({ pid }: StatusBarProps) {
           </span>
         )}
       </div>
-      <span>Claude Code Studio v1.1.0-dev.1</span>
+      <span>Claude Code Studio v2.0.0-dev.1</span>
     </div>
   );
 }
