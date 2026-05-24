@@ -11,6 +11,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Needed by the "Push failure log to ci-logs branch" step in
+# build-installer — that step pushes diagnostic output to a separate
+# branch so we can read it without auth. Default token for push events
+# already has contents:write, but declaring explicitly so pull_request
+# triggers from same-repo branches also work.
+permissions:
+  contents: write
+
 jobs:
   typecheck:
     name: Type-check + vite build
