@@ -124,9 +124,46 @@ calls `cleanup()` which is no-op after first call. No bug.
 - Online-only bootstrap (offline variant deferred per Phase 1 H1).
 - Trust delegated to Anthropic npm + nodejs.org HTTPS.
 
+## Bugs found in second-pass red-team (user request "make sure auto-updater works")
+
+### B5 — Auto-updater dead on macOS and Linux (CRITICAL)
+
+**Where:** `UpdaterService.start()` GATE 2.
+**Bug:** Phase 7 (v1.1) added `if (process.platform !== 'win32') return inactiveReason: 'unsupported-platform'`
+when v1.1 was Windows-only. The v2.0 multi-OS pivot enabled mac +
+Linux installers but I left this gate untouched. Effect: on any
+macOS or Linux install, the updater would init, check the
+unsupported-platform gate, refuse to wire, and silently never check
+for updates. Users would NEVER see new versions even after we
+publish a v2.0.1 release.
+**Why I missed it the first pass:** Was looking for cross-platform
+correctness in code I'd written this session. This was code I'd
+written in Phase 7 (v1.1) that became wrong when v2.0 widened the
+target. Classic "the test changed but the gate didn't" failure.
+**Fix:** Replaced the win32-only gate with
+`if (!['win32','darwin','linux'].includes(process.platform))`.
+Updated the JSDoc comment that still said "v1.1 is Windows-only".
+Now the updater wires on all three target platforms.
+**Verification:** On deb/rpm installs (which can't auto-update),
+electron-updater itself detects the install format and self-disables
+gracefully — the gate doesn't need to know about deb vs AppImage.
+
+### Related addition — tag-driven release workflow
+
+`.github/workflows/release.yml` (new): triggers on `v*.*.*` tag push.
+Matrix-builds windows-latest + macos-latest + ubuntu-latest, each
+runs `npm run dist:publish:<os>`, all three target the same release
+(matched by version → existing draft). Eliminates the previous
+constraint that the maintainer must have access to all 3 OSes to
+publish a release. After CI green, maintainer promotes the draft
+to published in the GitHub UI, and electron-updater (now wired on
+all 3 OSes) delivers updates.
+
 ## Summary
 
-4 real bugs found, all fixed in the same commit cycle as this
-review. 9 audit points came back clean. Branch is now in better
-shape than when I declared it "feature-complete" 30 minutes ago —
-which is exactly what red-teams are for.
+5 real bugs found total: 4 in the first pass, 1 critical in the
+second pass after the user asked "make sure the auto-updater
+works". All fixed. The second-pass bug is the most important —
+without it, EVERY macOS + Linux user would be stuck on whatever
+version they installed, forever. Red-team discipline literally
+saved the auto-update story for two-thirds of the v2.0 user base.
