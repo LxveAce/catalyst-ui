@@ -262,5 +262,63 @@ CLI, with progress UI and rollback. The Dev Mode env caveat means I can
 write the NSIS script + smoke-test with `--dir` but can't validate the
 real Setup.exe end-to-end until the user enables Dev Mode.
 
+**Commit:** `7722928` Phase 3 (bundled-runtime path): PtyManager prefers bundled claude.cmd.
+
+### 2026-05-23 — Phase 4 (NSIS bootstrap script) — COMPLETE (untested end-to-end)
+
+**What landed:**
+- `build/installer.nsh` — NSIS macros (`customInstall`, `customUnInstall`,
+  `CCSLog` helper). All operations via PowerShell shell-outs (avoids
+  third-party NSIS plugins).
+- `electron-builder.yml` — `nsis.include: build/installer.nsh` wired.
+- Node 22.22.3 SHA256 captured from nodejs.org SHASUMS256.txt:
+  `6c8d54f635feff4df76c2ca80f45332eb2ff57d25226edce36592e51a177ee33`.
+
+**Behavior:**
+1. Download Node zip from nodejs.org via `Invoke-WebRequest` (TLS 1.2
+   pinned).
+2. Verify SHA256 via `Get-FileHash` — HARD ABORT on mismatch.
+3. Extract via `Expand-Archive` to `$INSTDIR\resources\runtime\`.
+4. Flatten the versioned subdirectory so PtyManager finds `claude.cmd`
+   directly.
+5. Install `@anthropic-ai/claude-code` (latest, unpinned per Phase 1 H3)
+   via bundled npm with `--registry=npmjs.org` (per Phase 1 M5),
+   `--no-save --no-package-lock --no-audit --no-fund --silent` for clean
+   install.
+6. SOFT FAIL on npm error — Studio installs anyway; Phase 6 onboarding
+   recovers via "Install CLI now" button.
+7. Uninstall removes `$INSTDIR\resources\runtime\` entirely.
+
+**All operations logged to `$TEMP\ccs-install.log`** for postmortem
+debugging.
+
+**Scope reduction (documented in red-team H1):** Phase 4 ships ONLINE
+variant only. Offline variant deferred to a Phase 4b based on install-
+failure feedback (currently zero, with a userbase of one). Reasoning:
+ONLINE is sufficient to validate the architecture; OFFLINE can be added
+in a v1.1.x point release without a v1.2 cycle.
+
+**Red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER_PHASE4_NSIS.md`
+— 0 Crit / 2 High (offline deferred + SmartScreen amplified, both
+documented) / 5 Med (all accepted with rationale) / 3 Low. Critical
+sequencing finding: **Phase 9 must not tag v1.1.0-rc1 until Phase 6 ships
+the "install CLI now" recovery UI** (M5).
+
+**Cannot test end-to-end this session:** Full NSIS build needs Dev Mode
+enabled on the build host (Phase 2 H1). User must enable Dev Mode and
+run `npm run dist` to validate the installer actually works on a clean
+machine. The NSIS script itself is structurally sound based on careful
+review of:
+- NSIS macro syntax (matches electron-builder's documented hooks)
+- PowerShell command construction (no injection vectors — all inputs are
+  OS-controlled vars not user input)
+- SHA256 verification flow (download → hash → compare → abort or proceed)
+- Failure handling (hard-abort vs soft-fail per documented criticality)
+
+**Next phase:** Phase 5 (branded splash + loader UI). Per Phase 1 L3, this
+phase parallelizes with Phase 4 — no dependency between them. We could
+also skip to Phase 6 (auth onboarding) since Phase 4's soft-fail design
+made it a prerequisite for v1.1 release (per M5 finding above).
+
 **Commit:** to follow this entry.
 

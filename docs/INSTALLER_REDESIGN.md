@@ -37,7 +37,7 @@ escape hatch, removed only in Phase 8 after the builder pipeline is proven.
 | 1 | **Design lock-in** | This doc + LMM journal + plan red-team. *Current*. |
 | 2 | **forge → builder migration** | Builder produces an NSIS Setup.exe with the CURRENT app (no bootstrap yet). Toolchain swap proven. |
 | 3 | **Bundled-runtime path resolution** | `PtyManager` resolves `runtime\claude.cmd` first, falls back to PATH in dev. |
-| 4 | **NSIS bootstrap script** | Setup.exe downloads + extracts Node 22.12.0 (SHA256-pinned) then installs `@anthropic-ai/claude-code@2.1.150` to `runtime\`. Progress UI + rollback. |
+| 4 | **NSIS bootstrap script** (online) | Setup.exe downloads + verifies (SHA256) Node 22.22.3, extracts to `resources\runtime\`, installs `@anthropic-ai/claude-code` (latest seed) via bundled npm. Progress UI + rollback. **Offline variant deferred to Phase 4b** based on install-failure feedback. |
 | 5 | **Branded splash + loader** | NSIS branding assets. Placeholders if no design supplied — flagged for user sign-off before release. |
 | 6 | **First-launch CLI auth onboarding** | Modal detects missing credentials, offers one-click `claude login`. Persists onboarding-complete flag. |
 | 7 | **Auto-updater migration** | `update-electron-app` → `electron-updater`. Verifies v1.1 → v1.1.1 upgrade works on NSIS install. |
