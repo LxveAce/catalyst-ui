@@ -440,5 +440,62 @@ to re-show onboarding (M3).
 **Remaining for v1.1.0-rc1:** Phase 5 (branding placeholders), Phase 7
 (updater migration), Phase 9 (integrated red-team + clean-VM test).
 
+**Commit:** `8d26329` Phase 6 (CLI auth onboarding).
+
+### 2026-05-23 — Phase 7 (auto-updater migration) — COMPLETE
+
+**What changed:**
+- `package.json` — added `electron-updater@6.8.3` to dependencies
+  (production dep, not dev, because the runtime requires it). `update-
+  electron-app` left in deps for now; removed in Phase 9 cleanup.
+- `src/main/updater-service.ts` — rewritten to use
+  `electron-updater`'s `autoUpdater` instead of Electron's built-in
+  `autoUpdater` + `update-electron-app` wrapper. Public API of
+  UpdaterService is byte-identical (start, checkNow, getState,
+  getSettings, setSettings) so no renderer/preload/IPC changes needed.
+
+**Gates preserved verbatim (per Phase 4 L1 → Phase 7 acceptance):**
+- dev-mode (`!opts.isDevMode`)
+- unsupported-platform (`process.platform !== 'win32'` — tightened from
+  `win32 || darwin` because v1.1 is Windows-only; revisit when macOS
+  port lands)
+- user-disable (`!this.settings.enabled`)
+- 5s rate-limit on checkNow (`CHECK_NOW_MIN_INTERVAL_MS = 5000`)
+
+**Behavior changes from old service:**
+- Reads update manifest from electron-builder's `latest.yml` format (vs
+  update.electronjs.org's proxy) — auto-configured from
+  `electron-builder.yml`'s `publish.github` block.
+- Channel switching: `beta` flips `autoUpdater.allowPrerelease = true`;
+  takes effect on restart (same restart-required contract as before).
+- New `download-progress` event handler exists but no-op — emitting to
+  renderer is BACKLOG polish.
+
+**Squirrel → NSIS migration cliff (Phase 1 H1):**
+- v1.0 Squirrel users WILL NOT receive v1.1+ updates via this service.
+- They must follow `docs/MIGRATING_FROM_V1.md` to manually uninstall +
+  reinstall once. After that, v1.1 → v1.1.x → v1.2 all flow through
+  electron-updater seamlessly.
+
+**Verified:** `vite:build` clean across main+preload+renderer.
+
+**End-to-end update test pending:** can't validate v1.1 → v1.1.1 upgrade
+flow until v1.1.0 exists as a real GitHub release. Phase 9 includes a
+"publish rc1, publish rc2, verify auto-update lands" check.
+
+**Red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER_PHASE7_UPDATER.md`
+— 0 Crit / 2 High (cliff documented + gates preserved) / 4 Med (channel
+restart contract, beta UX-only, latest.yml trust boundary, no progress
+UI — all accepted) / 3 Low. Plan adjustments: Phase 9 cleanup `npm
+uninstall update-electron-app`; BACKLOG add for download-progress UI.
+
+**Phase 5 decision:** Branding assets (installer icons, sidebar BMP,
+header BMP) DEFERRED. electron-builder's NSIS defaults are professional
+enough for rc1; real branding is a v1.1.x polish pass. Phase 5 task
+re-scoped to "tracked in BACKLOG, not v1.1.0-rc1 blocker".
+
+**Remaining for v1.1.0-rc1:** Phase 9 (integrated red-team + clean-VM
+test, tag rc1, remove `update-electron-app` from deps).
+
 **Commit:** to follow this entry.
 
