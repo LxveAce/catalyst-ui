@@ -222,5 +222,45 @@ verification of `dist/win-unpacked/Claude Code Studio.exe` launch pending.
 **Next phase:** Phase 3 (bundled-runtime path resolution in pty-manager.ts).
 Independent of full NSIS build, so the Dev Mode constraint doesn't block it.
 
+**Commit:** `99d7b77` Phase 2 (forge→builder hybrid): NSIS-capable installer pipeline.
+
+### 2026-05-23 — Phase 3 (bundled-runtime path resolution) — COMPLETE
+
+**What changed:**
+- `src/main/pty-manager.ts` — `findClaudePath()` now checks
+  `path.join(process.resourcesPath, 'runtime', 'claude.cmd')` and
+  `claude.exe` first in packaged builds (`app.isPackaged === true`), with
+  graceful fall-through to legacy `~/.local/bin/claude*` and bare `claude`
+  on PATH if the bundled CLI is missing.
+- Added `import { app } from 'electron'` — pty-manager is main-process, so
+  this import is safe.
+- `.gitignore` — added `dist/` (rolled in from Phase 2's missed edit).
+
+**Why fall-through instead of hard fail:** A user who manually deletes the
+bundled `runtime/` folder (or whose install corrupted mid-bootstrap) gets a
+degraded "use whatever's on PATH" experience instead of a hard "no CLI
+found" error. Phase 6 onboarding's `claude doctor` check surfaces the
+configuration problem to the user explicitly.
+
+**Why accept BOTH `claude.cmd` and `claude.exe`:** Phase 4 NSIS bootstrap
+will produce one of these but the choice isn't locked yet. npm's standard
+install of `@anthropic-ai/claude-code` on Windows creates `claude.cmd` (a
+shim that invokes `node.exe cli.js`). If Phase 4 instead uses pkg/nexe for
+a single-file launcher, it'd be `claude.exe`. Accepting both keeps the path
+resolution forward-compatible with Phase 4's implementation choice.
+
+**Verified:** `vite:build` clean (0.8s, no compile errors).
+
+**Red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER_PHASE3_PATH.md`
+— 0 Crit / 0 High / 0 Medium / 2 Low (both accepted: TOCTOU between
+existsSync and spawn is a real but trivial race; cmd/exe ambiguity is
+documented).
+
+**Next phase:** Phase 4 (NSIS bootstrap script). This is the biggest phase
+— actual installer logic to download Node, verify SHA256, install Claude
+CLI, with progress UI and rollback. The Dev Mode env caveat means I can
+write the NSIS script + smoke-test with `--dir` but can't validate the
+real Setup.exe end-to-end until the user enables Dev Mode.
+
 **Commit:** to follow this entry.
 
