@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "feature/**", "fix/**"]
+  pull_request:
+    branches: [master]
+
+# Cancel in-flight runs on the same branch when a newer commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Type-check + vite build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned to match engines.node: >=22.0.0 <24.0.0 (electron-packager
+          # incompatibility on Node 24 — see CONTRIBUTING.md).
+          node-version: "22.22.3"
+          cache: "npm"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Vite build (smoke test the standalone Vite runner)
+        run: npm run vite:build
+
+  build-installer:
+    name: Build NSIS Setup.exe (Windows)
+    runs-on: windows-latest
+    needs: typecheck
+    # Skip on PRs from forks — fork PRs don't have the secrets needed for
+    # publish, and we only want the installer build on trusted branches.
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.3"
+          cache: "npm"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Build NSIS installer
+        # GitHub Actions Windows runners have the symlink privilege by
+        # default, so electron-builder's winCodeSign cache extraction
+        # succeeds without us toggling Developer Mode (the local maintainer
+        # workflow needs that toggle — see CONTRIBUTING.md "Windows
+        # Developer Mode" section).
+        run: npm run dist
+        env:
+          # Don't actually publish from CI yet — `npm run dist` produces
+          # the installer locally; releases are still driven by the
+          # maintainer via `npm run dist:publish` from a workstation.
+          # If/when we want CI-driven publishes, switch this job to
+          # `npm run dist:publish` and uncomment GH_TOKEN:
+          # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: "true"
+
+      - name: Upload Setup.exe + latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-code-studio-windows-installer
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
+          # 30-day retention is enough for testing PRs. Released installers
+          # live on GitHub Releases instead.
+          retention-days: 30
+          if-no-files-found: error

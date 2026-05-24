@@ -53,6 +53,18 @@ Developer Mode → On.* No restart required.
 `npm run dist:dir` (unpacked output for smoke-testing) does NOT need
 this — only the full installer creation does.
 
+### CI installer builds (no Dev Mode needed)
+
+If you don't want to enable Windows Developer Mode locally just to test
+the NSIS installer, the GitHub Actions CI workflow at
+`.github/workflows/ci.yml` builds Setup.exe on every push to `master` or
+a `feature/*` branch. The artifact is downloadable for 30 days from the
+CI run under the name `claude-code-studio-windows-installer`.
+
+The CI build runs the same `npm run dist` we use locally — runners just
+have the symlink privilege by default, so the winCodeSign extraction
+issue doesn't occur there.
+
 ### Build pipelines
 
 This repo carries two build pipelines during the v1.1 transition:
