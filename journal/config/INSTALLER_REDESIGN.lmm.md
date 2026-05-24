@@ -440,5 +440,170 @@ to re-show onboarding (M3).
 **Remaining for v1.1.0-rc1:** Phase 5 (branding placeholders), Phase 7
 (updater migration), Phase 9 (integrated red-team + clean-VM test).
 
-**Commit:** to follow this entry.
+**Commit:** `8d26329` Phase 6 (CLI auth onboarding).
+
+### 2026-05-23 — Phase 7 (auto-updater migration) — COMPLETE
+
+**What changed:**
+- `package.json` — added `electron-updater@6.8.3` to dependencies
+  (production dep, not dev, because the runtime requires it). `update-
+  electron-app` left in deps for now; removed in Phase 9 cleanup.
+- `src/main/updater-service.ts` — rewritten to use
+  `electron-updater`'s `autoUpdater` instead of Electron's built-in
+  `autoUpdater` + `update-electron-app` wrapper. Public API of
+  UpdaterService is byte-identical (start, checkNow, getState,
+  getSettings, setSettings) so no renderer/preload/IPC changes needed.
+
+**Gates preserved verbatim (per Phase 4 L1 → Phase 7 acceptance):**
+- dev-mode (`!opts.isDevMode`)
+- unsupported-platform (`process.platform !== 'win32'` — tightened from
+  `win32 || darwin` because v1.1 is Windows-only; revisit when macOS
+  port lands)
+- user-disable (`!this.settings.enabled`)
+- 5s rate-limit on checkNow (`CHECK_NOW_MIN_INTERVAL_MS = 5000`)
+
+**Behavior changes from old service:**
+- Reads update manifest from electron-builder's `latest.yml` format (vs
+  update.electronjs.org's proxy) — auto-configured from
+  `electron-builder.yml`'s `publish.github` block.
+- Channel switching: `beta` flips `autoUpdater.allowPrerelease = true`;
+  takes effect on restart (same restart-required contract as before).
+- New `download-progress` event handler exists but no-op — emitting to
+  renderer is BACKLOG polish.
+
+**Squirrel → NSIS migration cliff (Phase 1 H1):**
+- v1.0 Squirrel users WILL NOT receive v1.1+ updates via this service.
+- They must follow `docs/MIGRATING_FROM_V1.md` to manually uninstall +
+  reinstall once. After that, v1.1 → v1.1.x → v1.2 all flow through
+  electron-updater seamlessly.
+
+**Verified:** `vite:build` clean across main+preload+renderer.
+
+**End-to-end update test pending:** can't validate v1.1 → v1.1.1 upgrade
+flow until v1.1.0 exists as a real GitHub release. Phase 9 includes a
+"publish rc1, publish rc2, verify auto-update lands" check.
+
+**Red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER_PHASE7_UPDATER.md`
+— 0 Crit / 2 High (cliff documented + gates preserved) / 4 Med (channel
+restart contract, beta UX-only, latest.yml trust boundary, no progress
+UI — all accepted) / 3 Low. Plan adjustments: Phase 9 cleanup `npm
+uninstall update-electron-app`; BACKLOG add for download-progress UI.
+
+**Phase 5 decision:** Branding assets (installer icons, sidebar BMP,
+header BMP) DEFERRED. electron-builder's NSIS defaults are professional
+enough for rc1; real branding is a v1.1.x polish pass. Phase 5 task
+re-scoped to "tracked in BACKLOG, not v1.1.0-rc1 blocker".
+
+**Remaining for v1.1.0-rc1:** Phase 9 (integrated red-team + clean-VM
+test, tag rc1, remove `update-electron-app` from deps).
+
+**Commit:** `b84ca4f` Phase 7 (updater migration).
+
+### 2026-05-23 — Phase 9 (integrated red-team + cleanup) — COMPLETE
+
+**Cleanup this commit:**
+- `npm uninstall update-electron-app` — Phase 7 L1 closed.
+- `MIGRATING_FROM_V1.md` — added "Re-showing the first-launch
+  onboarding modal" section documenting the manual reset escape hatch.
+
+**Integrated red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER.md`
+synthesizes all 7 per-phase reviews. Findings:
+- 0 Crit
+- 2 High (IH1 = end-to-end untested pending Dev Mode; IH2 = user can
+  prematurely dismiss recovery modal — both accepted with documented
+  mitigations)
+- 4 Med (delegated trust to Anthropic + nodejs.org; latest.yml trust
+  boundary; Windows-only paths; dist/ housekeeping — all accepted)
+- 3 Low (update-electron-app cleanup CLOSED; code-signing tracked as
+  v1.2; no automated tests is existing project state)
+
+**Required maintainer validation before tagging v1.1.0-rc1:**
+1. **V1** — Enable Windows Developer Mode and run `npm run dist`.
+   Confirm `dist\Claude.Code.Studio-1.0.0-Setup.exe` produces.
+2. **V2** — Install Setup.exe on a clean Windows machine. Confirm
+   bootstrap → app launch → onboarding modal → sign-in flow works.
+3. **V3** — After tagging v1.1.0 to GitHub, bump to v1.1.1 + republish.
+   Confirm auto-update lands on the v1.1.0 install.
+4. **V4** — Simulate Phase 4 soft-fail (delete bundled runtime dir).
+   Confirm recovery path messages are correct.
+
+These cannot be self-validated; they require maintainer action.
+
+**Phases shipped:** 1, 2, 3, 4, 6, 7, 8, 9. Phase 5 (branding)
+explicitly deferred — NSIS defaults acceptable for rc1.
+
+**Branch state:** `feature/bootstrap-installer` at this commit, ready
+for PR review or direct merge to master once V1+V2 validation passes.
+
+**Commit:** `faa790c` Phase 9.
+
+### 2026-05-23 — Phase 10 (polish) — COMPLETE
+
+Quick wins from earlier phases' BACKLOGs:
+- `CliAuthOnboarding.tsx`: Esc-to-close (Phase 6 L1).
+- `SettingsPanel.tsx`: "Re-show CLI onboarding" button (Phase 6 M3 / IH2
+  follow-up). Calls `cli.resetOnboarding()` and tells user to restart.
+- `package.json`: version → `1.1.0-dev.1`. Bump to `1.1.0` when V1+V2
+  pass.
+- `SettingsPanel` About: version label tracks.
+
+Verified: `vite:build` + `tsc --noEmit` both clean.
+
+**Commit:** `51aa118`.
+
+### 2026-05-23 — CI + release notes — ADDED
+
+The Dev Mode local-build blocker (Phase 2 H1) means maintainer can't
+easily produce a Setup.exe to test V2 without env setup. GitHub Actions
+Windows runners have admin / SeCreateSymbolicLinkPrivilege by default,
+so `npm run dist` works there fine.
+
+Added:
+- `.github/workflows/ci.yml`:
+  - `typecheck` job: `npx tsc --noEmit` + `npm run vite:build` smoke.
+  - `build-installer` job: `npm run dist` on windows-latest, uploads
+    Setup.exe + latest.yml as 30-day artifact
+    `claude-code-studio-windows-installer`.
+  - Fork PRs skip build-installer (no secrets).
+  - Concurrency-cancel per branch.
+- `docs/RELEASE_NOTES_v1.1.0.md` (draft template) — fills in once V1-V4
+  pass. Includes maintainer checklist boxes.
+- `CONTRIBUTING.md`: new "CI installer builds" subsection so contributors
+  know they can grab Setup.exe from CI without local Dev Mode.
+
+Maintainer can now download `Setup.exe` from CI artifacts at
+https://github.com/LxveAce/claude-code-studio/actions and test V2
+without touching local env. V1 is then auto-validated by CI being green.
+
+**Commit:** `83d6c84`.
+
+### 2026-05-23 — Final state for the night
+
+**Branch:** `feature/bootstrap-installer` at `83d6c84` on GitHub.
+**Phases shipped:** 1, 2, 3, 4, 6, 7, 8, 9, 10 + CI + release notes.
+Phase 5 (branding) explicitly deferred — NSIS defaults acceptable.
+
+**11 commits total** on the branch. CI run started at
+https://github.com/LxveAce/claude-code-studio/actions when last
+checked; takes ~5-10 min for full installer build.
+
+**What user needs to do next (in priority order):**
+1. **Watch CI run.** If green, download the `Setup.exe` artifact and
+   run on a clean machine for V2 validation. CI green = V1 done.
+2. **V3.** After tagging v1.1.0 (bump package.json to `1.1.0`, drop the
+   `-dev.1`), run `npm run dist:publish` from local (with Dev Mode on
+   if doing locally, or trigger via CI publish — that needs the
+   GH_TOKEN env var uncommented in the workflow).
+3. **V4.** Manual recovery-flow test as described in
+   `SECURITY_REVIEW_BOOTSTRAP_INSTALLER.md`.
+4. **Open PR** at https://github.com/LxveAce/claude-code-studio/pull/new/feature/bootstrap-installer
+   OR direct merge to master.
+
+**If picking back up after a break:** read this file bottom-up, then
+`docs/INSTALLER_REDESIGN.md` (overview), then
+`docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER.md`
+(integrated review). Task list in this session was 9 tasks (39-47); all
+completed or explicitly deferred.
+
+**Commit:** to follow if any further edits.
 

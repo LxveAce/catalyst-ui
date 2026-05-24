@@ -76,6 +76,8 @@ export const IPC = {
   UPDATER_SET_SETTINGS: 'updater:set-settings',
   UPDATER_CHECK_NOW: 'updater:check-now',
   UPDATER_AVAILABLE: 'updater:available',
+  /** Main → renderer: download-progress event with { percent: number }. */
+  UPDATER_DOWNLOAD_PROGRESS: 'updater:download-progress',
 
   COST_STATUS: 'cost:status',
   COST_GET_SETTINGS: 'cost:get-settings',
@@ -108,4 +110,6 @@ export const IPC = {
   CLI_ONBOARDING_GET: 'cli:onboarding-get',
   CLI_ONBOARDING_COMPLETE: 'cli:onboarding-complete',
   CLI_ONBOARDING_RESET: 'cli:onboarding-reset',
+  /** Main → renderer: each line of npm install output during cli:install. */
+  CLI_INSTALL_PROGRESS: 'cli:install-progress',
 } as const;
