@@ -57,7 +57,10 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: "Claude Code Studio"
   artifactName: "Claude.Code.Studio-${version}-Setup.${ext}"
-  # include: build/installer.nsh  # uncommented in Phase 4 once bootstrap script exists
+  # Custom NSIS script: downloads Node 22 + @anthropic-ai/claude-code into
+  # $INSTDIR\resources\runtime\ as part of the install. See build/installer.nsh
+  # for the customInstall/customUnInstall macro implementations.
+  include: build/installer.nsh
   # installerIcon: build/installerIcon.ico   # Phase 5
   # uninstallerIcon: build/uninstallerIcon.ico  # Phase 5
   # installerHeader: build/installerHeader.bmp  # Phase 5
