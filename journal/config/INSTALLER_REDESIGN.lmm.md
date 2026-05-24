@@ -535,5 +535,75 @@ explicitly deferred — NSIS defaults acceptable for rc1.
 **Branch state:** `feature/bootstrap-installer` at this commit, ready
 for PR review or direct merge to master once V1+V2 validation passes.
 
-**Commit:** to follow this entry.
+**Commit:** `faa790c` Phase 9.
+
+### 2026-05-23 — Phase 10 (polish) — COMPLETE
+
+Quick wins from earlier phases' BACKLOGs:
+- `CliAuthOnboarding.tsx`: Esc-to-close (Phase 6 L1).
+- `SettingsPanel.tsx`: "Re-show CLI onboarding" button (Phase 6 M3 / IH2
+  follow-up). Calls `cli.resetOnboarding()` and tells user to restart.
+- `package.json`: version → `1.1.0-dev.1`. Bump to `1.1.0` when V1+V2
+  pass.
+- `SettingsPanel` About: version label tracks.
+
+Verified: `vite:build` + `tsc --noEmit` both clean.
+
+**Commit:** `51aa118`.
+
+### 2026-05-23 — CI + release notes — ADDED
+
+The Dev Mode local-build blocker (Phase 2 H1) means maintainer can't
+easily produce a Setup.exe to test V2 without env setup. GitHub Actions
+Windows runners have admin / SeCreateSymbolicLinkPrivilege by default,
+so `npm run dist` works there fine.
+
+Added:
+- `.github/workflows/ci.yml`:
+  - `typecheck` job: `npx tsc --noEmit` + `npm run vite:build` smoke.
+  - `build-installer` job: `npm run dist` on windows-latest, uploads
+    Setup.exe + latest.yml as 30-day artifact
+    `claude-code-studio-windows-installer`.
+  - Fork PRs skip build-installer (no secrets).
+  - Concurrency-cancel per branch.
+- `docs/RELEASE_NOTES_v1.1.0.md` (draft template) — fills in once V1-V4
+  pass. Includes maintainer checklist boxes.
+- `CONTRIBUTING.md`: new "CI installer builds" subsection so contributors
+  know they can grab Setup.exe from CI without local Dev Mode.
+
+Maintainer can now download `Setup.exe` from CI artifacts at
+https://github.com/LxveAce/claude-code-studio/actions and test V2
+without touching local env. V1 is then auto-validated by CI being green.
+
+**Commit:** `83d6c84`.
+
+### 2026-05-23 — Final state for the night
+
+**Branch:** `feature/bootstrap-installer` at `83d6c84` on GitHub.
+**Phases shipped:** 1, 2, 3, 4, 6, 7, 8, 9, 10 + CI + release notes.
+Phase 5 (branding) explicitly deferred — NSIS defaults acceptable.
+
+**11 commits total** on the branch. CI run started at
+https://github.com/LxveAce/claude-code-studio/actions when last
+checked; takes ~5-10 min for full installer build.
+
+**What user needs to do next (in priority order):**
+1. **Watch CI run.** If green, download the `Setup.exe` artifact and
+   run on a clean machine for V2 validation. CI green = V1 done.
+2. **V3.** After tagging v1.1.0 (bump package.json to `1.1.0`, drop the
+   `-dev.1`), run `npm run dist:publish` from local (with Dev Mode on
+   if doing locally, or trigger via CI publish — that needs the
+   GH_TOKEN env var uncommented in the workflow).
+3. **V4.** Manual recovery-flow test as described in
+   `SECURITY_REVIEW_BOOTSTRAP_INSTALLER.md`.
+4. **Open PR** at https://github.com/LxveAce/claude-code-studio/pull/new/feature/bootstrap-installer
+   OR direct merge to master.
+
+**If picking back up after a break:** read this file bottom-up, then
+`docs/INSTALLER_REDESIGN.md` (overview), then
+`docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER.md`
+(integrated review). Task list in this session was 9 tasks (39-47); all
+completed or explicitly deferred.
+
+**Commit:** to follow if any further edits.
 
