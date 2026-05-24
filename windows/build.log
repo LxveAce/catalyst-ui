@@ -1,0 +1,1004 @@
+
+> claude-code-studio@2.0.0-dev.1 dist
+> npm run vite:build && electron-builder --win --publish never
+
+
+> claude-code-studio@2.0.0-dev.1 vite:build
+> node scripts/build-vite.mjs
+
+[build-vite] building main...
+[36mvite v8.0.14 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/index.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/notifications-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/notifications-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/notifications-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/session-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/session-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/session-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/lmm-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/lmm-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/hotkeys-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/hotkeys-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/hotkeys-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/auth-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/auth-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/auth-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/tray-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/tray-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/tray-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-squirrel-startup/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-squirrel-startup/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/compact-controller.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/compact-controller.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/compact-controller.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/updater-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/updater-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/updater-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/git-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:util" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/git-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/git-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/git-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/git-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cloud-sync.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cloud-sync.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cloud-sync.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cloud-sync.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cost-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cost-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cost-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cost-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/snippets-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/snippets-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/snippets-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/github-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/github-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/main.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:util" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:https" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/cli-service.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/pty-manager.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/pty-manager.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/pty-manager.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/BaseUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/pty-manager.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/providers/Provider.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/MacUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/MacUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/MacUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/MacUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "http" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/MacUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/runtime-paths.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/src/main/runtime-paths.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppImageUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppImageUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "zlib" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppImageUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/NsisUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/NsisUpdater.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/differentialDownloader/DifferentialDownloader.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/windowsExecutableCodeSignatureVerifier.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/windowsExecutableCodeSignatureVerifier.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "child_process" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/windowsExecutableCodeSignatureVerifier.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "zlib" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/differentialDownloader/FileWithEmbeddedBlockMapDifferentialDownloader.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/util.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/empty/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/output-file/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/differentialDownloader/DifferentialDownloader.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/move/move-sync.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/copy/copy-sync.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/graceful-fs/graceful-fs.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "util" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/graceful-fs/graceful-fs.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/remove/rimraf.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "assert" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/remove/rimraf.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "assert" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/graceful-fs/graceful-fs.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/builder-util-runtime/out/httpExecutor.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/builder-util-runtime/out/httpExecutor.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "stream" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/builder-util-runtime/out/httpExecutor.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/builder-util-runtime/out/httpExecutor.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/mkdirs/utils.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/copy/copy.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/ensure/file.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppAdapter.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "os" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/AppAdapter.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "stream" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/sax/lib/sax.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/ensure/symlink.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/providers/PrivateGitHubProvider.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/providers/PrivateGitHubProvider.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "constants" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/graceful-fs/polyfills.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "stream" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/builder-util-runtime/out/ProgressCallbackTransform.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "stream" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/differentialDownloader/ProgressDifferentialDownloadCallbackTransform.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/builder-util-runtime/out/uuid.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/move/move.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/differentialDownloader/DataSplitter.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "stream" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/differentialDownloader/DataSplitter.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/ensure/symlink-paths.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "stream" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/graceful-fs/legacy-streams.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/DownloadedUpdateHelper.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/util/stat.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "util" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/util/stat.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/DownloadedUpdateHelper.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "crypto" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/DownloadedUpdateHelper.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/fs-extra/lib/ensure/link.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "path" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/ElectronAppAdapter.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "fs" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/jsonfile/index.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/providers/GitHubProvider.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "url" has been externalized for browser compatibility, imported by "D:/a/claude-code-studio/claude-code-studio/node_modules/electron-updater/out/providers/GitLabProvider.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+✓ 205 modules transformed.
+rendering chunks...
+computing gzip size...
+.vite/build/index.js  810.96 kB │ gzip: 176.23 kB
+
+[32m✓ built in 170ms[39m
+[build-vite] building preload...
+[36mvite v8.0.14 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 3 modules transformed.
+rendering chunks...
+computing gzip size...
+.vite/build/preload.js  12.30 kB │ gzip: 3.17 kB
+
+[32m✓ built in 21ms[39m
+[build-vite] building renderer...
+[36mvite v8.0.14 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 50 modules transformed.
+rendering chunks...
+computing gzip size...
+.vite/renderer/main_window/index.html                   0.82 kB │ gzip:   0.45 kB
+.vite/renderer/main_window/assets/index-BMRO1LvP.css    5.93 kB │ gzip:   1.75 kB
+.vite/renderer/main_window/assets/index-YtX76xOf.js   715.04 kB │ gzip: 189.34 kB
+
+[32m✓ built in 275ms[39m
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[build-vite] complete in 0.6s.
+  • electron-builder  version=26.8.1 os=10.0.26100
+  • loaded configuration  file=D:\a\claude-code-studio\claude-code-studio\electron-builder.yml
+  • effective config  config=directories:
+  output: dist
+  buildResources: build
+appId: com.lxveace.claude-code-studio
+productName: Claude Code Studio
+copyright: Copyright © 2026 LxveAce
+extraMetadata:
+  main: .vite/build/index.js
+files:
+  - filter:
+      - .vite/**/*
+      - package.json
+asar: true
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: Claude.Code.Studio-${version}-Setup.${ext}
+mac:
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  category: public.app-category.developer-tools
+  artifactName: Claude.Code.Studio-${version}-${arch}.${ext}
+  hardenedRuntime: false
+  identity: null
+dmg:
+  contents:
+    - x: 110
+      'y': 150
+    - x: 250
+      'y': 150
+      type: link
+      path: /Applications
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
+      arch:
+        - x64
+  category: Development
+  artifactName: Claude.Code.Studio-${version}-${arch}.${ext}
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Claude Code Studio
+  artifactName: Claude.Code.Studio-${version}-Setup.${ext}
+  include: build/installer.nsh
+publish:
+  - provider: github
+    owner: LxveAce
+    repo: claude-code-studio
+    releaseType: draft
+
+  • "electron-squirrel-startup" dependency is not required for NSIS
+  • no event listeners found  event=beforePack
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=win32 arch=x64 electron=42.2.0 appOutDir=dist\win-unpacked
+  • no custom electronDist provided, unpacking default Electron distribution
+  • spawning        command=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-bin\win\x64\app-builder.exe unpack-electron --configuration [{"platform":"win32","arch":"x64","version":"42.2.0"}] --output D:\a\claude-code-studio\claude-code-studio\dist\win-unpacked --distMacOsAppName Electron.app
+  • map async       taskCount=2
+  • map async       taskCount=1
+  • computing effective URL  initialUrl=https://github.com/electron/electron/releases/download/v42.2.0/electron-v42.2.0-win32-x64.zip
+                             currentUrl=https://release-assets.githubusercontent.com/github-production-release-asset/9384267/a9e97cca-9c4e-4c7a-8218-389570bc9822?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-05-24T21%3A08%3A59Z&rscd=attachment%3B+filename%3Delectron-v42.2.0-win32-x64.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-05-24T20%3A08%3A44Z&ske=2026-05-24T21%3A08%3A59Z&sks=b&skv=2018-11-09&sig=yunFeoc%2BPdaw2%2FhU97%2Bo56o%2FfdQTbOtsy0QZ7aV%2Fkws%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3OTY1NzYxNSwibmJmIjoxNzc5NjU0MDE1LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.CgNULyDL1rBiLXdpS7kG84ED0DP02Byy0gYiY9nsK4o&response-content-disposition=attachment%3B%20filename%3Delectron-v42.2.0-win32-x64.zip&response-content-type=application%2Foctet-stream
+  • downloading     url=https://github.com/electron/electron/releases/download/v42.2.0/electron-v42.2.0-win32-x64.zip length=144267493 contentType=application/octet-stream
+  • downloading     url=https://github.com/electron/electron/releases/download/v42.2.0/electron-v42.2.0-win32-x64.zip size=144 MB parts=8
+  • map async       taskCount=8
+  • download part   range=bytes=54100308-72133743 index=3
+  • download part   range=bytes=72133744-90167179 index=4
+  • download part   range=bytes=0-18033435 index=0
+  • download part   range=bytes=90167180-108200615 index=5
+  • download part   range=bytes=36066872-54100307 index=2
+  • download part   range=bytes=126234052-144267492 index=7
+  • download part   range=bytes=108200616-126234051 index=6
+  • download part   range=bytes=18033436-36066871 index=1
+  • downloaded      url=https://github.com/electron/electron/releases/download/v42.2.0/electron-v42.2.0-win32-x64.zip duration=681ms
+  • map async       taskCount=75
+  • exited          command=app-builder.exe code=0 pid=5408
+  • no event listeners found  event=afterExtract
+  • spawning        command=npm prefix -w cwd=D:\a\claude-code-studio\claude-code-studio
+  • exited          command=npm code=1 pid=4484
+  • searching for node modules  pm=npm searchDir=D:\a\claude-code-studio\claude-code-studio
+  • node modules collection complete  packageName=claude-code-studio depCount=41
+  • collected node modules  pm=npm nodeModules=[{"name":"@octokit/auth-token","version":"5.1.2","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\auth-token"},{"name":"@octokit/core","version":"6.1.6","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\core"},{"name":"@octokit/endpoint","version":"10.1.4","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\endpoint"},{"name":"@octokit/graphql","version":"8.2.2","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\graphql"},{"name":"@octokit/openapi-types","version":"25.1.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\openapi-types"},{"name":"@octokit/plugin-paginate-rest","version":"11.6.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-paginate-rest","dependencies":[{"name":"@octokit/openapi-types","version":"24.2.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-rest-endpoint-methods\\node_modules\\@octokit\\openapi-types"},{"name":"@octokit/types","version":"13.10.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-rest-endpoint-methods\\node_modules\\@octokit\\types"}]},{"name":"@octokit/plugin-request-log","version":"5.3.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-request-log"},{"name":"@octokit/plugin-rest-endpoint-methods","version":"13.5.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-rest-endpoint-methods","dependencies":[{"name":"@octokit/openapi-types","version":"24.2.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-rest-endpoint-methods\\node_modules\\@octokit\\openapi-types"},{"name":"@octokit/types","version":"13.10.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\plugin-rest-endpoint-methods\\node_modules\\@octokit\\types"}]},{"name":"@octokit/request","version":"9.2.4","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\request"},{"name":"@octokit/request-error","version":"6.1.8","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\request-error"},{"name":"@octokit/rest","version":"21.1.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\rest"},{"name":"@octokit/types","version":"14.1.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@octokit\\types"},{"name":"@xterm/addon-fit","version":"0.11.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@xterm\\addon-fit"},{"name":"@xterm/xterm","version":"6.0.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\@xterm\\xterm"},{"name":"argparse","version":"2.0.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\argparse"},{"name":"before-after-hook","version":"3.0.2","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\before-after-hook"},{"name":"builder-util-runtime","version":"9.5.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\builder-util-runtime","dependencies":[{"name":"debug","version":"4.4.3","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\builder-util-runtime\\node_modules\\debug"},{"name":"ms","version":"2.1.3","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\builder-util-runtime\\node_modules\\ms"}]},{"name":"debug","version":"2.6.9","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\debug"},{"name":"electron-squirrel-startup","version":"1.0.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\electron-squirrel-startup"},{"name":"electron-updater","version":"6.8.3","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\electron-updater"},{"name":"fast-content-type-parse","version":"2.0.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\fast-content-type-parse"},{"name":"fs-extra","version":"10.1.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\fs-extra"},{"name":"graceful-fs","version":"4.2.11","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\graceful-fs"},{"name":"js-yaml","version":"4.1.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\js-yaml"},{"name":"jsonfile","version":"6.2.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\jsonfile"},{"name":"lazy-val","version":"1.0.5","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\lazy-val"},{"name":"lodash.escaperegexp","version":"4.1.2","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\lodash.escaperegexp"},{"name":"lodash.isequal","version":"4.5.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\lodash.isequal"},{"name":"ms","version":"2.0.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\ms"},{"name":"node-addon-api","version":"7.1.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\node-addon-api"},{"name":"node-pty","version":"1.1.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\node-pty"},{"name":"react","version":"19.2.6","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\react"},{"name":"react-dom","version":"19.2.6","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\react-dom"},{"name":"react-resizable-panels","version":"3.0.6","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\react-resizable-panels"},{"name":"sax","version":"1.6.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\sax"},{"name":"scheduler","version":"0.27.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\scheduler"},{"name":"semver","version":"7.7.4","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\electron-updater\\node_modules\\semver"},{"name":"systeminformation","version":"5.31.6","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\systeminformation"},{"name":"tiny-typed-emitter","version":"2.1.0","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\tiny-typed-emitter"},{"name":"universal-user-agent","version":"7.0.3","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\universal-user-agent"},{"name":"universalify","version":"2.0.1","dir":"D:\\a\\claude-code-studio\\claude-code-studio\\node_modules\\universalify"}]
+  • duplicate dependency references  dependencies=["@octokit/request@9.2.4","@octokit/types@14.1.0","@octokit/types@14.1.0","@octokit/types@14.1.0","@octokit/request-error@6.1.8","@octokit/types@14.1.0","@octokit/core@6.1.6","@octokit/core@6.1.6","@octokit/core@6.1.6","glob@7.2.3","once@1.4.0","minimatch@3.1.5","jsonfile@6.2.1","react-dom@19.2.6"]
+  • identified module  dep=@octokit/auth-token from=node_modules\@octokit\auth-token to=dist\win-unpacked\resources\app\node_modules\@octokit\auth-token filesCount=9
+  • identified module  dep=@octokit/core from=node_modules\@octokit\core to=dist\win-unpacked\resources\app\node_modules\@octokit\core filesCount=4
+  • identified module  dep=@octokit/endpoint from=node_modules\@octokit\endpoint to=dist\win-unpacked\resources\app\node_modules\@octokit\endpoint filesCount=19
+  • identified module  dep=@octokit/graphql from=node_modules\@octokit\graphql to=dist\win-unpacked\resources\app\node_modules\@octokit\graphql filesCount=9
+  • identified module  dep=@octokit/openapi-types from=node_modules\@octokit\openapi-types to=dist\win-unpacked\resources\app\node_modules\@octokit\openapi-types filesCount=2
+  • identified module  dep=@octokit/plugin-paginate-rest from=node_modules\@octokit\plugin-paginate-rest to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-paginate-rest filesCount=12
+  • identified module  dep=@octokit/openapi-types from=node_modules\@octokit\plugin-rest-endpoint-methods\node_modules\@octokit\openapi-types to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-paginate-rest\node_modules\@octokit\openapi-types filesCount=2
+  • identified module  dep=@octokit/types from=node_modules\@octokit\plugin-rest-endpoint-methods\node_modules\@octokit\types to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-paginate-rest\node_modules\@octokit\types filesCount=2
+  • identified module  dep=@octokit/plugin-request-log from=node_modules\@octokit\plugin-request-log to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-request-log filesCount=4
+  • identified module  dep=@octokit/plugin-rest-endpoint-methods from=node_modules\@octokit\plugin-rest-endpoint-methods to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-rest-endpoint-methods filesCount=10
+  • identified module  dep=@octokit/openapi-types from=node_modules\@octokit\plugin-rest-endpoint-methods\node_modules\@octokit\openapi-types to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-rest-endpoint-methods\node_modules\@octokit\openapi-types filesCount=2
+  • identified module  dep=@octokit/types from=node_modules\@octokit\plugin-rest-endpoint-methods\node_modules\@octokit\types to=dist\win-unpacked\resources\app\node_modules\@octokit\plugin-rest-endpoint-methods\node_modules\@octokit\types filesCount=2
+  • identified module  dep=@octokit/request from=node_modules\@octokit\request to=dist\win-unpacked\resources\app\node_modules\@octokit\request filesCount=10
+  • identified module  dep=@octokit/request-error from=node_modules\@octokit\request-error to=dist\win-unpacked\resources\app\node_modules\@octokit\request-error filesCount=3
+  • identified module  dep=@octokit/rest from=node_modules\@octokit\rest to=dist\win-unpacked\resources\app\node_modules\@octokit\rest filesCount=6
+  • identified module  dep=@octokit/types from=node_modules\@octokit\types to=dist\win-unpacked\resources\app\node_modules\@octokit\types filesCount=2
+  • identified module  dep=@xterm/addon-fit from=node_modules\@xterm\addon-fit to=dist\win-unpacked\resources\app\node_modules\@xterm\addon-fit filesCount=7
+  • identified module  dep=@xterm/xterm from=node_modules\@xterm\xterm to=dist\win-unpacked\resources\app\node_modules\@xterm\xterm filesCount=155
+  • identified module  dep=argparse from=node_modules\argparse to=dist\win-unpacked\resources\app\node_modules\argparse filesCount=5
+  • identified module  dep=before-after-hook from=node_modules\before-after-hook to=dist\win-unpacked\resources\app\node_modules\before-after-hook filesCount=6
+  • identified module  dep=builder-util-runtime from=node_modules\builder-util-runtime to=dist\win-unpacked\resources\app\node_modules\builder-util-runtime filesCount=28
+  • identified module  dep=debug from=node_modules\builder-util-runtime\node_modules\debug to=dist\win-unpacked\resources\app\node_modules\builder-util-runtime\node_modules\debug filesCount=6
+  • identified module  dep=ms from=node_modules\builder-util-runtime\node_modules\ms to=dist\win-unpacked\resources\app\node_modules\builder-util-runtime\node_modules\ms filesCount=3
+  • identified module  dep=debug from=node_modules\debug to=dist\win-unpacked\resources\app\node_modules\debug filesCount=10
+  • identified module  dep=electron-squirrel-startup from=node_modules\electron-squirrel-startup to=dist\win-unpacked\resources\app\node_modules\electron-squirrel-startup filesCount=4
+  • identified module  dep=electron-updater from=node_modules\electron-updater to=dist\win-unpacked\resources\app\node_modules\electron-updater filesCount=66
+  • identified module  dep=fast-content-type-parse from=node_modules\fast-content-type-parse to=dist\win-unpacked\resources\app\node_modules\fast-content-type-parse filesCount=10
+  • identified module  dep=fs-extra from=node_modules\fs-extra to=dist\win-unpacked\resources\app\node_modules\fs-extra filesCount=30
+  • identified module  dep=graceful-fs from=node_modules\graceful-fs to=dist\win-unpacked\resources\app\node_modules\graceful-fs filesCount=6
+  • identified module  dep=js-yaml from=node_modules\js-yaml to=dist\win-unpacked\resources\app\node_modules\js-yaml filesCount=31
+  • identified module  dep=jsonfile from=node_modules\jsonfile to=dist\win-unpacked\resources\app\node_modules\jsonfile filesCount=4
+  • identified module  dep=lazy-val from=node_modules\lazy-val to=dist\win-unpacked\resources\app\node_modules\lazy-val filesCount=3
+  • identified module  dep=lodash.escaperegexp from=node_modules\lodash.escaperegexp to=dist\win-unpacked\resources\app\node_modules\lodash.escaperegexp filesCount=3
+  • identified module  dep=lodash.isequal from=node_modules\lodash.isequal to=dist\win-unpacked\resources\app\node_modules\lodash.isequal filesCount=3
+  • identified module  dep=ms from=node_modules\ms to=dist\win-unpacked\resources\app\node_modules\ms filesCount=3
+  • identified module  dep=node-addon-api from=node_modules\node-addon-api to=dist\win-unpacked\resources\app\node_modules\node-addon-api filesCount=18
+  • identified module  dep=node-pty from=node_modules\node-pty to=dist\win-unpacked\resources\app\node_modules\node-pty filesCount=281
+  • identified module  dep=react from=node_modules\react to=dist\win-unpacked\resources\app\node_modules\react filesCount=26
+  • identified module  dep=react-dom from=node_modules\react-dom to=dist\win-unpacked\resources\app\node_modules\react-dom filesCount=42
+  • identified module  dep=react-resizable-panels from=node_modules\react-resizable-panels to=dist\win-unpacked\resources\app\node_modules\react-resizable-panels filesCount=7
+  • identified module  dep=sax from=node_modules\sax to=dist\win-unpacked\resources\app\node_modules\sax filesCount=3
+  • identified module  dep=scheduler from=node_modules\scheduler to=dist\win-unpacked\resources\app\node_modules\scheduler filesCount=14
+  • identified module  dep=semver from=node_modules\electron-updater\node_modules\semver to=dist\win-unpacked\resources\app\node_modules\semver filesCount=51
+  • identified module  dep=systeminformation from=node_modules\systeminformation to=dist\win-unpacked\resources\app\node_modules\systeminformation filesCount=25
+  • identified module  dep=tiny-typed-emitter from=node_modules\tiny-typed-emitter to=dist\win-unpacked\resources\app\node_modules\tiny-typed-emitter filesCount=3
+  • identified module  dep=universal-user-agent from=node_modules\universal-user-agent to=dist\win-unpacked\resources\app\node_modules\universal-user-agent filesCount=7
+  • identified module  dep=universalify from=node_modules\universalify to=dist\win-unpacked\resources\app\node_modules\universalify filesCount=3
+  • not packed into asar archive  file=node_modules\node-pty\build\Release\winpty-agent.exe reason=contains executable code
+  • updating asar integrity executable resource  executablePath=dist\win-unpacked\Claude Code Studio.exe
+  • spawning        command=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-bin\win\x64\app-builder.exe icon --format ico --root D:\a\claude-code-studio\claude-code-studio\build --root D:\a\claude-code-studio\claude-code-studio --out D:\a\claude-code-studio\claude-code-studio\dist\.icon-ico
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\build\icon.ico
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\icon.ico
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\build\icons
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\icons
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\build\icon.png
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\icon.png
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\build\icon.icns
+  • path doesn't exist  path=D:\a\claude-code-studio\claude-code-studio\icon.icns
+  • no icons found, using provided fallback sources  
+  • exited          command=app-builder.exe code=0 pid=9156 out={"icons":null,"isFallback":true}
+  • default Electron icon is used  reason=application icon is not set
+  • spawning        command=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-bin\win\x64\app-builder.exe rcedit --args ["D:\\a\\claude-code-studio\\claude-code-studio\\dist\\win-unpacked\\Claude Code Studio.exe","--set-version-string","FileDescription","Claude Code Studio","--set-version-string","ProductName","Claude Code Studio","--set-version-string","LegalCopyright","Copyright © 2026 LxveAce","--set-file-version","2.0.0-dev.1","--set-p 3db1d4960e5e7641e85307521a7c59a80086189118afd9084fa1a8b69cf73e51 (sha256 hash) (sha256 hash) Code Studio","--set-version-string","OriginalFilename","","--set-version-string","CompanyName","LxveAce"]
+  • computing effective URL  initialUrl=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z
+                             currentUrl=https://release-assets.githubusercontent.com/github-production-release-asset/65527128/f73f2200-5d53-11ea-8264-ddd345f11ee4?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-05-24T21%3A02%3A11Z&rscd=attachment%3B+filename%3DwinCodeSign-2.6.0.7z&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-05-24T20%3A01%3A49Z&ske=2026-05-24T21%3A02%3A11Z&sks=b&skv=2018-11-09&sig=QdXbmGs4o10ssorO%2Fd%2BupSGAw4N3LJ5h21dQXnPOWkk%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3OTY1NDMyMiwibmJmIjoxNzc5NjU0MDIyLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.akRkknqa1FjWp2sdn1oKCRC0YJZABJqFieNM_FwJFj4&response-content-disposition=attachment%3B%20filename%3DwinCodeSign-2.6.0.7z&response-content-type=application%2Foctet-stream
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z length=5635384 contentType=application/octet-stream
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • map async       taskCount=1
+  • download part   range=bytes=0-5635383 index=0
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=415ms
+  • execute command  command='D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\798270095.7z' '-oC:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\798270095'
+                     workingDirectory=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign
+  • command executed  executable=D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe
+                      out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+    
+    Extracting archive: C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\798270095.7z
+    --
+    Path = C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\798270095.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    Everything is Ok
+    
+    Folders: 13
+    Files: 83
+    Size:       24762883
+    Compressed: 5635384
+    
+  • execute command  command='C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\rcedit-x64.exe' 'D:\a\claude-code-studio\claude-code-studio\dist\win-unpacked\Claude Code Studio.exe' --set-version-string FileDescription 'Claude Code Studio' --set-version-string ProductName 'Claude Code Studio' --set-version-string LegalCopyright 'Copyright © 2026 LxveAce' --set-file-version 2.0.0-dev.1 --set-product-version 2.0.0.0 --set-version-string InternalName 'Claude Code Studio' --set-version-string OriginalFilename '' --set-version-string CompanyName LxveAce
+                     workingDirectory=
+  • command executed  executable=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\rcedit-x64.exe
+  • exited          command=app-builder.exe code=0 pid=3136
+  • signing with signtool.exe  path=dist\win-unpacked\Claude Code Studio.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+wine&sign: 1s 186ms
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-x64\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-arm64\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\winpty-agent.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\conpty\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\winpty-agent.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\conpty\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\win-unpacked\resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty-agent.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • no event listeners found  event=afterSign
+  • building        target=nsis file=dist\Claude.Code.Studio-2.0.0-dev.1-Setup.exe archs=x64 oneClick=true perMachine=false
+  • no event listeners found  event=artifactBuildStarted
+  • spawning        command=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-bin\win\x64\app-builder.exe download-artifact --name nsis-3.0.4.1-nsis-3.0.4.1 --url https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z --sha512 VKMiizYdmNdJOWpRGz4trl4lD++BvYP2irAXpMilheUP0pc93iKlWAoP843Vlraj8YG19CVn0j+dCo/hURz9+Q==
+  • computing effective URL  initialUrl=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z
+                             currentUrl=https://release-assets.githubusercontent.com/github-production-release-asset/65527128/10518a80-10f6-11ea-8d2f-403bab81b4cd?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-05-24T20%3A55%3A05Z&rscd=attachment%3B+filename%3Dnsis-3.0.4.1.7z&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-05-24T19%3A55%3A00Z&ske=2026-05-24T20%3A55%3A05Z&sks=b&skv=2018-11-09&sig=anVvqWDg19E9qx2q8UwsUsELuV%2B%2FmkdfGl95%2BbDXLiY%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3OTY1NDMyMywibmJmIjoxNzc5NjU0MDIzLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.IAgsSBroybi3z7OhnM7fF53nnwNTHSfwa3lE4FUa_SY&response-content-disposition=attachment%3B%20filename%3Dnsis-3.0.4.1.7z&response-content-type=application%2Foctet-stream
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z length=1287512 contentType=application/octet-stream
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z size=1.3 MB parts=1
+  • map async       taskCount=1
+  • download part   range=bytes=0-1287511 index=0
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z duration=381ms
+  • execute command  command='D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\758887667.7z' '-oC:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\758887667'
+                     workingDirectory=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis
+  • command executed  executable=D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe
+                      out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 1287512 bytes (1258 KiB)
+    
+    Extracting archive: C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\758887667.7z
+    --
+    Path = C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\758887667.7z
+    Type = 7z
+    Physical Size = 1287512
+    Headers Size = 4285
+    Method = LZMA2:23 LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    Everything is Ok
+    
+    Folders: 23
+    Files: 343
+    Size:       7280179
+    Compressed: 1287512
+    
+  • exited          command=app-builder.exe code=0 pid=8496 out=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1
+  • signing with signtool.exe  path=dist\win-unpacked\resources\elevate.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • executing       file=D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe args=a -bd -mx=9 -md=1m -mtc=off -ms=off -mtm=off -mta=off D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z . -xr!*.avi -xr!*.mov -xr!*.m4v -xr!*.mp4 -xr!*.m4p -xr!*.qt -xr!*.mkv -xr!*.webm -xr!*.vmdk cwd=D:\a\claude-code-studio\claude-code-studio\dist\win-unpacked
+nsis package, x64: 38s 656ms
+  • executing       file=D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe args=l D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z
+  • executed        file=D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe stdout=
+7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+                      Scanning the drive for archives:
+1 file, 108378638 bytes (104 MiB)
+                      Listing archive: D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z
+                      --
+Path = D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z
+Type = 7z
+Physical Size = 108378638
+Headers Size = 6099
+Method = LZMA2:20 LZMA:20 BCJ2
+Solid = -
+Blocks = 357
+                         Date      Time    Attr         Size   Compressed  Name
+------------------- ----- ------------ ------------  ------------------------
+                    D....            0            0  locales
+                    D....            0            0  resources
+                    D....            0            0  resources\app.asar.unpacked
+                    D....            0            0  resources\app.asar.unpacked\node_modules
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\bin
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\bin\win32-x64-146
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\src
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\src\win
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\src
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\src\win
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\src
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\src\win
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\ship
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\gen
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\include
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\libwinpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\unix-adapter
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\lib
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\lib\shared
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\lib\worker
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release\obj
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release\obj\node_addon_api_except
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release\obj\node_addon_api_except\node_add.6EBBCD62.tlog
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\darwin-arm64
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\darwin-x64
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\conpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\conpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\scripts
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\src
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\src\shared
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\src\win
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\src\worker
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\third_party
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-arm64
+                    D....            0            0  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-x64
+                    ....A       119889       109573  chrome_100_percent.pak
+                    ....A       197073       183471  chrome_200_percent.pak
+                    ....A     10876464      3491586  icudtl.dat
+                    ....A         1096          690  LICENSE.electron.txt
+                    ....A     20367095       530905  LICENSES.chromium.html
+                    ....A       620482       148584  locales\af.pak
+                    ....A      1006731       167008  locales\am.pak
+                    ....A      1109621       172268  locales\ar.pak
+                    ....A      1150764       166864  locales\bg.pak
+                    ....A      1479936       173794  locales\bn.pak
+                    ....A       699590       151948  locales\ca.pak
+                    ....A       726068       164450  locales\cs.pak
+                    ....A       652593       148811  locales\da.pak
+                    ....A       700770       157691  locales\de.pak
+                    ....A      1265039       175439  locales\el.pak
+                    ....A       565496       137920  locales\en-GB.pak
+                    ....A       571518       138622  locales\en-US.pak
+                    ....A       690698       151633  locales\es-419.pak
+                    ....A       686798       150800  locales\es.pak
+                    ....A       627098       153647  locales\et.pak
+                    ....A      1038159       163164  locales\fa.pak
+                    ....A       638637       152216  locales\fi.pak
+                    ....A       723751       151532  locales\fil.pak
+                    ....A       746462       156947  locales\fr.pak
+                    ....A      1462607       171855  locales\gu.pak
+                    ....A       908719       159605  locales\he.pak
+                    ....A      1549614       178313  locales\hi.pak
+                    ....A       698895       158596  locales\hr.pak
+                    ....A       747469       165823  locales\hu.pak
+                    ....A       618244       138518  locales\id.pak
+                    ....A       675911       149553  locales\it.pak
+                    ....A       824124       144467  locales\ja.pak
+                    ....A      1680794       175612  locales\kn.pak
+                    ....A       701209       140806  locales\ko.pak
+                    ....A       759941       161677  locales\lt.pak
+                    ....A       757295       162731  locales\lv.pak
+                    ....A      1728748       178861  locales\ml.pak
+                    ....A      1431694       168861  locales\mr.pak
+                    ....A       651309       141051  locales\ms.pak
+                    ....A       623206       145584  locales\nb.pak
+                    ....A       649224       149208  locales\nl.pak
+                    ....A       725422       164063  locales\pl.pak
+                    ....A       680477       151311  locales\pt-BR.pak
+                    ....A       684179       149858  locales\pt-PT.pak
+                    ....A       710046       154453  locales\ro.pak
+                    ....A      1177875       175563  locales\ru.pak
+                    ....A       738142       167734  locales\sk.pak
+                    ....A       706741       158754  locales\sl.pak
+                    ....A      1088559       166999  locales\sr.pak
+                    ....A       630691       145550  locales\sv.pak
+                    ....A       667148       149693  locales\sw.pak
+                    ....A      1720238       174665  locales\ta.pak
+                    ....A      1591909       175154  locales\te.pak
+                    ....A      1337523       153001  locales\th.pak
+                    ....A       679647       150892  locales\tr.pak
+                    ....A      1185632       173222  locales\uk.pak
+                    ....A      1021689       163098  locales\ur.pak
+                    ....A       808100       150683  locales\vi.pak
+                    ....A       577808       139950  locales\zh-CN.pak
+                    ....A       570087       137901  locales\zh-TW.pak
+                    ....A          124          105  resources\app-update.yml
+                    ....A     18788834      2474733  resources\app.asar
+                    ....A       311808       126239  resources\app.asar.unpacked\node_modules\node-pty\bin\win32-x64-146\node-pty.node
+                    ....A        12989         2414  resources\app.asar.unpacked\node_modules\node-pty\build\conpty.vcxproj
+                    ....A         2898          641  resources\app.asar.unpacked\node_modules\node-pty\build\conpty.vcxproj.filters
+                    ....A        12918         2403  resources\app.asar.unpacked\node_modules\node-pty\build\conpty_console_list.vcxproj
+                    ....A         2432          632  resources\app.asar.unpacked\node_modules\node-pty\build\conpty_console_list.vcxproj.filters
+                    ....A          332          205  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.dll.recipe
+                    ....A        48816         1187  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\CL.command.1.tlog
+                    ....A         3500          337  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\Cl.items.tlog
+                    ....A       504408         3666  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\CL.read.1.tlog
+                    ....A         7058          377  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\CL.write.1.tlog
+                    ....A         7238          693  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\link.command.1.tlog
+                    ....A        12636          736  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\link.read.1.tlog
+                    ....A         2398          314  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\link.secondary.1.tlog
+                    ....A         4430          300  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\link.write.1.tlog
+                    ....A          202          160  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty\winpty.tlog\winpty.lastbuildstate
+                    ....A          338          210  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.exe.recipe
+                    ....A       101522         1506  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\CL.command.1.tlog
+                    ....A         7393          532  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\Cl.items.tlog
+                    ....A      1151074         5914  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\CL.read.1.tlog
+                    ....A        14904          573  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\CL.write.1.tlog
+                    ....A        14232          941  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\link.command.1.tlog
+                    ....A        22030          960  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\link.read.1.tlog
+                    ....A         4569          423  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\link.secondary.1.tlog
+                    ....A         9136          448  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\link.write.1.tlog
+                    ....A          202          160  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\Release\obj\winpty-agent\winpty-agent.tlog\winpty-agent.lastbuildstate
+                    ....A        20116         2808  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\winpty-agent.vcxproj
+                    ....A        83106         1332  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\winpty-agent.vcxproj.filters
+                    ....A        14181         2401  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\winpty-debugserver.vcxproj
+                    ....A        25098          967  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\winpty-debugserver.vcxproj.filters
+                    ....A        15808         2525  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\winpty.vcxproj
+                    ....A        39943         1103  resources\app.asar.unpacked\node_modules\node-pty\build\deps\winpty\src\winpty.vcxproj.filters
+                    ....A        13622         2499  resources\app.asar.unpacked\node_modules\node-pty\build\pty.vcxproj
+                    ....A         2898          639  resources\app.asar.unpacked\node_modules\node-pty\build\pty.vcxproj.filters
+                    ....A         1014          465  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty.exp
+                    ....A      1951989       306236  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty.iobj
+                    ....A       728048        78449  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty.ipdb
+                    ....A         2066          527  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty.lib
+                    ....A       311808       126239  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty.node
+                    ....A         1039          477  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty_console_list.exp
+                    ....A       470437        90450  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty_console_list.iobj
+                    ....A       150416        19805  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty_console_list.ipdb
+                    ....A         2322          556  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty_console_list.lib
+                    ....A       134656        56164  resources\app.asar.unpacked\node_modules\node-pty\build\Release\conpty_console_list.node
+                    ....A          505          224  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.node.recipe
+                    ....A         9990          894  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\CL.command.1.tlog
+                    ....A          609          153  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\Cl.items.tlog
+                    ....A       117428         2731  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\CL.read.1.tlog
+                    ....A         2022          213  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\CL.write.1.tlog
+                    ....A          202          160  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\conpty.lastbuildstate
+                    ....A         2276          513  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\link.command.1.tlog
+                    ....A         5986          567  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\link.read.1.tlog
+                    ....A          703          194  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\link.secondary.1.tlog
+                    ....A         1042          162  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\conpty.tlog\link.write.1.tlog
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\src\win\conpty.nativecodeanalysis.xml
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\src\win\path_util.nativecodeanalysis.xml
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty\win_delay_load_hook.nativecodeanalysis.xml
+                    ....A         6896          881  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\CL.command.1.tlog
+                    ....A          462          148  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\Cl.items.tlog
+                    ....A        64484         2247  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\CL.read.1.tlog
+                    ....A         1538          205  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\CL.write.1.tlog
+                    ....A          202          160  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\conpty_console_list.lastbuildstate
+                    ....A         2150          504  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\link.command.1.tlog
+                    ....A         5540          561  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\link.read.1.tlog
+                    ....A          682          205  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\link.secondary.1.tlog
+                    ....A          948          162  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_c.E3E22624.tlog\link.write.1.tlog
+                    ....A          518          233  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\conpty_console_list.node.recipe
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\src\win\conpty_console_list.nativecodeanalysis.xml
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\conpty_console_list\win_delay_load_hook.nativecodeanalysis.xml
+                    ....A          830          243  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.node.recipe
+                    ....A        10356          909  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\CL.command.1.tlog
+                    ....A          600          151  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\Cl.items.tlog
+                    ....A       117910         2635  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\CL.read.1.tlog
+                    ....A         1986          210  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\CL.write.1.tlog
+                    ....A         2594          527  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\link.command.1.tlog
+                    ....A         6312          576  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\link.read.1.tlog
+                    ....A          772          196  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\link.secondary.1.tlog
+                    ....A         1192          166  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\link.write.1.tlog
+                    ....A          202          160  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\pty.tlog\pty.lastbuildstate
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\src\win\path_util.nativecodeanalysis.xml
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\src\win\winpty.nativecodeanalysis.xml
+                    ....A           59           63  resources\app.asar.unpacked\node_modules\node-pty\build\Release\obj\pty\win_delay_load_hook.nativecodeanalysis.xml
+                    ....A         1007          463  resources\app.asar.unpacked\node_modules\node-pty\build\Release\pty.exp
+                    ....A      1763552       282017  resources\app.asar.unpacked\node_modules\node-pty\build\Release\pty.iobj
+                    ....A       654384        71171  resources\app.asar.unpacked\node_modules\node-pty\build\Release\pty.ipdb
+                    ....A         2028          528  resources\app.asar.unpacked\node_modules\node-pty\build\Release\pty.lib
+                    ....A       307712       123943  resources\app.asar.unpacked\node_modules\node-pty\build\Release\pty.node
+                    ....A      4026366       552218  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty-agent.iobj
+                    ....A      1286816       138846  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty-agent.ipdb
+                    ....A         3288          902  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty.exp
+                    ....A      2155270       308535  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty.iobj
+                    ....A       823920        83375  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty.ipdb
+                    ....A         5762         1106  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty.lib
+                    ....A           55           59  resources\app.asar.unpacked\node_modules\node-pty\deps\.editorconfig
+                    ....A          439          302  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\.drone.yml
+                    ....A         6478         2390  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\configure
+                    ....A         1085          691  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\LICENSE
+                    ....A         4722         1887  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\Makefile
+                    ....A          213          133  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\build32.sh
+                    ....A          217          133  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\build64.sh
+                    ....A         6068         1924  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\color-test.sh
+                    ....A         3228         1067  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\ConinMode.ps1
+                    ....A         1558          929  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\DebugClient.py
+                    ....A         2396         1272  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\DebugServer.py
+                    ....A           97          101  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\DumpLines.py
+                    ....A         1974          889  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\EnableExtendedFlags.txt
+                    ....A        14988         4111  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\font-notes.txt
+                    ....A        16408          544  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\CP437-Consolas.txt
+                    ....A        19641          565  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\CP437-Lucida.txt
+                    ....A        19593          709  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\CP932.txt
+                    ....A        19650          857  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\CP936.txt
+                    ....A        19588          874  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\CP949.txt
+                    ....A        19656          902  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\CP950.txt
+                    ....A          870          316  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\MinimumWindowWidths.txt
+                    ....A          147          140  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\Results.txt
+                    ....A         7851         1382  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Font-Report-June2016\Windows10SetFontBugginess.txt
+                    ....A          529          253  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\FormatChar.h
+                    ....A         1952          781  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\IdentifyConsoleWindow.ps1
+                    ....A         4325         1527  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\MouseInputNotes.txt
+                    ....A         9856         4234  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Notes.txt
+                    ....A           65           69  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\misc\Spew.py
+                    ....A         5551         2368  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\README.md
+                    ....A        13667         5183  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\RELEASES.md
+                    ....A         1230          419  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\ship\build-pty4j-libpty.bat
+                    ....A         1698          749  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\ship\common_ship.py
+                    ....A         5415         2053  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\ship\make_msvc_package.py
+                    ....A         4022         1715  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\ship\ship.py
+                    ....A         3520         1598  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\Agent.h
+                    ....A         1283          773  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\AgentCreateDesktop.h
+                    ....A         1266          771  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\ConsoleFont.h
+                    ....A         3950         1478  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\ConsoleInput.h
+                    ....A         1444          838  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\ConsoleInputReencoding.h
+                    ....A         1524          873  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\ConsoleLine.h
+                    ....A         2204         1009  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\Coord.h
+                    ....A         1434          849  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\DebugShowInput.h
+                    ....A         1271          763  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\DefaultInputMap.h
+                    ....A         1242          757  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\DsrSender.h
+                    ....A         1603          914  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\EventLoop.h
+                    ....A         3369         1453  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\InputMap.h
+                    ....A         2411         1151  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\LargeConsoleRead.h
+                    ....A         4130         1640  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\NamedPipe.h
+                    ....A         3760         1584  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\Scraper.h
+                    ....A         2365         1153  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\SimplePool.h
+                    ....A         4437         1496  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\SmallRect.h
+                    ....A         2262         1147  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\Terminal.h
+                    ....A         5298         1653  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\UnicodeEncoding.h
+                    ....A         2347         1109  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\Win32Console.h
+                    ....A         3244         1385  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\agent\Win32ConsoleBuffer.h
+                    ....A         2378         1017  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\configurations.gypi
+                    ....A          106           89  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\gen\GenVersion.h
+                    ....A         9420         3280  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\include\winpty.h
+                    ....A         5697         2287  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\include\winpty_constants.h
+                    ....A         1278          759  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\libwinpty\AgentLocation.h
+                    ....A         1961         1000  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\libwinpty\LibWinptyException.h
+                    ....A         2379         1202  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\libwinpty\WinptyInternal.h
+                    ....A         1418          825  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\AgentMsg.h
+                    ....A         2836         1172  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\BackgroundDesktop.h
+                    ....A         3376         1407  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\Buffer.h
+                    ....A         1696          924  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\DebugClient.h
+                    ....A         2015         1107  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\GenRandom.h
+                    ....A          274          213  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\GetCommitHash.bat
+                    ....A         2183         1119  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\Mutex.h
+                    ....A         2282         1144  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\OsModule.h
+                    ....A         1870          958  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\OwnedHandle.h
+                    ....A         1528          813  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\PrecompiledHeader.h
+                    ....A         8506         2795  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\StringBuilder.h
+                    ....A         2677         1296  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\StringUtil.h
+                    ....A         2171         1078  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\TimeMeasurement.h
+                    ....A         2019          954  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\UnixCtrlChars.h
+                    ....A          578          363  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\UpdateGenVersion.bat
+                    ....A         3465         1517  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\WindowsSecurity.h
+                    ....A         1345          774  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\WindowsVersion.h
+                    ....A         2829         1270  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\WinptyAssert.h
+                    ....A         1643          904  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\WinptyException.h
+                    ....A         1246          746  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\WinptyVersion.h
+                    ....A         3668         1478  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\shared\winpty_snprintf.h
+                    ....A         2058         1082  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\unix-adapter\InputHandler.h
+                    ....A         1943         1051  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\unix-adapter\OutputHandler.h
+                    ....A         1410          834  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\unix-adapter\Util.h
+                    ....A         1549          865  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\unix-adapter\WakeupFd.h
+                    ....A         8463         1395  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\src\winpty.gyp
+                    ....A         2425          893  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\vcbuild.bat
+                    ....A           10           14  resources\app.asar.unpacked\node_modules\node-pty\deps\winpty\VERSION.txt
+                    ....A          721          448  resources\app.asar.unpacked\node_modules\node-pty\lib\conpty_console_list_agent.js
+                    ....A          475          239  resources\app.asar.unpacked\node_modules\node-pty\lib\conpty_console_list_agent.js.map
+                    ....A         1600          555  resources\app.asar.unpacked\node_modules\node-pty\lib\eventEmitter2.js
+                    ....A         1155          453  resources\app.asar.unpacked\node_modules\node-pty\lib\eventEmitter2.js.map
+                    ....A         1266          447  resources\app.asar.unpacked\node_modules\node-pty\lib\eventEmitter2.test.js
+                    ....A         1396          334  resources\app.asar.unpacked\node_modules\node-pty\lib\eventEmitter2.test.js.map
+                    ....A         2008          899  resources\app.asar.unpacked\node_modules\node-pty\lib\index.js
+                    ....A          987          352  resources\app.asar.unpacked\node_modules\node-pty\lib\index.js.map
+                    ....A          233          193  resources\app.asar.unpacked\node_modules\node-pty\lib\interfaces.js
+                    ....A          124          108  resources\app.asar.unpacked\node_modules\node-pty\lib\interfaces.js.map
+                    ....A          348          246  resources\app.asar.unpacked\node_modules\node-pty\lib\shared\conout.js
+                    ....A          204          168  resources\app.asar.unpacked\node_modules\node-pty\lib\shared\conout.js.map
+                    ....A         7454         1921  resources\app.asar.unpacked\node_modules\node-pty\lib\terminal.js
+                    ....A         5845         1374  resources\app.asar.unpacked\node_modules\node-pty\lib\terminal.js.map
+                    ....A         6250         1654  resources\app.asar.unpacked\node_modules\node-pty\lib\terminal.test.js
+                    ....A         4151          975  resources\app.asar.unpacked\node_modules\node-pty\lib\terminal.test.js.map
+                    ....A          807          370  resources\app.asar.unpacked\node_modules\node-pty\lib\testUtils.test.js
+                    ....A          622          306  resources\app.asar.unpacked\node_modules\node-pty\lib\testUtils.test.js.map
+                    ....A          228          190  resources\app.asar.unpacked\node_modules\node-pty\lib\types.js
+                    ....A          114          103  resources\app.asar.unpacked\node_modules\node-pty\lib\types.js.map
+                    ....A        13372         3820  resources\app.asar.unpacked\node_modules\node-pty\lib\unixTerminal.js
+                    ....A         9657         2218  resources\app.asar.unpacked\node_modules\node-pty\lib\unixTerminal.js.map
+                    ....A        19310         3834  resources\app.asar.unpacked\node_modules\node-pty\lib\unixTerminal.test.js
+                    ....A        11425         1807  resources\app.asar.unpacked\node_modules\node-pty\lib\unixTerminal.test.js.map
+                    ....A         1548          707  resources\app.asar.unpacked\node_modules\node-pty\lib\utils.js
+                    ....A         1142          489  resources\app.asar.unpacked\node_modules\node-pty\lib\utils.js.map
+                    ....A         6119         2190  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsConoutConnection.js
+                    ....A         1660          725  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsConoutConnection.js.map
+                    ....A        12388         3251  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsPtyAgent.js
+                    ....A         9105         2149  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsPtyAgent.js.map
+                    ....A         4147          998  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsPtyAgent.test.js
+                    ....A         2951          649  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsPtyAgent.test.js.map
+                    ....A         7852         2215  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsTerminal.js
+                    ....A         5021         1313  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsTerminal.js.map
+                    ....A        10760         2026  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsTerminal.test.js
+                    ....A         8847         1507  resources\app.asar.unpacked\node_modules\node-pty\lib\windowsTerminal.test.js.map
+                    ....A          848          448  resources\app.asar.unpacked\node_modules\node-pty\lib\worker\conoutSocketWorker.js
+                    ....A          635          332  resources\app.asar.unpacked\node_modules\node-pty\lib\worker\conoutSocketWorker.js.map
+                    ....A         3326          817  resources\app.asar.unpacked\node_modules\node-pty\LICENSE
+                    ....A        11456         2137  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\node_addon_api.vcxproj
+                    ....A         3259          648  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\node_addon_api.vcxproj.filters
+                    ....A        11491         2144  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\node_addon_api_except.vcxproj
+                    ....A         3259          648  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\node_addon_api_except.vcxproj.filters
+                    ....A        11486         2141  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\node_addon_api_maybe.vcxproj
+                    ....A         3259          648  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\node_addon_api_maybe.vcxproj.filters
+                    ....A          241          135  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release\obj\node_addon_api_except\node_add.6EBBCD62.tlog\Cl.items.tlog
+                    ....A          202          160  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release\obj\node_addon_api_except\node_add.6EBBCD62.tlog\node_addon_api_except.lastbuildstate
+                    ....A          343          211  resources\app.asar.unpacked\node_modules\node-pty\node-addon-api\Release\obj\node_addon_api_except\node_addon_api_except.recipe
+                    ....A          915          435  resources\app.asar.unpacked\node_modules\node-pty\package.json
+                    ....A        85496        14181  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\darwin-arm64\pty.node
+                    ....A        50480         1209  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\darwin-arm64\spawn-helper
+                    ....A        52864        14992  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\darwin-x64\pty.node
+                    ....A         9248         1149  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\darwin-x64\spawn-helper
+                    ....A       302592       100993  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\conpty.node
+                    ....A       122368        41866  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\conpty_console_list.node
+                    ....A       293376        98098  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\pty.node
+                    ....A       312320       126420  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\conpty.node
+                    ....A       134656        56184  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\conpty_console_list.node
+                    ....A       303104       122885  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\pty.node
+                    ....A          260          215  resources\app.asar.unpacked\node_modules\node-pty\scripts\gen-compile-commands.js
+                    ....A         2188          880  resources\app.asar.unpacked\node_modules\node-pty\scripts\increment-version.js
+                    ....A         2573          951  resources\app.asar.unpacked\node_modules\node-pty\scripts\post-install.js
+                    ....A         1172          571  resources\app.asar.unpacked\node_modules\node-pty\scripts\prebuild.js
+                    ....A          582          357  resources\app.asar.unpacked\node_modules\node-pty\src\conpty_console_list_agent.ts
+                    ....A          975          360  resources\app.asar.unpacked\node_modules\node-pty\src\eventEmitter2.test.ts
+                    ....A         1111          464  resources\app.asar.unpacked\node_modules\node-pty\src\eventEmitter2.ts
+                    ....A         2153          865  resources\app.asar.unpacked\node_modules\node-pty\src\index.ts
+                    ....A         2880          980  resources\app.asar.unpacked\node_modules\node-pty\src\interfaces.ts
+                    ....A          291          205  resources\app.asar.unpacked\node_modules\node-pty\src\shared\conout.ts
+                    ....A         4355         1319  resources\app.asar.unpacked\node_modules\node-pty\src\terminal.test.ts
+                    ....A         6683         2035  resources\app.asar.unpacked\node_modules\node-pty\src\terminal.ts
+                    ....A          567          288  resources\app.asar.unpacked\node_modules\node-pty\src\testUtils.test.ts
+                    ....A          323          192  resources\app.asar.unpacked\node_modules\node-pty\src\tsconfig.json
+                    ....A          306          218  resources\app.asar.unpacked\node_modules\node-pty\src\types.ts
+                    ....A        13110         2805  resources\app.asar.unpacked\node_modules\node-pty\src\unixTerminal.test.ts
+                    ....A        10999         3681  resources\app.asar.unpacked\node_modules\node-pty\src\unixTerminal.ts
+                    ....A          998          555  resources\app.asar.unpacked\node_modules\node-pty\src\utils.ts
+                    ....A         1727          706  resources\app.asar.unpacked\node_modules\node-pty\src\win\conpty.h
+                    ....A          695          382  resources\app.asar.unpacked\node_modules\node-pty\src\win\path_util.h
+                    ....A         2752         1236  resources\app.asar.unpacked\node_modules\node-pty\src\windowsConoutConnection.ts
+                    ....A         3419          924  resources\app.asar.unpacked\node_modules\node-pty\src\windowsPtyAgent.test.ts
+                    ....A        10378         3244  resources\app.asar.unpacked\node_modules\node-pty\src\windowsPtyAgent.ts
+                    ....A         8172         1994  resources\app.asar.unpacked\node_modules\node-pty\src\windowsTerminal.test.ts
+                    ....A         5735         1961  resources\app.asar.unpacked\node_modules\node-pty\src\windowsTerminal.ts
+                    ....A          713          375  resources\app.asar.unpacked\node_modules\node-pty\src\worker\conoutSocketWorker.ts
+                    ....A      6873130      6781919  resources.pak
+                    ....A       346432        52662  snapshot_blob.bin
+                    ....A       721176       114173  v8_context_snapshot.bin
+                    ....A          106           96  vk_swiftshader_icd.json
+                    ....A    226508800     66808845  Claude Code Studio.exe
+                    ....A      4741488      1580157  d3dcompiler_47.dll
+                    ....A     25722880      6399876  dxcompiler.dll
+                    ....A      1509760       474729  dxil.dll
+                    ....A      3046912       934832  ffmpeg.dll
+                    ....A       507904       175544  libEGL.dll
+                    ....A      8106496      2226667  libGLESv2.dll
+                    ....A       307712       121517  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty-agent.exe
+                    ....A       256512        98784  resources\app.asar.unpacked\node_modules\node-pty\build\Release\winpty.dll
+                    ....A       106528        40901  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\conpty\conpty.dll
+                    ....A      1194024       402683  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\conpty\OpenConsole.exe
+                    ....A       286720       102487  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\winpty-agent.exe
+                    ....A       236032        80788  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-arm64\winpty.dll
+                    ....A       109600        46867  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\conpty\conpty.dll
+                    ....A      1148448       436397  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\conpty\OpenConsole.exe
+                    ....A       307712       121832  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\winpty-agent.exe
+                    ....A       256000        99010  resources\app.asar.unpacked\node_modules\node-pty\prebuilds\win32-x64\winpty.dll
+                    ....A       106528        40901  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-arm64\conpty.dll
+                    ....A      1194024       402683  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-arm64\OpenConsole.exe
+                    ....A       109600        46867  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-x64\conpty.dll
+                    ....A      1148448       436397  resources\app.asar.unpacked\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-x64\OpenConsole.exe
+                    ....A       107520        49095  resources\elevate.exe
+                    ....A      5611520      1376468  vk_swiftshader.dll
+                    ....A       954368       262761  vulkan-1.dll
+------------------- ----- ------------ ------------  ------------------------
+                             411297557    108372539  357 files, 68 folders
+
+  • spawning        command=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-bin\win\x64\app-builder.exe download-artifact --name nsis-resources-3.4.1-nsis-resources-3.4.1 --url https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z --sha512 Dqd6g+2buwwvoG1Vyf6BHR1b+25QMmPcwZx40atOT57gH27rkjOei1L0JTldxZu4NFoEmW4kJgZ3DlSWVON3+Q==
+  • computing effective URL  initialUrl=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z
+                             currentUrl=https://release-assets.githubusercontent.com/github-production-release-asset/65527128/64ac4a00-a87a-11e9-901b-f221c4fd0776?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-05-24T21%3A13%3A41Z&rscd=attachment%3B+filename%3Dnsis-resources-3.4.1.7z&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-05-24T20%3A13%3A15Z&ske=2026-05-24T21%3A13%3A41Z&sks=b&skv=2018-11-09&sig=SVboVyv%2B6LNSvW%2B%2BLCg9BFCQdiIPAWHagpMya8m5l%2Bg%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3OTY1NDM2MywibmJmIjoxNzc5NjU0MDYzLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.N9DcPjXnpKAdbec7n6d_Q3ocxeSNek1SnRXnRkNsASY&response-content-disposition=attachment%3B%20filename%3Dnsis-resources-3.4.1.7z&response-content-type=application%2Foctet-stream
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z length=730800 contentType=application/octet-stream
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z size=731 kB parts=1
+  • map async       taskCount=1
+  • download part   range=bytes=0-730799 index=0
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z duration=419ms
+  • execute command  command='D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\403441323.7z' '-oC:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\403441323'
+                     workingDirectory=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis
+  • command executed  executable=D:\a\claude-code-studio\claude-code-studio\node_modules\7zip-bin\win\x64\7za.exe
+                      out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 730800 bytes (714 KiB)
+    
+    Extracting archive: C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\403441323.7z
+    --
+    Path = C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\403441323.7z
+    Type = 7z
+    Physical Size = 730800
+    Headers Size = 650
+    Method = LZMA2:3m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    Everything is Ok
+    
+    Folders: 5
+    Files: 22
+    Size:       2998788
+    Compressed: 730800
+    
+  • exited          command=app-builder.exe code=0 pid=2408 out=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-resources-3.4.1-nsis-resources-3.4.1
+  • spawning        command=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\Bin\makensis.exe -WX -INPUTCHARSET UTF8 -DAPP_ID=com.lxveace.claude-code-studio -DAPP_GUID=fd031369-19fb-57b8-ba83-082f0b808ae0 -DUNINSTALL_APP_KEY=fd031369-19fb-57b8-ba83-082f0b808ae0 -DPRODUCT_NAME=Claude Code Studio -DPRODUCT_FILENAME=Claude Code Studio -DAPP_FILENAME=claude-code-studio -DAPP_DESCRIPTION=Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync -DVERSION=2.0.0-dev.1 -DPROJECT_DIR=D:\a\claude-code-studio\claude-code-studio -DBUILD_RESOURCES_DIR=D:\a\claude-code-studio\claude-code-studio\build -DAPP_PACKAGE_NAME=claude-code-studio -DAPP_64=D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z -DAPP_64_NAME=claude-code-studio-2.0.0-dev.1-x64.nsis.7z -DAPP_64_HASH=36D38A486C9921D81170BCE05DEE384129D0157D12DF80A5F6ADFECE0529859F16B7B0B956EDCF1C74F55B00CAA3B31E104B0527F512A23EE491AA80FBC2A990 -DAPP_64_UNPACKED_SIZE=401658 -DCOMPANY_NAME=LxveAce -DAPP_PRODUCT_FILENAME=Claude Code Studio -DAPP_INSTALLER_STORE_FILE=claude-code-studio-updater\installer.exe -DCOMPRESSION_METHOD=7z -DONE_CLICK -DRUN_AFTER_FINISH -DSHORTCUT_NAME=Claude Code Studio -DUNINSTALL_DISPLAY_NAME=Claude Code Studio 2.0.0-dev.1 -DRECREATE_DESKTOP_SHORTCUT -DESTIMATED_SIZE=401658 -DCOMPRESS=auto -DBUILD_UNINSTALLER -DUNINSTALLER_OUT_FILE=D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.__uninstaller.exe -XOutFile "D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.exe" -XVIProductVersion 2.0.0.0 -XVIAddVersionKey /LANG=1033 ProductName "Claude Code Studio" -XVIAddVersionKey /LANG=1033 ProductVersion "2.0.0-dev.1" -XVIAddVersionKey /LANG=1033 LegalCopyright "Copyright © 2026 LxveAce" -XVIAddVersionKey /LANG=1033 FileDescription "Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync" -XVIAddVersionKey /LANG=1033 FileVersion "2.0.0-dev.1" -XVIAddVersionKey /LANG=1033 CompanyName "LxveAce" -XUnicode true -XSetCompressor zlib - cwd=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-lib\templates\nsis
+Command line defined: "APP_ID=com.lxveace.claude-code-studio"
+Command line defined: "APP_GUID=fd031369-19fb-57b8-ba83-082f0b808ae0"
+Command line defined: "UNINSTALL_APP_KEY=fd031369-19fb-57b8-ba83-082f0b808ae0"
+Command line defined: "PRODUCT_NAME=Claude Code Studio"
+Command line defined: "PRODUCT_FILENAME=Claude Code Studio"
+Command line defined: "APP_FILENAME=claude-code-studio"
+Command line defined: "APP_DESCRIPTION=Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync"
+Command line defined: "VERSION=2.0.0-dev.1"
+Command line defined: "PROJECT_DIR=D:\a\claude-code-studio\claude-code-studio"
+Command line defined: "BUILD_RESOURCES_DIR=D:\a\claude-code-studio\claude-code-studio\build"
+Command line defined: "APP_PACKAGE_NAME=claude-code-studio"
+Command line defined: "APP_64=D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z"
+Command line defined: "APP_64_NAME=claude-code-studio-2.0.0-dev.1-x64.nsis.7z"
+Command line defined: "APP_64_HASH=36D38A486C9921D81170BCE05DEE384129D0157D12DF80A5F6ADFECE0529859F16B7B0B956EDCF1C74F55B00CAA3B31E104B0527F512A23EE491AA80FBC2A990"
+Command line defined: "APP_64_UNPACKED_SIZE=401658"
+Command line defined: "COMPANY_NAME=LxveAce"
+Command line defined: "APP_PRODUCT_FILENAME=Claude Code Studio"
+Command line defined: "APP_INSTALLER_STORE_FILE=claude-code-studio-updater\installer.exe"
+Command line defined: "COMPRESSION_METHOD=7z"
+Command line defined: "ONE_CLICK"
+Command line defined: "RUN_AFTER_FINISH"
+Command line defined: "SHORTCUT_NAME=Claude Code Studio"
+Command line defined: "UNINSTALL_DISPLAY_NAME=Claude Code Studio 2.0.0-dev.1"
+Command line defined: "RECREATE_DESKTOP_SHORTCUT"
+Command line defined: "ESTIMATED_SIZE=401658"
+Command line defined: "COMPRESS=auto"
+Command line defined: "BUILD_UNINSTALLER"
+Command line defined: "UNINSTALLER_OUT_FILE=D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.__uninstaller.exe"
+Processing config: C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\nsisconf.nsh
+Processing script file: "<stdin>" (UTF8)
+
+Processed 1 file, 10 command line commands, writing output (x86-unicode):
+
+Output: "D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.exe"
+Install: 1 page (64 bytes), 1 section (16408 bytes), 48 instructions (1344 bytes), 3713 strings (32318 bytes), 26 language tables (5044 bytes).
+Uninstall: 1 page (128 bytes), 1 section (16408 bytes), 814 instructions (22792 bytes), 5934 strings (65678 bytes), 26 language tables (6604 bytes).
+
+Using zlib compression.
+
+EXE header size:               58368 / 39424 bytes
+Install code:                  12532 / 55642 bytes
+Install data:                      0 / 8 bytes
+Uninstall code+data:           91233 / 96160 bytes
+CRC (0x2695383F):                  4 / 4 bytes
+
+Total size:                   162137 / 191238 bytes (84.7%)
+  • exited          command=makensis.exe code=0 pid=8016
+  • executing       file=D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.exe args= env={
+  "__COMPAT_LAYER": "RunAsInvoker"
+}
+  • executed        file=D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.exe
+  • signing with signtool.exe  path=dist\Claude.Code.Studio-2.0.0-dev.1-Setup.__uninstaller.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • spawning        command=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\Bin\makensis.exe -WX -INPUTCHARSET UTF8 -DAPP_ID=com.lxveace.claude-code-studio -DAPP_GUID=fd031369-19fb-57b8-ba83-082f0b808ae0 -DUNINSTALL_APP_KEY=fd031369-19fb-57b8-ba83-082f0b808ae0 -DPRODUCT_NAME=Claude Code Studio -DPRODUCT_FILENAME=Claude Code Studio -DAPP_FILENAME=claude-code-studio -DAPP_DESCRIPTION=Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync -DVERSION=2.0.0-dev.1 -DPROJECT_DIR=D:\a\claude-code-studio\claude-code-studio -DBUILD_RESOURCES_DIR=D:\a\claude-code-studio\claude-code-studio\build -DAPP_PACKAGE_NAME=claude-code-studio -DAPP_64=D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z -DAPP_64_NAME=claude-code-studio-2.0.0-dev.1-x64.nsis.7z -DAPP_64_HASH=36D38A486C9921D81170BCE05DEE384129D0157D12DF80A5F6ADFECE0529859F16B7B0B956EDCF1C74F55B00CAA3B31E104B0527F512A23EE491AA80FBC2A990 -DAPP_64_UNPACKED_SIZE=401658 -DCOMPANY_NAME=LxveAce -DAPP_PRODUCT_FILENAME=Claude Code Studio -DAPP_INSTALLER_STORE_FILE=claude-code-studio-updater\installer.exe -DCOMPRESSION_METHOD=7z -DONE_CLICK -DRUN_AFTER_FINISH -DSHORTCUT_NAME=Claude Code Studio -DUNINSTALL_DISPLAY_NAME=Claude Code Studio 2.0.0-dev.1 -DRECREATE_DESKTOP_SHORTCUT -DESTIMATED_SIZE=401658 -DCOMPRESS=auto -DUNINSTALLER_OUT_FILE=D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.__uninstaller.exe -XOutFile "D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.exe" -XVIProductVersion 2.0.0.0 -XVIAddVersionKey /LANG=1033 ProductName "Claude Code Studio" -XVIAddVersionKey /LANG=1033 ProductVersion "2.0.0-dev.1" -XVIAddVersionKey /LANG=1033 LegalCopyright "Copyright © 2026 LxveAce" -XVIAddVersionKey /LANG=1033 FileDescription "Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync" -XVIAddVersionKey /LANG=1033 FileVersion "2.0.0-dev.1" -XVIAddVersionKey /LANG=1033 CompanyName "LxveAce" -XUnicode true -XSetCompressor zlib - cwd=D:\a\claude-code-studio\claude-code-studio\node_modules\app-builder-lib\templates\nsis
+Command line defined: "APP_ID=com.lxveace.claude-code-studio"
+Command line defined: "APP_GUID=fd031369-19fb-57b8-ba83-082f0b808ae0"
+Command line defined: "UNINSTALL_APP_KEY=fd031369-19fb-57b8-ba83-082f0b808ae0"
+Command line defined: "PRODUCT_NAME=Claude Code Studio"
+Command line defined: "PRODUCT_FILENAME=Claude Code Studio"
+Command line defined: "APP_FILENAME=claude-code-studio"
+Command line defined: "APP_DESCRIPTION=Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync"
+Command line defined: "VERSION=2.0.0-dev.1"
+Command line defined: "PROJECT_DIR=D:\a\claude-code-studio\claude-code-studio"
+Command line defined: "BUILD_RESOURCES_DIR=D:\a\claude-code-studio\claude-code-studio\build"
+Command line defined: "APP_PACKAGE_NAME=claude-code-studio"
+Command line defined: "APP_64=D:\a\claude-code-studio\claude-code-studio\dist\claude-code-studio-2.0.0-dev.1-x64.nsis.7z"
+Command line defined: "APP_64_NAME=claude-code-studio-2.0.0-dev.1-x64.nsis.7z"
+Command line defined: "APP_64_HASH=36D38A486C9921D81170BCE05DEE384129D0157D12DF80A5F6ADFECE0529859F16B7B0B956EDCF1C74F55B00CAA3B31E104B0527F512A23EE491AA80FBC2A990"
+Command line defined: "APP_64_UNPACKED_SIZE=401658"
+Command line defined: "COMPANY_NAME=LxveAce"
+Command line defined: "APP_PRODUCT_FILENAME=Claude Code Studio"
+Command line defined: "APP_INSTALLER_STORE_FILE=claude-code-studio-updater\installer.exe"
+Command line defined: "COMPRESSION_METHOD=7z"
+Command line defined: "ONE_CLICK"
+Command line defined: "RUN_AFTER_FINISH"
+Command line defined: "SHORTCUT_NAME=Claude Code Studio"
+Command line defined: "UNINSTALL_DISPLAY_NAME=Claude Code Studio 2.0.0-dev.1"
+Command line defined: "RECREATE_DESKTOP_SHORTCUT"
+Command line defined: "ESTIMATED_SIZE=401658"
+Command line defined: "COMPRESS=auto"
+Command line defined: "UNINSTALLER_OUT_FILE=D:\a\claude-code-studio\claude-code-studio\dist\Claude.Code.Studio-2.0.0-dev.1-Setup.__uninstaller.exe"
+Processing config: C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\nsisconf.nsh
+Processing script file: "<stdin>" (UTF8)
+warning 6000: unknown variable/constant "_.Exception.Message;" detected, ignoring (macro:customInstall:9)
+Error: warning treated as error
+  • exited          command=makensis.exe code=1 pid=10076
+  • async task error  error=C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+  ⨯ C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1  failedTask=build stackTrace=Error: C:\Users\runneradmin\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1-nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+    at ChildProcess.<anonymous> (D:\a\claude-code-studio\claude-code-studio\node_modules\builder-util\src\util.ts:272:14)
+    at Object.onceWrapper (node:events:634:26)
+    at ChildProcess.emit (node:events:519:28)
+    at ChildProcess.cp.emit (D:\a\claude-code-studio\claude-code-studio\node_modules\cross-spawn\lib\enoent.js:34:29)
+    at maybeClose (node:internal/child_process:1101:16)
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:304:5)
