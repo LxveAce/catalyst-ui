@@ -1,11 +1,13 @@
 import { app } from 'electron';
 import { execFile, spawn } from 'node:child_process';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
+import * as https from 'node:https';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import type { CliStatus, CliOnboardingState } from '../shared/types';
-import { findBundledRuntime, targetRuntimePaths } from './runtime-paths';
+import { findBundledRuntime, targetRuntimePaths, targetRuntimeRoot } from './runtime-paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -29,6 +31,63 @@ const DOCTOR_TIMEOUT_MS = 10000;
 /** Hard timeout for the npm install fallback. CLI is ~30 MB; on a slow
  * connection this can legitimately take a couple minutes. */
 const NPM_INSTALL_TIMEOUT_MS = 300000;
+
+/** Hard timeout for the Node download + extract. ~30 MB on macOS/Linux. */
+const NODE_BOOTSTRAP_TIMEOUT_MS = 300000;
+
+/**
+ * Node 22.22.3 per-platform tarball metadata for the in-app first-launch
+ * bootstrap (macOS + Linux only — Windows handles this in the NSIS
+ * installer at install-time).
+ *
+ * SHA256s captured 2026-05-24 from
+ * https://nodejs.org/dist/v22.22.3/SHASUMS256.txt — re-verify on each
+ * Node version bump.
+ */
+const NODE_VERSION = '22.22.3';
+const NODE_DIST_BASE = `https://nodejs.org/dist/v${NODE_VERSION}`;
+
+interface NodeDownload {
+  filename: string;
+  url: string;
+  sha256: string;
+  /** Extract command: 'tar-gz', 'tar-xz', or 'zip'. */
+  archiveType: 'tar-gz' | 'tar-xz' | 'zip';
+  /** Directory inside the archive (gets flattened into runtime/). */
+  innerDirName: string;
+}
+
+function nodeDownloadFor(platform: NodeJS.Platform, arch: string): NodeDownload | null {
+  if (platform === 'darwin' && arch === 'x64') {
+    return {
+      filename: `node-v${NODE_VERSION}-darwin-x64.tar.gz`,
+      url: `${NODE_DIST_BASE}/node-v${NODE_VERSION}-darwin-x64.tar.gz`,
+      sha256: '45830ba752fa0d892c6dcd640946669801293cac820a33591ded40ac075198ec',
+      archiveType: 'tar-gz',
+      innerDirName: `node-v${NODE_VERSION}-darwin-x64`,
+    };
+  }
+  if (platform === 'darwin' && arch === 'arm64') {
+    return {
+      filename: `node-v${NODE_VERSION}-darwin-arm64.tar.gz`,
+      url: `${NODE_DIST_BASE}/node-v${NODE_VERSION}-darwin-arm64.tar.gz`,
+      sha256: '0da7ff74ef8611328c8212f17943368713a2ad953fb7d89a8c8a0eae87c23207',
+      archiveType: 'tar-gz',
+      innerDirName: `node-v${NODE_VERSION}-darwin-arm64`,
+    };
+  }
+  if (platform === 'linux' && arch === 'x64') {
+    return {
+      filename: `node-v${NODE_VERSION}-linux-x64.tar.xz`,
+      url: `${NODE_DIST_BASE}/node-v${NODE_VERSION}-linux-x64.tar.xz`,
+      sha256: '2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f',
+      archiveType: 'tar-xz',
+      innerDirName: `node-v${NODE_VERSION}-linux-x64`,
+    };
+  }
+  // Windows handled by NSIS, not here. Unsupported arches return null.
+  return null;
+}
 
 /**
  * Surfaces information about the Claude Code CLI on this machine and
@@ -174,13 +233,10 @@ export class CliService {
     // macOS/Linux: <userData>/runtime/ (in-app bootstrap, app dir is RO).
     const { runtimeDir, nodeBin, npmCli } = targetRuntimePaths();
 
-    // On non-Windows platforms, the runtime dir may not exist yet because
-    // the first-launch in-app bootstrap creates it on demand. We need to
-    // download Node first if it's missing. For now, refuse and tell the
-    // user to reinstall — the full first-launch bootstrap (download Node,
-    // extract, then run npm install) is tracked as Phase 11 work for the
-    // macOS/Linux branches. Until that lands, packaged macOS/Linux builds
-    // require Node + Claude CLI on system PATH (degraded but functional).
+    // On macOS/Linux, the runtime dir may not exist on first launch
+    // because there's no NSIS-style installer to seed it. Bootstrap Node
+    // first if it's missing. On Windows, missing runtime means NSIS soft-
+    // failed or the user deleted it — point them at reinstall.
     if (!fs.existsSync(nodeBin) || !fs.existsSync(npmCli)) {
       if (process.platform === 'win32') {
         return {
@@ -189,11 +245,26 @@ export class CliService {
           error: 'Bundled Node runtime is missing. Reinstall Claude Code Studio to recover.',
         };
       }
-      return {
-        ok: false,
-        output: '',
-        error: 'In-app Node bootstrap for macOS/Linux is not yet implemented. Install Claude Code manually with: npm install -g @anthropic-ai/claude-code',
-      };
+
+      // macOS/Linux: download + verify + extract Node into runtimeDir.
+      const bootstrapResult = await this.bootstrapNodeRuntime(runtimeDir, onProgress);
+      if (!bootstrapResult.ok) {
+        return {
+          ok: false,
+          output: bootstrapResult.output,
+          error: bootstrapResult.error,
+        };
+      }
+
+      // After bootstrap, paths should now exist. Re-verify before
+      // continuing — defensive against partial extracts.
+      if (!fs.existsSync(nodeBin) || !fs.existsSync(npmCli)) {
+        return {
+          ok: false,
+          output: bootstrapResult.output,
+          error: 'Node bootstrap completed but expected files are missing. Try reinstalling Claude Code Studio.',
+        };
+      }
     }
 
     // Ensure runtime dir exists before npm install writes into it (mainly
@@ -282,6 +353,257 @@ export class CliService {
             error: `npm install exited with code ${code ?? 'null'}`,
           });
         }
+      });
+    });
+  }
+
+  /**
+   * macOS + Linux first-launch Node bootstrap. Downloads the pinned Node
+   * tarball, verifies SHA256, extracts to `runtimeDir`, flattens the
+   * versioned subdirectory so the layout matches what `runtime-paths.ts`
+   * expects (bin/node, lib/node_modules/npm/...).
+   *
+   * Windows is NOT routed here — the NSIS installer does this at install
+   * time, before the app ever launches. If somehow called on Windows
+   * (defensive), refuses with a clear message.
+   *
+   * Progress (download bytes + extract status) streams via `onProgress`
+   * for the same modal UI that the npm install uses (`Phase 6 M1`).
+   */
+  private async bootstrapNodeRuntime(
+    runtimeDir: string,
+    onProgress?: CliInstallProgressSink
+  ): Promise<{ ok: boolean; output: string; error: string | null }> {
+    if (process.platform === 'win32') {
+      return {
+        ok: false,
+        output: '',
+        error: 'Node bootstrap on Windows is handled by the NSIS installer, not the app.',
+      };
+    }
+
+    const arch = process.arch;
+    const download = nodeDownloadFor(process.platform, arch);
+    if (!download) {
+      return {
+        ok: false,
+        output: '',
+        error: `No bundled Node available for ${process.platform}/${arch}. Install Node 22+ manually and use the system claude.`,
+      };
+    }
+
+    const collected: string[] = [];
+    const emit = (line: string) => {
+      collected.push(line);
+      try { onProgress?.(line); } catch { /* never crash install on UI errors */ }
+    };
+
+    const tmpDir = app.getPath('temp');
+    const tmpArchive = path.join(tmpDir, download.filename);
+
+    // --- Step 1: Download ---
+    emit(`Downloading ${download.filename} (~30 MB)...`);
+    try {
+      await this.downloadFileWithProgress(download.url, tmpArchive, (percent) => {
+        if (percent % 10 === 0) emit(`  download progress: ${percent}%`);
+      });
+    } catch (e) {
+      try { fs.unlinkSync(tmpArchive); } catch { /* ignore */ }
+      return {
+        ok: false,
+        output: collected.join('\n'),
+        error: `Node download failed: ${(e as Error).message}`,
+      };
+    }
+
+    // --- Step 2: Verify SHA256 ---
+    emit('Verifying SHA256...');
+    try {
+      const actual = await this.fileSha256(tmpArchive);
+      if (actual !== download.sha256) {
+        try { fs.unlinkSync(tmpArchive); } catch { /* ignore */ }
+        return {
+          ok: false,
+          output: collected.join('\n'),
+          error: `SHA256 mismatch — refusing to use untrusted Node binary. Expected ${download.sha256}, got ${actual}.`,
+        };
+      }
+    } catch (e) {
+      return {
+        ok: false,
+        output: collected.join('\n'),
+        error: `SHA256 verification failed: ${(e as Error).message}`,
+      };
+    }
+    emit('SHA256 OK');
+
+    // --- Step 3: Extract ---
+    emit(`Extracting to ${runtimeDir}...`);
+    try {
+      fs.mkdirSync(runtimeDir, { recursive: true });
+      await this.extractTo(tmpArchive, runtimeDir, download.archiveType, emit);
+    } catch (e) {
+      return {
+        ok: false,
+        output: collected.join('\n'),
+        error: `Extract failed: ${(e as Error).message}`,
+      };
+    }
+
+    // --- Step 4: Flatten the versioned dir ---
+    // Tarball extracts to runtimeDir/node-vX.Y.Z-<plat>-<arch>/{bin,lib,...}
+    // We want everything one level up so bin/node is at runtimeDir/bin/node.
+    const versionedDir = path.join(runtimeDir, download.innerDirName);
+    if (fs.existsSync(versionedDir)) {
+      emit('Flattening directory layout...');
+      try {
+        for (const entry of fs.readdirSync(versionedDir)) {
+          const src = path.join(versionedDir, entry);
+          const dst = path.join(runtimeDir, entry);
+          // If dst exists (re-run), remove first.
+          if (fs.existsSync(dst)) {
+            fs.rmSync(dst, { recursive: true, force: true });
+          }
+          fs.renameSync(src, dst);
+        }
+        fs.rmdirSync(versionedDir);
+      } catch (e) {
+        return {
+          ok: false,
+          output: collected.join('\n'),
+          error: `Flatten failed: ${(e as Error).message}`,
+        };
+      }
+    }
+
+    // --- Step 5: Cleanup ---
+    try { fs.unlinkSync(tmpArchive); } catch { /* ignore */ }
+
+    emit('Node runtime ready.');
+    return { ok: true, output: collected.join('\n'), error: null };
+  }
+
+  /** Downloads `url` to `destPath`, calling `onProgress(percent)` periodically. */
+  private downloadFileWithProgress(
+    url: string,
+    destPath: string,
+    onProgress: (percent: number) => void
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const writeStream = fs.createWriteStream(destPath);
+      let cleaned = false;
+      const cleanup = (err?: Error) => {
+        if (cleaned) return;
+        cleaned = true;
+        writeStream.end();
+        if (err) reject(err); else resolve();
+      };
+
+      const timeoutHandle = setTimeout(() => {
+        cleanup(new Error('Download timeout'));
+      }, NODE_BOOTSTRAP_TIMEOUT_MS);
+
+      const doGet = (target: string, redirectsRemaining: number) => {
+        https.get(target, { headers: { 'User-Agent': 'claude-code-studio' } }, (res) => {
+          // Follow 3xx redirects (GitHub redirects to fastly).
+          if (
+            res.statusCode &&
+            res.statusCode >= 300 &&
+            res.statusCode < 400 &&
+            res.headers.location &&
+            redirectsRemaining > 0
+          ) {
+            res.resume();
+            doGet(res.headers.location, redirectsRemaining - 1);
+            return;
+          }
+          if (res.statusCode !== 200) {
+            clearTimeout(timeoutHandle);
+            cleanup(new Error(`HTTP ${res.statusCode} fetching ${target}`));
+            return;
+          }
+          const total = Number.parseInt(res.headers['content-length'] ?? '0', 10);
+          let received = 0;
+          let lastReportedPercent = -1;
+          res.on('data', (chunk: Buffer) => {
+            received += chunk.length;
+            if (total > 0) {
+              const percent = Math.floor((received / total) * 100);
+              if (percent !== lastReportedPercent) {
+                lastReportedPercent = percent;
+                try { onProgress(percent); } catch { /* ignore */ }
+              }
+            }
+          });
+          res.pipe(writeStream);
+          res.on('error', (err) => {
+            clearTimeout(timeoutHandle);
+            cleanup(err);
+          });
+          writeStream.on('finish', () => {
+            clearTimeout(timeoutHandle);
+            cleanup();
+          });
+          writeStream.on('error', (err) => {
+            clearTimeout(timeoutHandle);
+            cleanup(err);
+          });
+        }).on('error', (err) => {
+          clearTimeout(timeoutHandle);
+          cleanup(err);
+        });
+      };
+
+      doGet(url, 5);
+    });
+  }
+
+  /** Returns lowercase SHA256 hex of the file at `filePath`. */
+  private fileSha256(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('sha256');
+      const stream = fs.createReadStream(filePath);
+      stream.on('data', (chunk) => hash.update(chunk));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', reject);
+    });
+  }
+
+  /**
+   * Extracts `archive` into `destDir`. Uses the OS `tar` binary on macOS/
+   * Linux — it ships with the OS, no extra dep needed.
+   */
+  private extractTo(
+    archive: string,
+    destDir: string,
+    type: 'tar-gz' | 'tar-xz' | 'zip',
+    emit: CliInstallProgressSink
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let cmd: string;
+      let args: string[];
+      if (type === 'tar-gz') {
+        cmd = 'tar';
+        args = ['-xzf', archive, '-C', destDir];
+      } else if (type === 'tar-xz') {
+        cmd = 'tar';
+        args = ['-xJf', archive, '-C', destDir];
+      } else {
+        // zip — used only for Windows (which doesn't route here today)
+        reject(new Error('zip extract via tar not supported; use PowerShell Expand-Archive on Windows.'));
+        return;
+      }
+      const child = spawn(cmd, args, { windowsHide: true });
+      let stderr = '';
+      child.stderr?.setEncoding('utf8');
+      child.stderr?.on('data', (d: string) => {
+        stderr += d;
+        emit(`  extract: ${d.trim()}`);
+      });
+      child.on('error', reject);
+      child.on('exit', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`tar exited ${code ?? 'null'}: ${stderr.trim()}`));
       });
     });
   }
