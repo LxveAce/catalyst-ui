@@ -100,6 +100,14 @@ Forge pipeline will be removed in Phase 8 once builder is proven for v1.1.
 
 - **Code style:** TypeScript throughout. Match the surrounding code — naming,
   comment density, and idioms. Prefer small, readable diffs over churn.
+- **Platform parity (v2.0+):** Studio ships on Windows, macOS, and Linux.
+  Any change to main-process source must consider all three. Path resolution
+  for bundled runtime / CLI goes through
+  [`src/main/runtime-paths.ts`](./src/main/runtime-paths.ts) — never hard-
+  code platform-specific paths in feature code. When adding a feature that
+  uses external binaries or platform APIs, gate with `process.platform`
+  and verify the non-Windows branches at least compile (CI catches the
+  rest via per-platform smoke builds).
 - **LMM journaling:** non-trivial work is thought through with the Lincoln
   Manifold Method and recorded under [`journal/`](./journal/) — one
   `<source-path>.lmm.md` analysis per file.

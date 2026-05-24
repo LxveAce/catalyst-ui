@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
+// node-pty's Windows backend uses winpty + conpty, both of which have a
+// gyp build path that runs cmd.exe + batch files during configure. Those
+// fail on macOS/Linux (no cmd.exe, different shell tooling). On POSIX
+// platforms node-pty uses forkpty directly — no patches needed.
+if (process.platform !== 'win32') {
+  console.log('[patch-node-pty] non-Windows platform — skipping (only winpty/conpty need patching)');
+  process.exit(0);
+}
+
 const nodeModules = path.join(__dirname, '..', 'node_modules', 'node-pty');
 
 if (!fs.existsSync(nodeModules)) {

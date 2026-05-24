@@ -4,6 +4,7 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { findBundledRuntime } from './runtime-paths';
 
 let pty: typeof import('node-pty') | null = null;
 try {
@@ -117,30 +118,21 @@ export class PtyManager extends EventEmitter {
   }
 
   private findClaudePath(): string {
-    // In packaged builds, the NSIS bootstrap installer (Phase 4) writes the
-    // bundled Claude CLI to resources/runtime/claude.cmd alongside a private
-    // Node 22 runtime. Prefer that location so users get a working terminal
-    // without needing `claude` on system PATH — that "manual prereq install"
-    // step was the main UX hole that v1.1 closes.
-    //
-    // If the bundled runtime is missing (corrupt install, bootstrap failed
-    // mid-install, user manually deleted runtime/), fall through to the
-    // legacy candidates rather than throwing — a degraded "use system claude"
-    // experience is strictly better than a hard failure.
-    //
-    // Dev mode (!app.isPackaged) skips the bundled check entirely:
-    // process.resourcesPath in dev points at Electron's own resources, not
-    // ours, so the path would never resolve. Dev uses PATH like before.
+    // In packaged builds, prefer the bundled runtime installed by either:
+    //   - Phase 4 NSIS bootstrap (Windows, at resources/runtime/), or
+    //   - First-launch in-app bootstrap (macOS/Linux, at <userData>/runtime/),
+    //     also used as Windows soft-fail recovery.
+    // runtime-paths.ts handles per-platform path resolution.
     if (app.isPackaged) {
-      const bundled = path.join(process.resourcesPath, 'runtime', 'claude.cmd');
-      if (fs.existsSync(bundled)) return bundled;
-      // Also try .exe in case Phase 4 produces a single-file launcher
-      // (electron-builder NSIS scripts may use either; we accept both).
-      const bundledExe = path.join(process.resourcesPath, 'runtime', 'claude.exe');
-      if (fs.existsSync(bundledExe)) return bundledExe;
+      const bundled = findBundledRuntime();
+      if (bundled) return bundled.claudeBin;
+      // Bundled is missing (corrupt install, bootstrap failed mid-install,
+      // user manually deleted runtime/) — fall through to system PATH so
+      // a user with their own claude install still gets a working terminal.
     }
 
-    // Legacy + dev fallback.
+    // Legacy + dev fallback. ~/.local/bin is a common per-user install
+    // location across platforms; bare `claude` resolves via PATH.
     const candidates = [
       path.join(os.homedir(), '.local', 'bin', 'claude.exe'),
       path.join(os.homedir(), '.local', 'bin', 'claude'),
