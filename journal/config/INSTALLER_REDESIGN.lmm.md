@@ -320,5 +320,61 @@ phase parallelizes with Phase 4 — no dependency between them. We could
 also skip to Phase 6 (auth onboarding) since Phase 4's soft-fail design
 made it a prerequisite for v1.1 release (per M5 finding above).
 
+**Commit:** `ce03551` Phase 4 (NSIS bootstrap).
+
+### 2026-05-23 — Phase 8 (README + docs) — COMPLETE (out-of-order)
+
+**Why out of order:** with user actively waiting to test the work tonight,
+prioritized getting docs in place so they have clear test instructions
+(Dev Mode requirement, new scripts, migration path) before context runs
+out. Phase 5 (branding placeholders) and Phase 7 (updater migration)
+deferred to next session; Phase 6 (auth onboarding) was originally going
+to be next but is a bigger code change than docs.
+
+**What landed:**
+- `README.md` — split into "Installing (v1.0)" and "Building from source"
+  sections. v1.1 in-development note pointing at INSTALLER_REDESIGN.md and
+  MIGRATING_FROM_V1.md. New `dist`/`dist:dir`/`dist:publish` scripts in
+  the build-outputs table.
+- `CONTRIBUTING.md` — new "Node 22 on Windows" subsection (nvm-windows or
+  portable zip side-by-side). New "Windows Developer Mode" subsection for
+  `npm run dist`. New build-pipelines table showing forge vs builder
+  commands during the transition.
+- `docs/MIGRATING_FROM_V1.md` (new) — full v1.0 → v1.1 upgrade path with
+  backup instructions, uninstall steps, install steps, failure-modal
+  reference table, and rollback procedure.
+- `docs/HANDOFF.md` — Current State section now references v1.1 in
+  progress.
+- `docs/BACKLOG.md` — new §0 "v1.1 bootstrap installer — IN DEVELOPMENT"
+  tracking shipped + remaining phases, plus the deferred Phase 4b
+  (offline variant).
+
+**Red-team:** `docs/security-reviews/SECURITY_REVIEW_BOOTSTRAP_INSTALLER_PHASE8_DOCS.md`
+— 0 Crit / 0 High / 2 Med (forward-references to in-development features
+in README + MIGRATING — both have explicit "in development" disclaimers,
+accepted) / 2 Low.
+
+**Verified:**
+- v1.0 install instructions still accurate in README.
+- CONTRIBUTING.md Node 22 URLs point to actual nodejs.org/dist/v22.22.3/.
+- MIGRATING uninstall paths match v1.0's `%LocalAppData%\claude_code_studio\`.
+- MIGRATING install paths match v1.1's planned
+  `%LocalAppData%\Programs\Claude Code Studio\` (NSIS oneClick +
+  perMachine:false default).
+
+**Phases shipped so far:** 1, 2, 3, 4, 8. Remaining for v1.1.0-rc1: 5, 6,
+7, 9. Phase 6 is the hard blocker per Phase 4 M5 (soft-fail recovery UI).
+
+**For the user testing tonight:** see README's "Building from source" or
+`docs/INSTALLER_REDESIGN.md` "Build prerequisite" section. Quick path:
+1. Enable Windows Developer Mode (Settings → Privacy & Security → For
+   Developers → On).
+2. `npm install` (already done).
+3. `npm run dist:dir` for unpacked smoke test (already verified works).
+4. `npm run dist` for full Setup.exe with bootstrap (this is the new path
+   that needs Dev Mode).
+5. Run the produced `dist\Claude.Code.Studio-1.0.0-Setup.exe` on a clean
+   machine to validate the bootstrap downloads Node + installs Claude CLI.
+
 **Commit:** to follow this entry.
 
