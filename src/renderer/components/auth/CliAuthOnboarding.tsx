@@ -39,6 +39,10 @@ export function CliAuthOnboarding({ onClose, sendToActivePane }: Props) {
     ok: boolean;
     error: string | null;
   } | null>(null);
+  // Phase 6 M1 — live stream of npm install output. We keep only the
+  // last ~10 lines to avoid the modal growing unboundedly during long
+  // installs.
+  const [installLog, setInstallLog] = useState<string[]>([]);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -72,6 +76,16 @@ export function CliAuthOnboarding({ onClose, sendToActivePane }: Props) {
   const handleInstall = async () => {
     setBusy(true);
     setInstallResult(null);
+    setInstallLog([]);
+    // Subscribe to streamed npm output BEFORE kicking off the install
+    // so we don't miss the first lines (they arrive within ms of spawn).
+    const unsub = window.electronAPI.cli.onInstallProgress((line) => {
+      setInstallLog((prev) => {
+        const next = [...prev, line];
+        // Keep tail-10 to bound modal growth on long installs.
+        return next.length > 10 ? next.slice(next.length - 10) : next;
+      });
+    });
     try {
       const result = await window.electronAPI.cli.install();
       setInstallResult({ ok: result.ok, error: result.error });
@@ -86,6 +100,7 @@ export function CliAuthOnboarding({ onClose, sendToActivePane }: Props) {
         error: e instanceof Error ? e.message : 'Install failed',
       });
     } finally {
+      try { unsub(); } catch { /* ignore */ }
       setBusy(false);
     }
   };
@@ -195,8 +210,30 @@ export function CliAuthOnboarding({ onClose, sendToActivePane }: Props) {
                 cursor: busy ? 'wait' : 'pointer',
               }}
             >
-              {busy ? 'Installing… (~30s)' : 'Install Claude CLI'}
+              {busy ? 'Installing…' : 'Install Claude CLI'}
             </button>
+            {busy && installLog.length > 0 && (
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  border: '1px solid var(--border, rgba(255,255,255,0.08))',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  color: 'var(--text-secondary, #a0a0b0)',
+                  fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+                  maxHeight: '120px',
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+                aria-live="polite"
+                aria-atomic="false"
+              >
+                {installLog.join('\n')}
+              </div>
+            )}
             {installResult && !installResult.ok && (
               <p
                 style={{

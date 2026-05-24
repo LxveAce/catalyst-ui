@@ -185,6 +185,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     status: () => ipcRenderer.invoke(IPC.CLI_STATUS),
     /** Re-run the Phase 4 npm install using the bundled runtime. */
     install: () => ipcRenderer.invoke(IPC.CLI_INSTALL),
+    /** Subscribe to live npm install output (one event per line). */
+    onInstallProgress: (callback: (line: string) => void) =>
+      subscribe<[string]>(IPC.CLI_INSTALL_PROGRESS, callback),
     /** Read persisted onboarding flag (so we don't reshow the modal). */
     getOnboarding: () => ipcRenderer.invoke(IPC.CLI_ONBOARDING_GET),
     /** Mark first-launch onboarding done — modal won't reshow. */
