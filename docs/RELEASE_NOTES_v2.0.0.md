@@ -162,8 +162,73 @@ Before publishing v2.0.0:
   receives the update via electron-updater (Windows + macOS + Linux
   AppImage). deb/rpm tested with manual package upgrade.
 
-Then bump `package.json` from `2.0.0-dev.1` to `2.0.0`, tag, and run
-`npm run dist:publish` on each OS or trigger the CI publish workflow.
+## Publishing v2.0.0
+
+The repo ships a tag-driven release workflow at
+`.github/workflows/release.yml`. To publish:
+
+1. Bump `package.json` version → `2.0.0`.
+2. Commit, then:
+   ```bash
+   git tag v2.0.0
+   git push origin v2.0.0
+   ```
+3. The release workflow auto-triggers and runs in parallel on
+   windows-latest + macos-latest + ubuntu-latest. Each runs the
+   appropriate `npm run dist:publish:*` script with the
+   auto-provided `GITHUB_TOKEN`, which lets electron-builder create
+   (or update) a draft release tagged `v2.0.0` with all per-OS
+   artifacts:
+   - `Claude.Code.Studio-2.0.0-Setup.exe` + `latest.yml`
+   - `Claude.Code.Studio-2.0.0-x64.dmg`, `...-arm64.dmg`, +
+     `latest-mac.yml`
+   - `Claude.Code.Studio-2.0.0-x64.AppImage` +
+     `claude-code-studio_2.0.0_amd64.deb` +
+     `claude-code-studio-2.0.0.x86_64.rpm` + `latest-linux.yml`
+4. Once V1-V4 above pass on the draft release, edit the GitHub
+   release → uncheck **Set as a pre-release** if checked → **Publish
+   release**. electron-updater's `latest*.yml` feed picks it up
+   immediately for existing installs.
+
+## Verifying auto-update post-publish
+
+After the v2.0.0 release is published (not just drafted), confirm
+auto-update by:
+
+1. Install v2.0.0 from the published release.
+2. Bump `package.json` to `2.0.1`, commit:
+   ```bash
+   git tag v2.0.1 && git push origin v2.0.1
+   ```
+   The release workflow publishes v2.0.1 as a draft.
+3. **Promote v2.0.1 from draft → published on GitHub.** This is the
+   critical step — drafts are invisible to `electron-updater`. The
+   feed at `https://github.com/LxveAce/claude-code-studio/releases/latest/download/latest.yml`
+   (or `latest-mac.yml` / `latest-linux.yml`) needs to point at the
+   newer release.
+4. Open the running v2.0.0 install. Within ~5 minutes (the
+   `update-electron-app` default check interval — applies the same
+   for electron-updater), the StatusBar shows
+   *"Downloading update… X%"* then *"Update v2.0.1 ready"*.
+5. Close and reopen the app. v2.0.1 is now running.
+
+If step 4 doesn't fire, hit Settings → Updates → **Check now**
+(rate-limited to once per 5s) to force a poll.
+
+**Per-platform caveats:**
+- **Linux deb / rpm installs** don't auto-update — that's a property
+  of those formats, not a bug. Users update via
+  `sudo apt upgrade claude-code-studio` (deb) or
+  `sudo dnf update claude-code-studio` (rpm) after the publisher
+  pipeline ships to those repos (not v2.0 — future work).
+- **Linux AppImage** does auto-update via electron-updater. The
+  current AppImage gets replaced in-place when the user accepts the
+  restart prompt.
+- **macOS** updates via the `.zip` artifact (electron-updater
+  applies the zip onto the running app bundle). DMG is just the
+  install-time delivery format.
+- **Windows** updates via Squirrel-Windows-style delta or full from
+  the NSIS Setup.exe.
 
 ---
 
