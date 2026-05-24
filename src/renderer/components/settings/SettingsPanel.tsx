@@ -626,7 +626,7 @@ export function SettingsPanel() {
         }}>
           About
         </div>
-        <SettingRow label="App Version" value="1.1.0-dev" />
+        <SettingRow label="App Version" value="2.0.0-dev.1" />
         <SettingRow label="Electron" value="42.2.0" />
         <SettingRow label="React" value="19.x" />
         <SettingRow label="Author" value="LxveAce" />
