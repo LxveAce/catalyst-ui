@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import type { CliStatus, CliOnboardingState } from '../shared/types';
+import { findBundledRuntime, targetRuntimePaths } from './runtime-paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -52,17 +53,13 @@ export class CliService {
   /**
    * Returns the resolved `claude` executable path. Mirrors the resolution
    * order from PtyManager.findClaudePath() so doctor checks the same
-   * binary the terminal would spawn. Single source of truth would be
-   * better long-term; for now we accept the duplication because the two
-   * use cases (terminal spawn via node-pty vs doctor spawn via execFile)
-   * have subtly different ergonomics.
+   * binary the terminal would spawn. Single source of truth via
+   * runtime-paths.ts.
    */
   private findClaudePath(): { path: string; source: CliStatus['source'] } {
     if (app.isPackaged) {
-      const bundled = path.join(process.resourcesPath, 'runtime', 'claude.cmd');
-      if (fs.existsSync(bundled)) return { path: bundled, source: 'bundled' };
-      const bundledExe = path.join(process.resourcesPath, 'runtime', 'claude.exe');
-      if (fs.existsSync(bundledExe)) return { path: bundledExe, source: 'bundled' };
+      const bundled = findBundledRuntime();
+      if (bundled) return { path: bundled.claudeBin, source: 'bundled' };
     }
 
     // Legacy + dev fallback.
@@ -172,16 +169,41 @@ export class CliService {
       };
     }
 
-    const runtimeDir = path.join(process.resourcesPath, 'runtime');
-    const nodeBin = path.join(runtimeDir, 'node.exe');
-    const npmCli = path.join(runtimeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    // Where the runtime lives differs by platform — see runtime-paths.ts.
+    // Windows: prefers resources/runtime/ (NSIS bootstrap layout).
+    // macOS/Linux: <userData>/runtime/ (in-app bootstrap, app dir is RO).
+    const { runtimeDir, nodeBin, npmCli } = targetRuntimePaths();
 
+    // On non-Windows platforms, the runtime dir may not exist yet because
+    // the first-launch in-app bootstrap creates it on demand. We need to
+    // download Node first if it's missing. For now, refuse and tell the
+    // user to reinstall — the full first-launch bootstrap (download Node,
+    // extract, then run npm install) is tracked as Phase 11 work for the
+    // macOS/Linux branches. Until that lands, packaged macOS/Linux builds
+    // require Node + Claude CLI on system PATH (degraded but functional).
     if (!fs.existsSync(nodeBin) || !fs.existsSync(npmCli)) {
+      if (process.platform === 'win32') {
+        return {
+          ok: false,
+          output: '',
+          error: 'Bundled Node runtime is missing. Reinstall Claude Code Studio to recover.',
+        };
+      }
       return {
         ok: false,
         output: '',
-        error: 'Bundled Node runtime is missing. Reinstall Claude Code Studio to recover.',
+        error: 'In-app Node bootstrap for macOS/Linux is not yet implemented. Install Claude Code manually with: npm install -g @anthropic-ai/claude-code',
       };
+    }
+
+    // Ensure runtime dir exists before npm install writes into it (mainly
+    // matters when the bundled Node is present but the prefix subtree
+    // hasn't been seeded yet — npm wants to write package-lock placeholders).
+    try {
+      fs.mkdirSync(runtimeDir, { recursive: true });
+    } catch {
+      // mkdir failure here means the install will fail anyway with a
+      // clearer error from npm — let it.
     }
 
     // Use spawn (not execFile) so we can stream stdout/stderr line-by-line

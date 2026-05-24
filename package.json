@@ -12,9 +12,14 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "vite:build": "node scripts/build-vite.mjs",
-    "dist:dir": "npm run vite:build && electron-builder --win --dir",
+    "dist:dir": "npm run vite:build && electron-builder --dir",
     "dist": "npm run vite:build && electron-builder --win",
-    "dist:publish": "npm run vite:build && electron-builder --win --publish always"
+    "dist:mac": "npm run vite:build && electron-builder --mac",
+    "dist:linux": "npm run vite:build && electron-builder --linux",
+    "dist:all": "npm run vite:build && electron-builder -mwl",
+    "dist:publish": "npm run vite:build && electron-builder --win --publish always",
+    "dist:publish:mac": "npm run vite:build && electron-builder --mac --publish always",
+    "dist:publish:linux": "npm run vite:build && electron-builder --linux --publish always"
   },
   "keywords": [
     "claude",
