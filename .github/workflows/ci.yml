@@ -125,6 +125,33 @@ jobs:
           CI: "true"
           DEBUG: "electron-builder"
 
+      - name: Post failure log to workflow summary
+        # On failure, write the tail of dist/build.log into the
+        # GH Actions run summary. The summary is rendered as Markdown
+        # on the public run page — no API auth needed to view it.
+        # This is the diagnostic channel of last resort when the
+        # artifact API is auth-walled.
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f dist/build.log ]; then
+            {
+              echo "## ❌ Build failure log — ${{ matrix.label }}"
+              echo ""
+              echo "Last 200 lines of \`dist/build.log\`:"
+              echo ""
+              echo '```'
+              tail -200 dist/build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## ❌ Build failure — ${{ matrix.label }}"
+              echo ""
+              echo "_(No dist/build.log captured — tee did not run.)_"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload artifact
         # Always upload, even on build failure, so debug logs can be
         # post-mortemed via builder-debug.yml.
