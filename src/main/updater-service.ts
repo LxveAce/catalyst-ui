@@ -1,4 +1,4 @@
-import { app, autoUpdater } from 'electron';
+import { app } from 'electron';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -16,31 +16,41 @@ const DEFAULTS: UpdaterSettings = {
  * dependency tree one-way (main wiring composes the two).
  */
 export interface UpdaterCallbacks {
-  /** Called when the OS-level autoUpdater reports an available, downloaded update. */
+  /** Called when an update is fully downloaded and ready to install on next launch. */
   onUpdateDownloaded?: (version: string) => void;
   /** Called for any updater error (non-fatal — typical on first-run / no releases yet). */
   onError?: (message: string) => void;
+  /** Called with rounded download percent (0-100) during update download. */
+  onDownloadProgress?: (percent: number) => void;
 }
 
 /**
- * UpdaterService wraps `update-electron-app` for the auto-update path AND
- * exposes a manual `checkNow()` plus a settings store.
+ * UpdaterService wraps `electron-updater`'s autoUpdater (Phase 7 of the
+ * bootstrap-installer migration — replaced `update-electron-app` which was
+ * tied to the Squirrel.Windows pipeline).
  *
- * Why update-electron-app (not electron-updater)?
- *   - We use electron-forge with MakerSquirrel, not electron-builder.
- *   - `update-electron-app` is the official Electron helper for Squirrel.Windows
- *     and Squirrel.Mac. It uses Electron's built-in `autoUpdater` module and
- *     defaults to the GitHub-hosted update.electronjs.org proxy, which already
- *     handles release-channel resolution from GitHub Releases.
- *   - No code-signing requirement on Windows for Squirrel installs.
- *     (macOS would need signing, but we ship Windows-first.)
+ * Why electron-updater (not update-electron-app)?
+ *   - v1.1 ships via electron-builder + NSIS, not electron-forge + Squirrel.
+ *     `update-electron-app` is designed for Squirrel.{Windows,Mac} and uses
+ *     update.electronjs.org as a proxy. electron-updater speaks directly to
+ *     electron-builder's `latest.yml` format, which is what `npm run dist:publish`
+ *     emits to GitHub Releases.
+ *   - electron-updater supports NSIS, AppImage, dmg, and zip targets uniformly,
+ *     so future macOS/Linux ports inherit the same updater plumbing.
  *
- * Skip conditions:
- *   - dev-mode (MAIN_WINDOW_VITE_DEV_SERVER_URL set): don't init the OS updater
+ * Skip conditions (preserved from the previous service so the UI contract
+ * stays stable — per Phase 4 red-team L1):
+ *   - dev-mode (MAIN_WINDOW_VITE_DEV_SERVER_URL set): don't init the updater
  *     at all — there's no installed app to update.
- *   - Linux: Squirrel-style autoUpdate isn't supported there; surface an
- *     'unsupported-platform' reason rather than failing loudly.
+ *   - Linux: electron-updater technically supports it but our v1.1 ships
+ *     Windows-only; surface 'unsupported-platform' rather than confusing the
+ *     user with a non-functional updater.
  *   - User disabled: respect it.
+ *
+ * Squirrel-to-NSIS migration cliff (Phase 1 H1 / Phase 7 plan):
+ *   - Users on v1.0 (installed via Squirrel) will NOT receive updates via this
+ *     service. They must follow MIGRATING_FROM_V1.md to uninstall + reinstall
+ *     once. After that, v1.1+ updates land via electron-updater seamlessly.
  */
 export class UpdaterService {
   private storePath: string;
@@ -74,108 +84,117 @@ export class UpdaterService {
   }
 
   /**
-   * Wire up the OS auto-updater. Safe to call once per process.
+   * Wire up electron-updater. Safe to call once per process.
    * Returns the new state for telemetry.
    */
   start(): UpdaterState {
     if (this.wired) return this.getState();
     this.wired = true;
 
-    // Skip in dev mode — no installed app to update.
+    // GATE 1 — dev mode (no installed app to update).
     if (!this.state.productionMode) {
       this.state.inactiveReason = 'dev-mode';
       return this.getState();
     }
 
-    // Squirrel.Windows + Squirrel.Mac only.
-    if (process.platform !== 'win32' && process.platform !== 'darwin') {
+    // GATE 2 — unsupported platform. v1.1 is Windows-only; Linux/macOS
+    // ports will revisit this gate when they ship.
+    if (process.platform !== 'win32') {
       this.state.inactiveReason = 'unsupported-platform';
       return this.getState();
     }
 
-    // Respect user disable.
+    // GATE 3 — user disabled.
     if (!this.settings.enabled) {
       this.state.inactiveReason = 'disabled';
       return this.getState();
     }
 
     try {
-      // Dynamic require so dev-mode and unsupported-platform paths don't
+      // Dynamic require so dev mode and unsupported-platform paths don't
       // need the module on disk during typecheck or first-run launches.
+      // electron-updater's autoUpdater is a different export from
+      // Electron's built-in `autoUpdater` — namespace explicitly.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { updateElectronApp, UpdateSourceType } = require('update-electron-app') as {
-        updateElectronApp: (opts: Record<string, unknown>) => void;
-        UpdateSourceType: { ElectronPublicUpdateService: string };
+      const { autoUpdater } = require('electron-updater') as {
+        autoUpdater: {
+          autoDownload: boolean;
+          autoInstallOnAppQuit: boolean;
+          allowPrerelease: boolean;
+          channel: string;
+          on(event: string, cb: (...args: unknown[]) => void): void;
+          checkForUpdates(): Promise<unknown>;
+          checkForUpdatesAndNotify(): Promise<unknown>;
+          logger: unknown;
+        };
       };
 
-      updateElectronApp({
-        updateSource: {
-          type: UpdateSourceType.ElectronPublicUpdateService,
-          // update.electronjs.org expects "owner/repo" — pulled at runtime
-          // from package.json author/repo or env. For our app we hard-code
-          // the GitHub slug since the publisher target is the same repo.
-          //
-          // CHANNEL NOTE: update.electronjs.org currently serves the latest
-          // non-prerelease tag only. The `channel` setting (stable/beta) is
-          // stored for UX intent but the feed does NOT split routes today.
-          // To enable a real beta channel, either:
-          //   (a) host a separate GitHub repo for beta releases and switch
-          //       `repo` based on settings.channel here, OR
-          //   (b) run a custom update server (e.g. Nuts/Nucleus) that filters
-          //       by prerelease flag.
-          repo: 'LxveAce/claude-code-studio',
-          host: 'https://update.electronjs.org',
-        },
-        // 1 hour — long enough to avoid hammering, short enough to land
-        // a release within the same workday a user keeps the app open.
-        updateInterval: '1 hour',
-        // Don't pop a native dialog — we route via Notifications service.
-        notifyUser: false,
-        logger: {
-          log: (...args: unknown[]) => {
-            // Mirror to state.lastCheckedAt for visibility.
-            this.state.lastCheckedAt = new Date().toISOString();
-            // eslint-disable-next-line no-console
-            console.log('[updater]', ...args);
-          },
-          info: (...args: unknown[]) => {
-            // eslint-disable-next-line no-console
-            console.info('[updater]', ...args);
-          },
-          warn: (...args: unknown[]) => {
-            // eslint-disable-next-line no-console
-            console.warn('[updater]', ...args);
-          },
-          error: (...args: unknown[]) => {
-            // eslint-disable-next-line no-console
-            console.error('[updater]', ...args);
-          },
-        },
-      });
+      // Auto-download keeps the UX consistent with the old Squirrel path:
+      // an available update gets pulled in the background, then surfaces
+      // via onUpdateDownloaded and applies on next launch.
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
 
-      // Hook the underlying Electron autoUpdater for ground truth events.
+      // CHANNEL: beta = include prereleases; stable = stable only.
+      // Until we have a real beta-channel publisher pipeline (Phase 4b /
+      // C3 in BACKLOG), `beta` simply allows prereleases through if the
+      // maintainer publishes any. UI calls this out so users aren't
+      // surprised that "beta" with no published prereleases acts like
+      // stable.
+      autoUpdater.allowPrerelease = this.settings.channel === 'beta';
+
+      // Pipe electron-updater's logs to console. Keeps debugging in the
+      // dev tools console without spamming any persistent log file.
+      autoUpdater.logger = {
+        // eslint-disable-next-line no-console
+        debug: (...a: unknown[]) => console.debug('[updater]', ...a),
+        // eslint-disable-next-line no-console
+        info: (...a: unknown[]) => console.info('[updater]', ...a),
+        // eslint-disable-next-line no-console
+        warn: (...a: unknown[]) => console.warn('[updater]', ...a),
+        // eslint-disable-next-line no-console
+        error: (...a: unknown[]) => console.error('[updater]', ...a),
+      };
+
       autoUpdater.on('checking-for-update', () => {
         this.state.lastCheckedAt = new Date().toISOString();
       });
-      autoUpdater.on(
-        'update-downloaded',
-        (
-          _event: unknown,
-          _releaseNotes: string,
-          releaseName: string,
-        ) => {
-          const version = typeof releaseName === 'string' ? releaseName : '';
-          this.state.lastUpdateFoundAt = new Date().toISOString();
-          this.state.pendingVersion = version || null;
-          try {
-            this.callbacks.onUpdateDownloaded?.(version);
-          } catch {
-            // never let UI bookkeeping crash the updater
-          }
-        },
-      );
-      autoUpdater.on('error', (err: Error) => {
-        const msg = err && err.message ? err.message : String(err);
+      autoUpdater.on('update-available', (info: unknown) => {
+        const version = (info as { version?: string })?.version;
+        this.state.lastUpdateFoundAt = new Date().toISOString();
+        this.state.pendingVersion = typeof version === 'string' ? version : null;
+        // Don't fire callback yet — wait for full download. update-available
+        // fires when the manifest says a newer version exists, not when
+        // bits are on disk ready to install.
+      });
+      autoUpdater.on('update-not-available', () => {
+        // No-op for UI purposes; lastCheckedAt already updated.
+      });
+      autoUpdater.on('download-progress', (progress: unknown) => {
+        const raw = (progress as { percent?: number })?.percent;
+        if (typeof raw !== 'number' || !Number.isFinite(raw)) return;
+        // Round to integer to avoid spamming the renderer with 0.001%
+        // increments. The UI shows "Downloading update… 45%" granularity.
+        const rounded = Math.max(0, Math.min(100, Math.round(raw)));
+        try {
+          this.callbacks.onDownloadProgress?.(rounded);
+        } catch {
+          // never let UI bookkeeping crash the updater
+        }
+      });
+      autoUpdater.on('update-downloaded', (info: unknown) => {
+        const version = (info as { version?: string })?.version;
+        const v = typeof version === 'string' ? version : '';
+        this.state.pendingVersion = v || null;
+        try {
+          this.callbacks.onUpdateDownloaded?.(v);
+        } catch {
+          // never let UI bookkeeping crash the updater
+        }
+      });
+      autoUpdater.on('error', (err: unknown) => {
+        const e = err as Error | undefined;
+        const msg = e?.message ?? String(err);
         this.state.lastError = msg;
         try {
           this.callbacks.onError?.(msg);
@@ -183,6 +202,18 @@ export class UpdaterService {
           // ignore
         }
       });
+
+      // Kick off the first check on a short delay so the window has time
+      // to load before the updater starts logging.
+      setTimeout(() => {
+        try {
+          void autoUpdater.checkForUpdates();
+        } catch (e) {
+          // First-check errors are typical when there are no releases yet
+          // or the user is offline. lastError captures the detail.
+          this.state.lastError = (e as Error).message ?? String(e);
+        }
+      }, 3000);
 
       this.state.active = true;
       this.state.inactiveReason = null;
@@ -198,8 +229,7 @@ export class UpdaterService {
 
   /**
    * Trigger an immediate check. No-op (but updates lastError) when inactive.
-   * Squirrel.Windows / autoUpdater.checkForUpdates is throttled at the OS
-   * level so spamming this from the UI is safe.
+   * Throttled at 5s to prevent renderer-side spam.
    */
   checkNow(): UpdaterState {
     if (!this.state.active) {
@@ -213,18 +243,19 @@ export class UpdaterService {
               : (this.state.lastError ?? 'Auto-updater is not active.');
       return this.getState();
     }
-    // Throttle to prevent renderer-side spam from hammering Squirrel/Update.exe.
-    // Returning cached state is safe — autoUpdater is internally async; if a
-    // check is genuinely in-flight the caller already has fresh `lastCheckedAt`.
     const now = Date.now();
     if (now - this.lastCheckNowAt < UpdaterService.CHECK_NOW_MIN_INTERVAL_MS) {
       return this.getState();
     }
     this.lastCheckNowAt = now;
     try {
-      autoUpdater.checkForUpdates();
-      this.state.lastCheckedAt = new Date().toISOString();
-      // Don't clear lastError here — the OS may report one asynchronously.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { autoUpdater } = require('electron-updater') as {
+        autoUpdater: { checkForUpdates(): Promise<unknown> };
+      };
+      // Fire-and-forget; the on('checking-for-update') handler will
+      // update lastCheckedAt.
+      void autoUpdater.checkForUpdates();
     } catch (e) {
       this.state.lastError = (e as Error).message ?? String(e);
     }
@@ -232,7 +263,6 @@ export class UpdaterService {
   }
 
   getState(): UpdaterState {
-    // Always re-emit channel from settings in case user changed it.
     return { ...this.state, channel: this.settings.channel };
   }
 
@@ -256,9 +286,10 @@ export class UpdaterService {
     }
     this.settings = next;
     this.write();
-    // Note: changing settings does not retroactively un-wire the OS updater.
-    // Toggling `enabled` requires app restart to take effect; we surface
-    // this in the UI copy. This matches update-electron-app's contract.
+    // Note: toggling `enabled` requires app restart to take effect; we
+    // surface this in the UI copy. Same contract as the previous
+    // implementation. Channel changes also require restart (the
+    // autoUpdater.allowPrerelease flag is set at start time).
     return { ...this.settings };
   }
 

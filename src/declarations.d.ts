@@ -156,6 +156,7 @@ interface Window {
       ) => Promise<import('./shared/types').UpdaterSettings>;
       checkNow: () => Promise<import('./shared/types').UpdaterState>;
       onAvailable: (cb: (version: string) => void) => () => void;
+      onDownloadProgress: (cb: (percent: number) => void) => () => void;
     };
     cost: {
       status: () => Promise<import('./shared/types').CostStatus>;
@@ -226,6 +227,7 @@ interface Window {
     cli: {
       status: () => Promise<import('./shared/types').CliStatus>;
       install: () => Promise<{ ok: boolean; output: string; error: string | null }>;
+      onInstallProgress: (cb: (line: string) => void) => () => void;
       getOnboarding: () => Promise<import('./shared/types').CliOnboardingState>;
       markComplete: () => Promise<import('./shared/types').CliOnboardingState>;
       resetOnboarding: () => Promise<import('./shared/types').CliOnboardingState>;

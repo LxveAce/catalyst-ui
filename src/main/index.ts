@@ -109,6 +109,11 @@ function getUpdater(): UpdaterService {
           }
           safeSend(IPC.UPDATER_AVAILABLE, version);
         },
+        onDownloadProgress: (percent: number) => {
+          // Stream to renderer for status-bar progress UI. Fire-and-forget;
+          // safeSend no-ops if the window is gone.
+          safeSend(IPC.UPDATER_DOWNLOAD_PROGRESS, percent);
+        },
         onError: (_msg: string) => {
           // Soft-fail: lastError is captured in updater state and surfaced via UI.
           // We intentionally do NOT fire an OS notification on every transient
@@ -333,7 +338,14 @@ function setupCompact() {
 function setupCli() {
   // Phase 6 onboarding — recovers from Phase 4 NSIS bootstrap soft-fail.
   ipcMain.handle(IPC.CLI_STATUS, () => getCli().getStatus());
-  ipcMain.handle(IPC.CLI_INSTALL, () => getCli().install());
+  ipcMain.handle(IPC.CLI_INSTALL, () =>
+    getCli().install((line) => {
+      // Stream each line to the renderer for live progress in the
+      // onboarding modal (Phase 6 M1). Fire-and-forget; safeSend no-ops
+      // if the window is gone.
+      safeSend(IPC.CLI_INSTALL_PROGRESS, line);
+    })
+  );
   ipcMain.handle(IPC.CLI_ONBOARDING_GET, () => getCli().getOnboardingState());
   ipcMain.handle(IPC.CLI_ONBOARDING_COMPLETE, () => getCli().setOnboardingComplete());
   ipcMain.handle(IPC.CLI_ONBOARDING_RESET, () => getCli().resetOnboarding());

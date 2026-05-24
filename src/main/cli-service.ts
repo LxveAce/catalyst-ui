@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -7,6 +7,13 @@ import { promisify } from 'node:util';
 import type { CliStatus, CliOnboardingState } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Caller-supplied progress sink. CliService streams npm install output
+ * line-by-line via this callback so the renderer can show real-time
+ * install progress in the onboarding modal.
+ */
+export type CliInstallProgressSink = (line: string) => void;
 
 const ONBOARDING_FILE = 'cli-onboarding.json';
 const ONBOARDING_DEFAULT: CliOnboardingState = {
@@ -146,11 +153,17 @@ export class CliService {
    * npm install that should have happened at install time. Uses the
    * bundled npm so we don't depend on the user having Node installed.
    *
+   * Optional `onProgress` streams each line of npm output as it arrives —
+   * the renderer subscribes via the cli:install-progress IPC channel
+   * to show real-time progress in the onboarding modal (Phase 6 M1).
+   *
    * Only meaningful in packaged builds — in dev there's no bundled
    * runtime to install into. Returns a structured result rather than
    * throwing so the renderer can show error details.
    */
-  async install(): Promise<{ ok: boolean; output: string; error: string | null }> {
+  async install(
+    onProgress?: CliInstallProgressSink
+  ): Promise<{ ok: boolean; output: string; error: string | null }> {
     if (!app.isPackaged) {
       return {
         ok: false,
@@ -171,36 +184,84 @@ export class CliService {
       };
     }
 
-    try {
-      const { stdout, stderr } = await execFileAsync(
-        nodeBin,
-        [
-          npmCli,
-          'install',
-          '--prefix',
-          runtimeDir,
-          '--registry=https://registry.npmjs.org/',
-          '--no-save',
-          '--no-package-lock',
-          '--no-audit',
-          '--no-fund',
-          '--silent',
-          '@anthropic-ai/claude-code',
-        ],
-        {
-          timeout: NPM_INSTALL_TIMEOUT_MS,
-          windowsHide: true,
+    // Use spawn (not execFile) so we can stream stdout/stderr line-by-line
+    // to the renderer. execFile buffers all output until exit — fine for
+    // small commands but a poor UX for a 30-90 second install. Drop
+    // `--silent` so npm actually emits progress.
+    const args = [
+      npmCli,
+      'install',
+      '--prefix',
+      runtimeDir,
+      '--registry=https://registry.npmjs.org/',
+      '--no-save',
+      '--no-package-lock',
+      '--no-audit',
+      '--no-fund',
+      '--progress=false',
+      '@anthropic-ai/claude-code',
+    ];
+
+    return new Promise((resolve) => {
+      const collected: string[] = [];
+      const child = spawn(nodeBin, args, { windowsHide: true });
+      let buffer = '';
+
+      const flushLines = (chunk: string) => {
+        buffer += chunk;
+        let nl: number;
+        // eslint-disable-next-line no-cond-assign
+        while ((nl = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, nl).replace(/\r$/, '');
+          buffer = buffer.slice(nl + 1);
+          if (line.length > 0) {
+            collected.push(line);
+            try {
+              onProgress?.(line);
+            } catch {
+              // never let renderer-side handler break the install
+            }
+          }
         }
-      );
-      return { ok: true, output: `${stdout}\n${stderr}`.trim(), error: null };
-    } catch (e: unknown) {
-      const err = e as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
-      return {
-        ok: false,
-        output: `${err.stdout ?? ''}\n${err.stderr ?? ''}`.trim(),
-        error: err.message || 'npm install failed',
       };
-    }
+
+      child.stdout?.setEncoding('utf8');
+      child.stderr?.setEncoding('utf8');
+      child.stdout?.on('data', flushLines);
+      child.stderr?.on('data', flushLines);
+
+      const timeoutHandle = setTimeout(() => {
+        try { child.kill(); } catch { /* ignore */ }
+      }, NPM_INSTALL_TIMEOUT_MS);
+
+      child.on('error', (err) => {
+        clearTimeout(timeoutHandle);
+        resolve({
+          ok: false,
+          output: collected.join('\n'),
+          error: err.message || 'npm install spawn failed',
+        });
+      });
+
+      child.on('exit', (code) => {
+        clearTimeout(timeoutHandle);
+        // Flush any trailing buffer that didn't end with a newline.
+        if (buffer.length > 0) {
+          collected.push(buffer);
+          try { onProgress?.(buffer); } catch { /* ignore */ }
+          buffer = '';
+        }
+        if (code === 0) {
+          resolve({ ok: true, output: collected.join('\n'), error: null });
+        } else {
+          resolve({
+            ok: false,
+            output: collected.join('\n'),
+            error: `npm install exited with code ${code ?? 'null'}`,
+          });
+        }
+      });
+    });
   }
 
   getOnboardingState(): CliOnboardingState {

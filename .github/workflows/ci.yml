@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "feature/**", "fix/**"]
+  pull_request:
+    branches: [master]
+
+# Cancel in-flight runs on the same branch when a newer commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Type-check + vite build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned to match engines.node: >=22.0.0 <24.0.0 (electron-packager
+          # incompatibility on Node 24 — see CONTRIBUTING.md).
+          node-version: "22.22.3"
+          cache: "npm"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Vite build (smoke test the standalone Vite runner)
+        run: npm run vite:build
+
+  build-installer:
+    name: Build NSIS Setup.exe (Windows)
+    runs-on: windows-latest
+    needs: typecheck
+    # Skip on PRs from forks — fork PRs don't have the secrets needed for
+    # publish, and we only want the installer build on trusted branches.
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.3"
+          cache: "npm"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Enable Windows Developer Mode
+        # electron-builder's winCodeSign cache extraction creates macOS
+        # dylib symlinks via the bundled 7za. Even though GHA runners run
+        # as Administrator, the process may not have SeCreateSymbolicLink
+        # token elevation — enabling Developer Mode via the registry key
+        # makes symlink creation succeed unconditionally for the duration
+        # of the runner session. Setting via Group Policy registry is the
+        # same toggle as Settings → For Developers → Developer Mode.
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
+            -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -Type DWord -Force
+
+      - name: Rebuild node-pty against Electron ABI
+        # Defensive: node-pty ships prebuilds but the prebuilds are for
+        # Node's ABI, not Electron's. The Electron prebuild MAY match if
+        # version stars align; this step guarantees the bundled binary
+        # works at runtime. Failure here is non-fatal — proceed to build
+        # and see what asar.unpack lands.
+        continue-on-error: true
+        run: npx --no-install @electron/rebuild -m . --only node-pty
+
+      - name: Build NSIS installer
+        run: npm run dist
+        env:
+          # Don't actually publish from CI yet — `npm run dist` produces
+          # the installer; releases are still driven by the maintainer via
+          # `npm run dist:publish` from a workstation. To enable CI-driven
+          # publish, switch to `dist:publish` and uncomment GH_TOKEN.
+          # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: "true"
+          DEBUG: "electron-builder"
+
+      - name: Upload Setup.exe + latest.yml
+        # Always upload whatever's in dist/ so failed builds can be
+        # post-mortemed via the partial output + builder-debug.yml.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-code-studio-windows-installer
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
+            dist/builder-debug.yml
+          # 30-day retention is enough for testing PRs. Released installers
+          # live on GitHub Releases instead.
+          retention-days: 30
+          # On a failed build, dist/ may only have builder-debug.yml.
+          # `warn` (vs `error`) lets the failure surface in the build step
+          # itself rather than masking it with an upload error.
+          if-no-files-found: warn
