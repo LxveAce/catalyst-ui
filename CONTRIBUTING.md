@@ -40,6 +40,26 @@ Node 24 for other projects, swap with one of:
   $env:PATH = "$env:USERPROFILE\nodejs-22\node-v22.22.3-win-x64;$env:PATH"
   ```
 
+### Linux build host (for `npm run dist:linux`)
+
+Producing the full set of Linux installers (AppImage + .deb + .rpm)
+needs a few system packages on the build host (or CI runner):
+
+- **`libfuse2`** — AppImage's squashfs runtime uses FUSE.
+  ```bash
+  sudo apt install libfuse2
+  ```
+- **`rpm`** — to build the .rpm package on a non-Fedora host (Ubuntu
+  build hosts don't ship rpm by default).
+  ```bash
+  sudo apt install rpm
+  ```
+- `dpkg-deb` for .deb — preinstalled on Debian/Ubuntu.
+
+GitHub Actions `ubuntu-latest` has `libfuse2` installed by default;
+`rpm` is installed via the CI workflow if needed (or skip the rpm
+target there).
+
 ### Windows Developer Mode (for `npm run dist`)
 
 The v1.1 NSIS installer build (`npm run dist`) needs **Windows Developer
@@ -100,6 +120,14 @@ Forge pipeline will be removed in Phase 8 once builder is proven for v1.1.
 
 - **Code style:** TypeScript throughout. Match the surrounding code — naming,
   comment density, and idioms. Prefer small, readable diffs over churn.
+- **Platform parity (v2.0+):** Studio ships on Windows, macOS, and Linux.
+  Any change to main-process source must consider all three. Path resolution
+  for bundled runtime / CLI goes through
+  [`src/main/runtime-paths.ts`](./src/main/runtime-paths.ts) — never hard-
+  code platform-specific paths in feature code. When adding a feature that
+  uses external binaries or platform APIs, gate with `process.platform`
+  and verify the non-Windows branches at least compile (CI catches the
+  rest via per-platform smoke builds).
 - **LMM journaling:** non-trivial work is thought through with the Lincoln
   Manifold Method and recorded under [`journal/`](./journal/) — one
   `<source-path>.lmm.md` analysis per file.

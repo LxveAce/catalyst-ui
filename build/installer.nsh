@@ -70,7 +70,12 @@
   ; Pin TLS 1.2 explicitly — some Windows 10 builds default to TLS 1.0/1.1
   ; which nodejs.org no longer accepts.
   ; -UseBasicParsing for compatibility with restricted PowerShell modes.
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; try { Invoke-WebRequest -Uri ''${NODE_URL}'' -OutFile ''$TEMP\${NODE_ZIP}'' -UseBasicParsing -TimeoutSec 300; exit 0 } catch { Write-Error $_.Exception.Message; exit 1 }"'
+  ; NOTE on $$ escapes: NSIS parses `$` as its own variable prefix. To
+  ; pass a literal `$` through to PowerShell (where `$_` is the
+  ; "current pipeline object" in catch blocks), each PowerShell `$`
+  ; doubles to `$$`. NSIS-native vars like `$TEMP` and `$INSTDIR` stay
+  ; single-dollar.
+  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; try { Invoke-WebRequest -Uri ''${NODE_URL}'' -OutFile ''$TEMP\${NODE_ZIP}'' -UseBasicParsing -TimeoutSec 300; exit 0 } catch { Write-Error $$_.Exception.Message; exit 1 }"'
   Pop $0
   Pop $1
   IntCmp $0 0 download_ok
@@ -83,7 +88,7 @@
 
   ; --- Step 2: Verify SHA256 ---
   !insertmacro CCSLog "Verifying Node.js download integrity (SHA256)..."
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "$h = (Get-FileHash -Algorithm SHA256 -Path ''$TEMP\${NODE_ZIP}'').Hash.ToLower(); if ($h -eq ''${NODE_SHA256}'') { exit 0 } else { Write-Error \"got $h\"; exit 1 }"'
+  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "$$h = (Get-FileHash -Algorithm SHA256 -Path ''$TEMP\${NODE_ZIP}'').Hash.ToLower(); if ($$h -eq ''${NODE_SHA256}'') { exit 0 } else { Write-Error \"got $$h\"; exit 1 }"'
   Pop $0
   Pop $1
   IntCmp $0 0 sha_ok
@@ -100,7 +105,7 @@
   CreateDirectory "$INSTDIR\resources\runtime"
   ; Expand-Archive on Windows 10+ is built into PowerShell.
   ; Force overwrites if a previous extraction left orphans.
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "try { Expand-Archive -Path ''$TEMP\${NODE_ZIP}'' -DestinationPath ''$INSTDIR\resources\runtime'' -Force; exit 0 } catch { Write-Error $_.Exception.Message; exit 1 }"'
+  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "try { Expand-Archive -Path ''$TEMP\${NODE_ZIP}'' -DestinationPath ''$INSTDIR\resources\runtime'' -Force; exit 0 } catch { Write-Error $$_.Exception.Message; exit 1 }"'
   Pop $0
   Pop $1
   IntCmp $0 0 extract_ok
@@ -113,7 +118,7 @@
   ; Node's zip puts everything inside node-vX.Y.Z-win-x64/. Flatten so
   ; PtyManager's path resolution finds claude.cmd at runtime/ directly.
   !insertmacro CCSLog "Flattening Node directory layout..."
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "$src = ''$INSTDIR\resources\runtime\node-v${NODE_VERSION}-win-x64''; if (Test-Path $src) { Get-ChildItem -Path $src -Force | Move-Item -Destination ''$INSTDIR\resources\runtime\'' -Force; Remove-Item -Path $src -Recurse -Force }"'
+  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "$$src = ''$INSTDIR\resources\runtime\node-v${NODE_VERSION}-win-x64''; if (Test-Path $$src) { Get-ChildItem -Path $$src -Force | Move-Item -Destination ''$INSTDIR\resources\runtime\'' -Force; Remove-Item -Path $$src -Recurse -Force }"'
   Pop $0
   Pop $1
 

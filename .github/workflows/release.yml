@@ -1,0 +1,99 @@
+name: Release
+
+# Auto-publish to GitHub Releases when a version tag is pushed.
+# Usage:
+#   git tag v2.0.0 && git push origin v2.0.0
+# This triggers builds on all 3 OSes that publish to the same GitHub
+# release (electron-builder matches by version → existing draft release).
+# The maintainer then promotes the draft to published once V1-V4
+# validation passes (see docs/RELEASE_NOTES_v2.0.0.md checklist).
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  # Allow manual trigger too (Actions tab → Run workflow) for one-off
+  # republishes without retagging.
+  workflow_dispatch:
+
+# A single tagged release should never have two builds racing — if a tag
+# is re-pushed, the prior run cancels.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish (${{ matrix.os }})
+    strategy:
+      fail-fast: false  # other OS publishes shouldn't die because one failed
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+            publish_cmd: npm run dist:publish
+          - os: macos-latest
+            label: macos
+            publish_cmd: npm run dist:publish:mac
+          - os: ubuntu-latest
+            label: linux
+            publish_cmd: npm run dist:publish:linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.3"
+          cache: "npm"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Install Linux build deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libfuse2
+
+      - name: Enable Windows Developer Mode
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
+            -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -Type DWord -Force
+
+      - name: Rebuild node-pty against Electron ABI
+        continue-on-error: true
+        run: npx --no-install @electron/rebuild -m . --only node-pty
+
+      - name: Build + publish
+        # electron-builder's GitHub publisher reads `repository.url` from
+        # package.json (or the `publish` block in electron-builder.yml).
+        # GH_TOKEN must have `repo` scope. The auto-provided GITHUB_TOKEN
+        # has `contents: write` permission which is sufficient for creating
+        # releases on the same repo.
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          ${{ matrix.publish_cmd }} 2>&1 | tee dist/publish.log
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: "true"
+          # Don't set DEBUG=electron-builder here — verbose logs in
+          # publish runs leak the release upload URL with the token in
+          # query params. Stick to standard logging.
+
+      - name: Upload publish log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-log-${{ matrix.label }}
+          path: dist/publish.log
+          retention-days: 30
+          if-no-files-found: warn
+
+permissions:
+  # Required for actions/checkout to fetch + push tags, and for the
+  # builder to create/update releases.
+  contents: write
