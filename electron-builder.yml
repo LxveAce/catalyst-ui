@@ -46,6 +46,77 @@ win:
   # icon: build/icon.ico  # uncommented in Phase 5 once asset exists
   artifactName: "Claude.Code.Studio-${version}-Setup.${ext}"
 
+# macOS — DMG drag-to-Applications + zip for the auto-updater.
+# Bootstrap (Node + Claude CLI) happens on first launch via the existing
+# CliAuthOnboarding modal, NOT during install — DMGs don't have a post-
+# install hook the way NSIS does, and Apple's gatekeeper would flag any
+# attempt to download + execute binaries during a drag-install.
+#
+# Code signing + notarization deferred to v2.1 — requires Apple Developer
+# Program ($99/yr) + osxSign config keyed to env vars. Without signing,
+# users see "App is damaged or can't be opened" on first launch; the
+# workaround is right-click → Open → confirm in the dialog. Documented
+# in the per-OS README install section.
+mac:
+  # GitHub's `macos-latest` runner is Apple Silicon (arm64). Cross-
+  # compiling to x64 on an arm64 host requires Rosetta + extra setup
+  # and electron-builder's `arch: x64` on an M-series host can fail
+  # depending on the runner image version. Build arm64 only for v2.0
+  # — Apple Silicon native is the larger user base, and Intel Macs
+  # can run the arm64 build via Rosetta (slower but functional).
+  # Native x64 builds (and the future macos-13 Intel matrix entry)
+  # are tracked for v2.1.
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  category: public.app-category.developer-tools
+  artifactName: "Claude.Code.Studio-${version}-${arch}.${ext}"
+  # hardenedRuntime + entitlements only matter once we sign — for unsigned
+  # dev builds, omitting them keeps the app launchable via the right-click
+  # → Open workaround. Re-enable when we add notarization in v2.1.
+  hardenedRuntime: false
+  # Skip signing entirely — without CSC_LINK set, electron-builder
+  # tries identityAutoDiscovery and may fail on CI runners that have
+  # stray developer certs in the keychain.
+  identity: null
+
+dmg:
+  # Standard Mac drag-to-Applications layout.
+  contents:
+    - x: 110
+      y: 150
+    - x: 250
+      y: 150
+      type: link
+      path: /Applications
+
+# Linux — AppImage (single-file portable, works on any distro) + deb
+# (Debian/Ubuntu) + rpm (Fedora/RHEL). Bootstrap via the same first-
+# launch modal pattern as macOS.
+#
+# update-electron-app didn't support Linux; electron-updater DOES for
+# AppImage (via the same latest.yml mechanism). deb/rpm rely on the
+# distro package manager — users `apt upgrade` / `dnf upgrade` instead.
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
+      arch:
+        - x64
+  category: Development
+  artifactName: "Claude.Code.Studio-${version}-${arch}.${ext}"
+  # No custom MIME types — the app doesn't register a URL scheme handler
+  # so claiming one in the .desktop file would just produce dead
+  # right-click entries in file managers. Add back if we ever wire a
+  # claude-code-studio:// protocol.
+
 nsis:
   # oneClick + perMachine:false matches the silent, per-user, auto-launch
   # behavior Squirrel had — but with a real progress UI (NSIS shows it,

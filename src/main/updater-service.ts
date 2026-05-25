@@ -42,9 +42,11 @@ export interface UpdaterCallbacks {
  * stays stable — per Phase 4 red-team L1):
  *   - dev-mode (MAIN_WINDOW_VITE_DEV_SERVER_URL set): don't init the updater
  *     at all — there's no installed app to update.
- *   - Linux: electron-updater technically supports it but our v1.1 ships
- *     Windows-only; surface 'unsupported-platform' rather than confusing the
- *     user with a non-functional updater.
+ *   - Truly exotic platform (not win32/darwin/linux): surface
+ *     'unsupported-platform' rather than spinning a broken updater.
+ *     v2.0 enabled all three major platforms; updater self-disables
+ *     gracefully on deb/rpm Linux installs (those use the distro pkg
+ *     manager — electron-updater detects the format at runtime).
  *   - User disabled: respect it.
  *
  * Squirrel-to-NSIS migration cliff (Phase 1 H1 / Phase 7 plan):
@@ -97,9 +99,14 @@ export class UpdaterService {
       return this.getState();
     }
 
-    // GATE 2 — unsupported platform. v1.1 is Windows-only; Linux/macOS
-    // ports will revisit this gate when they ship.
-    if (process.platform !== 'win32') {
+    // GATE 2 — unsupported platform. electron-updater supports Windows
+    // (NSIS via latest.yml), macOS (zip via latest-mac.yml — DMG is the
+    // delivery format but updates apply from the bundled zip), and Linux
+    // AppImage (latest-linux.yml). deb/rpm rely on the distro package
+    // manager — electron-updater detects that at runtime and self-disables
+    // gracefully (the OS pkg manager is the source of updates there).
+    const supportedPlatforms: NodeJS.Platform[] = ['win32', 'darwin', 'linux'];
+    if (!supportedPlatforms.includes(process.platform)) {
       this.state.inactiveReason = 'unsupported-platform';
       return this.getState();
     }

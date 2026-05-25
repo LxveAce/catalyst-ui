@@ -11,6 +11,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Needed by the "Push failure log to ci-logs branch" step in
+# build-installer — that step pushes diagnostic output to a separate
+# branch so we can read it without auth. Default token for push events
+# already has contents:write, but declaring explicitly so pull_request
+# triggers from same-repo branches also work.
+permissions:
+  contents: write
+
 jobs:
   typecheck:
     name: Type-check + vite build
@@ -35,12 +43,45 @@ jobs:
         run: npm run vite:build
 
   build-installer:
-    name: Build NSIS Setup.exe (Windows)
-    runs-on: windows-latest
+    name: Build installer (${{ matrix.os }})
     needs: typecheck
     # Skip on PRs from forks — fork PRs don't have the secrets needed for
     # publish, and we only want the installer build on trusted branches.
     if: github.event_name == 'push'
+    strategy:
+      fail-fast: false  # don't cancel other-OS builds when one fails
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+            dist_cmd: npm run dist
+            artifact_glob: |
+              dist/*.exe
+              dist/*.exe.blockmap
+              dist/latest.yml
+              dist/builder-debug.yml
+              dist/build.log
+          - os: macos-latest
+            label: macos
+            dist_cmd: npm run dist:mac
+            artifact_glob: |
+              dist/*.dmg
+              dist/*.dmg.blockmap
+              dist/*.zip
+              dist/latest-mac.yml
+              dist/builder-debug.yml
+              dist/build.log
+          - os: ubuntu-latest
+            label: linux
+            dist_cmd: npm run dist:linux
+            artifact_glob: |
+              dist/*.AppImage
+              dist/*.deb
+              dist/*.rpm
+              dist/latest-linux.yml
+              dist/builder-debug.yml
+              dist/build.log
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,55 +93,117 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund
 
+      - name: Install Linux build deps (rpm + libfuse2 for AppImage)
+        # ubuntu-latest doesn't ship `rpm` and electron-builder needs it
+        # for the .rpm target. libfuse2 is needed for the AppImage runtime.
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libfuse2
+
       - name: Enable Windows Developer Mode
-        # electron-builder's winCodeSign cache extraction creates macOS
-        # dylib symlinks via the bundled 7za. Even though GHA runners run
-        # as Administrator, the process may not have SeCreateSymbolicLink
-        # token elevation — enabling Developer Mode via the registry key
-        # makes symlink creation succeed unconditionally for the duration
-        # of the runner session. Setting via Group Policy registry is the
-        # same toggle as Settings → For Developers → Developer Mode.
+        # Windows-only workaround for electron-builder's winCodeSign
+        # cache extraction (creates macOS dylib symlinks via bundled
+        # 7za; needs SeCreateSymbolicLinkPrivilege). macOS + Linux
+        # runners don't need this.
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
             -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -Type DWord -Force
 
       - name: Rebuild node-pty against Electron ABI
-        # Defensive: node-pty ships prebuilds but the prebuilds are for
-        # Node's ABI, not Electron's. The Electron prebuild MAY match if
-        # version stars align; this step guarantees the bundled binary
-        # works at runtime. Failure here is non-fatal — proceed to build
-        # and see what asar.unpack lands.
+        # Defensive on all platforms — node-pty ships Node-ABI prebuilds;
+        # Electron rebuild ensures the bundled binary works at runtime.
+        # Non-fatal: proceed regardless.
         continue-on-error: true
         run: npx --no-install @electron/rebuild -m . --only node-pty
 
-      - name: Build NSIS installer
-        run: npm run dist
+      - name: Build installer
+        # Tee the full build to dist/build.log so it ends up in the
+        # uploaded artifact even when the step fails. Without this,
+        # post-mortem requires GitHub Actions log API access (auth-
+        # walled), which makes external debugging impossible.
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          ${{ matrix.dist_cmd }} 2>&1 | tee dist/build.log
         env:
-          # Don't actually publish from CI yet — `npm run dist` produces
-          # the installer; releases are still driven by the maintainer via
-          # `npm run dist:publish` from a workstation. To enable CI-driven
-          # publish, switch to `dist:publish` and uncomment GH_TOKEN.
-          # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: "true"
           DEBUG: "electron-builder"
 
-      - name: Upload Setup.exe + latest.yml
-        # Always upload whatever's in dist/ so failed builds can be
-        # post-mortemed via the partial output + builder-debug.yml.
+      - name: Post failure log to workflow summary
+        # On failure, write the tail of dist/build.log into the
+        # GH Actions run summary. The summary is rendered as Markdown
+        # on the public run page — no API auth needed to view it.
+        # This is the diagnostic channel of last resort when the
+        # artifact API is auth-walled.
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f dist/build.log ]; then
+            {
+              echo "## ❌ Build failure log — ${{ matrix.label }}"
+              echo ""
+              echo "Last 200 lines of \`dist/build.log\`:"
+              echo ""
+              echo '```'
+              tail -200 dist/build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## ❌ Build failure — ${{ matrix.label }}"
+              echo ""
+              echo "_(No dist/build.log captured — tee did not run.)_"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Push failure log to ci-logs branch
+        # The workflow-summary text isn't reachable for anonymous WebFetch
+        # because the run page is JS-rendered. Pushing the same content
+        # to a separate `ci-logs` branch makes it readable via the
+        # raw.githubusercontent.com URL with no auth:
+        # https://raw.githubusercontent.com/LxveAce/claude-code-studio/ci-logs/<label>/build.log
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          [ -f dist/build.log ] || echo "(no build.log captured)" > dist/build.log
+          git config user.email "ci@github-actions.local"
+          git config user.name "ci-logs-bot"
+          # Orphan branch — discard history each push so the log branch
+          # doesn't grow unbounded across runs.
+          git checkout --orphan ci-logs-tmp
+          git rm -rf . 2>/dev/null || true
+          mkdir -p "${{ matrix.label }}"
+          cp dist/build.log "${{ matrix.label }}/build.log"
+          [ -f dist/builder-debug.yml ] && cp dist/builder-debug.yml "${{ matrix.label }}/builder-debug.yml" || true
+          {
+            echo "Run ID: ${{ github.run_id }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Branch: ${{ github.ref_name }}"
+            echo "Job:    ${{ matrix.label }}"
+            echo "Run URL: https://github.com/LxveAce/claude-code-studio/actions/runs/${{ github.run_id }}"
+          } > "${{ matrix.label }}/meta.txt"
+          git add "${{ matrix.label }}/"
+          git commit -m "ci-log: ${{ matrix.label }} for ${{ github.sha }}"
+          # Force-push to keep the branch fresh; the meta file shows
+          # which run this log is from.
+          git push -f \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            "ci-logs-tmp:ci-logs"
+
+      - name: Upload artifact
+        # Always upload, even on build failure, so debug logs can be
+        # post-mortemed via builder-debug.yml.
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: claude-code-studio-windows-installer
-          path: |
-            dist/*.exe
-            dist/*.exe.blockmap
-            dist/latest.yml
-            dist/builder-debug.yml
-          # 30-day retention is enough for testing PRs. Released installers
-          # live on GitHub Releases instead.
+          name: claude-code-studio-${{ matrix.label }}-installer
+          path: ${{ matrix.artifact_glob }}
           retention-days: 30
-          # On a failed build, dist/ may only have builder-debug.yml.
-          # `warn` (vs `error`) lets the failure surface in the build step
-          # itself rather than masking it with an upload error.
           if-no-files-found: warn
