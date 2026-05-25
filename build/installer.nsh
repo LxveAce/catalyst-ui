@@ -91,22 +91,24 @@
 
   ; --- Step 2: Verify SHA256 via certutil ---
   !insertmacro CCSLog "Verifying Node.js download integrity (SHA256)..."
-  ; certutil -hashfile outputs:
-  ;   SHA256 hash of <path>:
-  ;   <hex>
-  ;   CertUtil: -hashfile command completed successfully.
-  ; We pipe through findstr to extract just the hex line, then compare.
-  ; The pipe + compare logic is awkward in NSIS so we shell out to cmd /v
-  ; with delayed expansion.
-  nsExec::ExecToStack 'cmd /v:on /c "for /f "skip=1 tokens=*" %A in ('"'"'certutil -hashfile "$TEMP\${NODE_ZIP}" SHA256 ^| findstr /v "hash CertUtil"'"'"') do set ACTUAL=%A & set ACTUAL=!ACTUAL: =! & if /i "!ACTUAL!"=="${NODE_SHA256}" (exit 0) else (echo Expected: ${NODE_SHA256} & echo Got:      !ACTUAL! & exit 1)"'
+  ; certutil -hashfile prints the hex hash on its own line (no spaces
+  ; between bytes in Win10+). We use `findstr` to look for the expected
+  ; hash literal in the output — findstr exit code is 0 when found,
+  ; non-zero when not. The hash is hex-only so it's safe to use as a
+  ; literal pattern (no regex special chars).
+  ;
+  ; cmd /c "..." with embedded quoted path: cmd strips the outer pair
+  ; and runs the contents as the command. The pipe is interpreted by
+  ; cmd, not by nsExec.
+  nsExec::ExecToStack 'cmd /c "certutil -hashfile "$TEMP\${NODE_ZIP}" SHA256 | findstr /i ${NODE_SHA256}"'
   Pop $0
   Pop $1
   IntCmp $0 0 sha_ok
-    !insertmacro CCSLog "Node.js SHA256 MISMATCH"
-    !insertmacro CCSLog "certutil output: $1"
+    !insertmacro CCSLog "Node.js SHA256 MISMATCH (findstr exit $0)"
+    !insertmacro CCSLog "expected: ${NODE_SHA256}"
     Delete "$TEMP\${NODE_ZIP}"
     MessageBox MB_ICONSTOP|MB_OK \
-      "The Node.js download failed its integrity check.$\n$\n$1$\n$\nThis could mean a corrupted download, or that something on your network is tampering with HTTPS responses to nodejs.org.$\n$\nInstall aborted for safety. Full log: ${INSTALL_LOG}"
+      "The Node.js download failed its integrity check.$\n$\nExpected SHA256: ${NODE_SHA256}$\n$\nThis usually means a corrupted download or that something on your network is tampering with HTTPS responses to nodejs.org.$\n$\nInstall aborted for safety. Full log: ${INSTALL_LOG}"
     Abort
   sha_ok:
   !insertmacro CCSLog "Node.js SHA256 OK"
