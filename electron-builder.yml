@@ -44,7 +44,9 @@ win:
       arch:
         - x64
   # icon: build/icon.ico  # uncommented in Phase 5 once asset exists
-  artifactName: "Claude.Code.Studio-${version}-Setup.${ext}"
+  # Simple, OS-only filename — users on the GitHub release just see
+  # "Claude-Code-Studio-Windows.exe" instead of "...2.0.0-Setup.exe".
+  artifactName: "Claude-Code-Studio-Windows.${ext}"
 
 # macOS — DMG drag-to-Applications + zip for the auto-updater.
 # Bootstrap (Node + Claude CLI) happens on first launch via the existing
@@ -72,7 +74,7 @@ mac:
     - target: zip
       arch: arm64
   category: public.app-category.developer-tools
-  artifactName: "Claude.Code.Studio-${version}-${arch}.${ext}"
+  artifactName: "Claude-Code-Studio-Mac.${ext}"
   # hardenedRuntime + entitlements only matter once we sign — for unsigned
   # dev builds, omitting them keeps the app launchable via the right-click
   # → Open workaround. Re-enable when we add notarization in v2.1.
@@ -111,7 +113,9 @@ linux:
       arch:
         - x64
   category: Development
-  artifactName: "Claude.Code.Studio-${version}-${arch}.${ext}"
+  # All 3 Linux formats share the same prefix; extension disambiguates
+  # (.AppImage / .deb / .rpm).
+  artifactName: "Claude-Code-Studio-Linux.${ext}"
   # No custom MIME types — the app doesn't register a URL scheme handler
   # so claiming one in the .desktop file would just produce dead
   # right-click entries in file managers. Add back if we ever wire a
@@ -127,7 +131,8 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: "Claude Code Studio"
-  artifactName: "Claude.Code.Studio-${version}-Setup.${ext}"
+  # NSIS-specific override (same as win.artifactName — keeping in sync).
+  artifactName: "Claude-Code-Studio-Windows.${ext}"
   # Custom NSIS script: downloads Node 22 + @anthropic-ai/claude-code into
   # $INSTDIR\resources\runtime\ as part of the install. See build/installer.nsh
   # for the customInstall/customUnInstall macro implementations.
