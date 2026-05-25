@@ -25,7 +25,7 @@ and double-click. The installer downloads Node + the Claude CLI for you and
 launches the app — sign in to Claude in the first-launch modal, done.
 
 - **Windows:** `Claude-Code-Studio-Windows.exe` (NSIS one-click silent install)
-- **macOS Apple Silicon:** `Claude.Code.Studio-2.0.0-arm64.dmg` (drag to Applications)
+- **macOS Apple Silicon:** `Claude-Code-Studio-Mac.dmg` (drag to Applications)
 - **Linux:** `.AppImage` (portable), `.deb` (Debian/Ubuntu), or `.rpm` (Fedora/RHEL)
 
 Per-platform install details, SmartScreen/Gatekeeper workarounds, and the
