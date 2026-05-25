@@ -133,6 +133,12 @@ nsis:
   shortcutName: "Claude Code Studio"
   # NSIS-specific override (same as win.artifactName — keeping in sync).
   artifactName: "Claude-Code-Studio-Windows.${ext}"
+  # Disable .exe.blockmap generation — blockmaps enable delta updates
+  # (download only the diff between versions). Useful once there's an
+  # install base, but for v2.0 with zero existing installs they're just
+  # extra confusing files in the release. Re-enable for v2.1+ if delta
+  # update size matters.
+  differentialPackage: false
   # Custom NSIS script: downloads Node 22 + @anthropic-ai/claude-code into
   # $INSTDIR\resources\runtime\ as part of the install. See build/installer.nsh
   # for the customInstall/customUnInstall macro implementations.
