@@ -14,44 +14,46 @@
 ;   4. PtyManager (src/main/pty-manager.ts) prefers
 ;      $INSTDIR\resources\runtime\claude.cmd over system PATH.
 ;
-; Failure behavior (per Phase 1 red-team H1):
-;   - Hard failures (network drop, SHA mismatch) abort the install and
-;     point the user at the offline-installer release asset.
+; Implementation note: we use Windows-builtin tools only — no PowerShell.
+; PowerShell.exe is sometimes blocked by Defender/AV during installer
+; execution, which broke v2.0.0 on real users' machines. The alternatives
+; ship with Windows 10 1803+ (April 2018) and are present on every
+; supported Windows install:
+;   - curl.exe          → downloads (TLS 1.2+ by default)
+;   - tar.exe           → extracts .zip (libarchive-based, handles zip)
+;   - certutil.exe      → SHA256 file hash
+;   - cmd  (move/del)   → file system ops
+;
+; Failure behavior:
+;   - Hard failures (network drop, SHA mismatch, extract fail) abort the
+;     install AND embed the actual captured stderr in the user-facing
+;     MessageBox so you don't need to hunt for the log file.
 ;   - Soft failures (CLI install fails but Node OK) install Studio anyway
-;     and tell the user to install the CLI manually.
+;     and tell the user to install the CLI manually via the in-app
+;     onboarding modal.
 ;
-; Logging: every step DetailPrints to NSIS's install log, AND we append to
-; $TEMP\ccs-install.log via Write-Output so failures are diagnosable after
-; the installer closes.
-;
-; All network + filesystem operations shell out to PowerShell. This avoids
-; depending on third-party NSIS plugins (inetc, nsisunz, crypto) and uses
-; only what ships in Windows 10+:
-;   - Invoke-WebRequest for downloads (supports TLS 1.2/1.3 by default)
-;   - Get-FileHash for SHA256 verification
-;   - Expand-Archive for zip extraction
-;   - Move-Item / Remove-Item for filesystem cleanup
-;
+; Logging: every step DetailPrints to NSIS's install log, AND we append
+; to $TEMP\ccs-install.log via a simple `>>` redirect for postmortem.
 ; ============================================================================
 
 !define NODE_VERSION  "22.22.3"
 !define NODE_ZIP      "node-v${NODE_VERSION}-win-x64.zip"
 !define NODE_URL      "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ZIP}"
 ; SHA256 of node-v22.22.3-win-x64.zip from nodejs.org/dist/v22.22.3/SHASUMS256.txt
-; (captured 2026-05-23). Verify before each release bump.
+; (re-verify on each Node version bump).
 !define NODE_SHA256   "6c8d54f635feff4df76c2ca80f45332eb2ff57d25226edce36592e51a177ee33"
 
 !define CLAUDE_PKG    "@anthropic-ai/claude-code"
-!define OFFLINE_URL   "https://github.com/LxveAce/claude-code-studio/releases/latest"
 !define INSTALL_LOG   "$TEMP\ccs-install.log"
 
 ; ----------------------------------------------------------------------------
-; Helper: log to both NSIS detail view and $TEMP\ccs-install.log
+; Helper: log to both NSIS detail view and $TEMP\ccs-install.log.
+; Uses cmd /c echo + redirect — no PowerShell needed.
 ; Usage: !insertmacro CCSLog "message text"
 ; ----------------------------------------------------------------------------
 !macro CCSLog msg
   DetailPrint "${msg}"
-  nsExec::Exec 'powershell -NoProfile -WindowStyle Hidden -Command "Add-Content -Path ''${INSTALL_LOG}'' -Value (''[{0:yyyy-MM-dd HH:mm:ss}] {1}'' -f (Get-Date), ''${msg}'')"'
+  nsExec::Exec 'cmd /c echo [%date% %time%] ${msg} >> "${INSTALL_LOG}"'
   Pop $R9
 !macroend
 
@@ -65,60 +67,70 @@
   !insertmacro CCSLog "===== Claude Code Studio bootstrap start ====="
   !insertmacro CCSLog "INSTDIR = $INSTDIR"
 
-  ; --- Step 1: Download Node.js portable runtime ---
+  ; --- Step 1: Download Node.js portable runtime via curl ---
   !insertmacro CCSLog "Downloading Node.js ${NODE_VERSION} (~30 MB)..."
-  ; Pin TLS 1.2 explicitly — some Windows 10 builds default to TLS 1.0/1.1
-  ; which nodejs.org no longer accepts.
-  ; -UseBasicParsing for compatibility with restricted PowerShell modes.
-  ; NOTE on $$ escapes: NSIS parses `$` as its own variable prefix. To
-  ; pass a literal `$` through to PowerShell (where `$_` is the
-  ; "current pipeline object" in catch blocks), each PowerShell `$`
-  ; doubles to `$$`. NSIS-native vars like `$TEMP` and `$INSTDIR` stay
-  ; single-dollar.
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; try { Invoke-WebRequest -Uri ''${NODE_URL}'' -OutFile ''$TEMP\${NODE_ZIP}'' -UseBasicParsing -TimeoutSec 300; exit 0 } catch { Write-Error $$_.Exception.Message; exit 1 }"'
+  ; curl.exe ships with Windows 10 1803+. Less commonly blocked by
+  ; Defender than PowerShell.
+  ;   -L      follow redirects (nodejs.org may redirect to a CDN)
+  ;   -f      fail with non-zero exit on HTTP 4xx/5xx
+  ;   --show-error  print error on stderr (captured by nsExec)
+  ;   -o      output file
+  ;   --connect-timeout 30   per-connection cap
+  ;   --max-time 300         total operation cap
+  nsExec::ExecToStack 'curl.exe -L -f --show-error -o "$TEMP\${NODE_ZIP}" --connect-timeout 30 --max-time 300 "${NODE_URL}"'
   Pop $0
   Pop $1
   IntCmp $0 0 download_ok
-    !insertmacro CCSLog "Node.js download FAILED (exit $0): $1"
+    !insertmacro CCSLog "Node.js download FAILED (curl exit $0)"
+    !insertmacro CCSLog "curl error: $1"
     MessageBox MB_ICONEXCLAMATION|MB_OK \
-      "Couldn't download the Node.js runtime.$\n$\nThis usually means your network is offline, blocking nodejs.org, or behind a proxy that intercepts HTTPS.$\n$\nPlease retry, or use the offline installer (no network needed during install):$\n${OFFLINE_URL}$\n$\nDetails written to ${INSTALL_LOG}"
+      "Couldn't download the Node.js runtime.$\n$\ncurl exit code: $0$\n$\nError details (from curl):$\n$1$\n$\nIf the error mentions SSL/TLS, certificate, or proxy, your network may be intercepting HTTPS.$\nIf it mentions 'access denied' or similar, an antivirus may be blocking the download.$\n$\nFull log: ${INSTALL_LOG}"
     Abort
   download_ok:
   !insertmacro CCSLog "Node.js download OK"
 
-  ; --- Step 2: Verify SHA256 ---
+  ; --- Step 2: Verify SHA256 via certutil ---
   !insertmacro CCSLog "Verifying Node.js download integrity (SHA256)..."
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "$$h = (Get-FileHash -Algorithm SHA256 -Path ''$TEMP\${NODE_ZIP}'').Hash.ToLower(); if ($$h -eq ''${NODE_SHA256}'') { exit 0 } else { Write-Error \"got $$h\"; exit 1 }"'
+  ; certutil -hashfile outputs:
+  ;   SHA256 hash of <path>:
+  ;   <hex>
+  ;   CertUtil: -hashfile command completed successfully.
+  ; We pipe through findstr to extract just the hex line, then compare.
+  ; The pipe + compare logic is awkward in NSIS so we shell out to cmd /v
+  ; with delayed expansion.
+  nsExec::ExecToStack 'cmd /v:on /c "for /f "skip=1 tokens=*" %A in ('"'"'certutil -hashfile "$TEMP\${NODE_ZIP}" SHA256 ^| findstr /v "hash CertUtil"'"'"') do set ACTUAL=%A & set ACTUAL=!ACTUAL: =! & if /i "!ACTUAL!"=="${NODE_SHA256}" (exit 0) else (echo Expected: ${NODE_SHA256} & echo Got:      !ACTUAL! & exit 1)"'
   Pop $0
   Pop $1
   IntCmp $0 0 sha_ok
-    !insertmacro CCSLog "Node.js SHA256 MISMATCH: $1"
+    !insertmacro CCSLog "Node.js SHA256 MISMATCH"
+    !insertmacro CCSLog "certutil output: $1"
     Delete "$TEMP\${NODE_ZIP}"
     MessageBox MB_ICONSTOP|MB_OK \
-      "The Node.js download failed its integrity check.$\n$\nThis could mean a corrupted download, or that something on your network is tampering with HTTPS responses to nodejs.org.$\n$\nInstall aborted for safety. Details written to ${INSTALL_LOG}"
+      "The Node.js download failed its integrity check.$\n$\n$1$\n$\nThis could mean a corrupted download, or that something on your network is tampering with HTTPS responses to nodejs.org.$\n$\nInstall aborted for safety. Full log: ${INSTALL_LOG}"
     Abort
   sha_ok:
   !insertmacro CCSLog "Node.js SHA256 OK"
 
-  ; --- Step 3: Extract to $INSTDIR\resources\runtime\ ---
+  ; --- Step 3: Extract via tar.exe ---
   !insertmacro CCSLog "Extracting Node.js runtime..."
   CreateDirectory "$INSTDIR\resources\runtime"
-  ; Expand-Archive on Windows 10+ is built into PowerShell.
-  ; Force overwrites if a previous extraction left orphans.
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "try { Expand-Archive -Path ''$TEMP\${NODE_ZIP}'' -DestinationPath ''$INSTDIR\resources\runtime'' -Force; exit 0 } catch { Write-Error $$_.Exception.Message; exit 1 }"'
+  ; tar.exe in Windows 10 1803+ is libarchive-based and handles .zip
+  ; transparently. -x extract, -f file, -C change directory.
+  nsExec::ExecToStack 'tar.exe -x -f "$TEMP\${NODE_ZIP}" -C "$INSTDIR\resources\runtime"'
   Pop $0
   Pop $1
   IntCmp $0 0 extract_ok
-    !insertmacro CCSLog "Extract FAILED (exit $0): $1"
+    !insertmacro CCSLog "Extract FAILED (tar exit $0): $1"
     MessageBox MB_ICONEXCLAMATION|MB_OK \
-      "Couldn't extract the Node.js runtime.$\n$\nThis usually means antivirus quarantined the download or your disk is full.$\n$\nDetails written to ${INSTALL_LOG}"
+      "Couldn't extract the Node.js runtime.$\n$\ntar exit code: $0$\n$\nError:$\n$1$\n$\nUsually means antivirus quarantined the zip or your disk is full.$\n$\nFull log: ${INSTALL_LOG}"
     Abort
   extract_ok:
 
   ; Node's zip puts everything inside node-vX.Y.Z-win-x64/. Flatten so
   ; PtyManager's path resolution finds claude.cmd at runtime/ directly.
+  ; Plain cmd: xcopy + rmdir.
   !insertmacro CCSLog "Flattening Node directory layout..."
-  nsExec::ExecToStack 'powershell -NoProfile -WindowStyle Hidden -Command "$$src = ''$INSTDIR\resources\runtime\node-v${NODE_VERSION}-win-x64''; if (Test-Path $$src) { Get-ChildItem -Path $$src -Force | Move-Item -Destination ''$INSTDIR\resources\runtime\'' -Force; Remove-Item -Path $$src -Recurse -Force }"'
+  nsExec::ExecToStack 'cmd /c "if exist "$INSTDIR\resources\runtime\node-v${NODE_VERSION}-win-x64" (xcopy /E /Y /Q "$INSTDIR\resources\runtime\node-v${NODE_VERSION}-win-x64\*" "$INSTDIR\resources\runtime\" && rmdir /S /Q "$INSTDIR\resources\runtime\node-v${NODE_VERSION}-win-x64")"'
   Pop $0
   Pop $1
 
@@ -127,23 +139,16 @@
 
   ; --- Step 4: Install Claude Code CLI via bundled npm ---
   !insertmacro CCSLog "Installing Claude Code CLI (${CLAUDE_PKG})..."
-  ; --registry pinned to npmjs.org (ignores user .npmrc per Phase 1 red-team M5).
-  ; --prefix installs into the runtime dir, producing
-  ;   $INSTDIR\resources\runtime\node_modules\@anthropic-ai\claude-code\
-  ;   $INSTDIR\resources\runtime\claude.cmd  (the bin shim PtyManager looks for)
-  ; --no-save / --no-package-lock keeps the runtime dir clean (no stray
-  ; package.json modifications).
   nsExec::ExecToStack '"$INSTDIR\resources\runtime\node.exe" "$INSTDIR\resources\runtime\node_modules\npm\bin\npm-cli.js" install --prefix "$INSTDIR\resources\runtime" --registry=https://registry.npmjs.org/ --no-save --no-package-lock --no-audit --no-fund --silent ${CLAUDE_PKG}'
   Pop $0
   Pop $1
   IntCmp $0 0 npm_ok
     !insertmacro CCSLog "npm install FAILED (exit $0): $1"
     ; SOFT failure — Studio installs but no bundled CLI. The first-launch
-    ; onboarding (Phase 6) detects this via `claude doctor` and offers a
-    ; "Install CLI now" button using the bundled Node.
+    ; onboarding modal detects this via `claude doctor` and offers
+    ; "Install Claude CLI" using the bundled Node.
     MessageBox MB_ICONEXCLAMATION|MB_OK \
-      "Claude Code Studio will install, but the Claude CLI couldn't be installed automatically.$\n$\nStudio's first-launch screen can install it for you, or you can install it manually with:$\nnpm install -g @anthropic-ai/claude-code$\n$\nDetails written to ${INSTALL_LOG}"
-    ; Fall through — DO NOT Abort. Soft failure.
+      "Claude Code Studio will install, but the Claude CLI couldn't be installed automatically.$\n$\nnpm exit code: $0$\nError: $1$\n$\nThe app's first-launch screen has an 'Install Claude CLI' button that retries this. Or install manually:$\nnpm install -g @anthropic-ai/claude-code$\n$\nFull log: ${INSTALL_LOG}"
     Goto bootstrap_done
   npm_ok:
   !insertmacro CCSLog "Claude Code CLI installed"
