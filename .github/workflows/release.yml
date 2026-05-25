@@ -1,42 +1,51 @@
 name: Release
 
-# Auto-publish to GitHub Releases when a version tag is pushed.
-# Usage:
-#   git tag v2.0.0 && git push origin v2.0.0
-# This triggers builds on all 3 OSes that publish to the same GitHub
-# release (electron-builder matches by version → existing draft release).
-# The maintainer then promotes the draft to published once V1-V4
-# validation passes (see docs/RELEASE_NOTES_v2.0.0.md checklist).
+# Tag-driven release. On `git push origin vX.Y.Z`, builds installers on
+# all 3 OSes and uploads ONLY the user-facing files to a GitHub release
+# (deliberately excluding auto-updater metadata + delta-update blockmaps
+# so the release page stays uncluttered).
 on:
   push:
     tags:
       - "v*.*.*"
-  # Allow manual trigger too (Actions tab → Run workflow) for one-off
-  # republishes without retagging.
   workflow_dispatch:
 
-# A single tagged release should never have two builds racing — if a tag
-# is re-pushed, the prior run cancels.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write  # needed to create the GitHub release + upload assets
+
 jobs:
   publish:
-    name: Publish (${{ matrix.os }})
+    name: Build + upload (${{ matrix.os }})
     strategy:
-      fail-fast: false  # other OS publishes shouldn't die because one failed
+      fail-fast: false
       matrix:
         include:
+          # Each OS builds locally (no electron-builder publish — we control
+          # uploads explicitly via `gh release upload` below) so the only
+          # files that land on the release are the ones we explicitly list.
           - os: windows-latest
             label: windows
-            publish_cmd: npm run dist:publish
+            build_cmd: npm run dist
+            # Globs for the user-facing files we actually want on the release.
+            # Excludes .exe.blockmap (delta-update metadata), .nsis.7z
+            # (intermediate), latest.yml (auto-updater manifest).
+            upload_glob: dist/Claude-Code-Studio-*-Windows.exe
           - os: macos-latest
             label: macos
-            publish_cmd: npm run dist:publish:mac
+            build_cmd: npm run dist:mac
+            # Just the DMG. No .zip (was for auto-updater), no .blockmap.
+            upload_glob: dist/Claude-Code-Studio-*-Mac.dmg
           - os: ubuntu-latest
             label: linux
-            publish_cmd: npm run dist:publish:linux
+            # Three distinct installers, one per distro family. No
+            # latest-linux.yml. Use a single glob string and let the
+            # `for f in $glob` loop in the upload step expand it.
+            build_cmd: npm run dist:linux
+            upload_glob: dist/Claude-Code-Studio-*-Linux-Universal.AppImage dist/Claude-Code-Studio-*-Linux-Debian.deb dist/Claude-Code-Studio-*-Linux-Fedora.rpm
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -66,34 +75,86 @@ jobs:
         continue-on-error: true
         run: npx --no-install @electron/rebuild -m . --only node-pty
 
-      - name: Build + publish
-        # electron-builder's GitHub publisher reads `repository.url` from
-        # package.json (or the `publish` block in electron-builder.yml).
-        # GH_TOKEN must have `repo` scope. The auto-provided GITHUB_TOKEN
-        # has `contents: write` permission which is sufficient for creating
-        # releases on the same repo.
+      - name: Build installer (no publish)
         shell: bash
         run: |
           set -o pipefail
           mkdir -p dist
-          ${{ matrix.publish_cmd }} 2>&1 | tee dist/publish.log
+          ${{ matrix.build_cmd }} 2>&1 | tee dist/build.log
+
+      - name: Create release (idempotent) + upload installers
+        # Each matrix job creates the release on first call, then all 3 jobs
+        # upload their respective installers via `--clobber` (replaces any
+        # existing file with the same name). Sibling-job race: gh release
+        # create errors with "already exists" if another job got there first;
+        # we check existence first and skip create in that case.
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI: "true"
-          # Don't set DEBUG=electron-builder here — verbose logs in
-          # publish runs leak the release upload URL with the token in
-          # query params. Stick to standard logging.
+          GH_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -e
+          NOTES_FILE="docs/RELEASE_NOTES_${GH_RELEASE_TAG}.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            NOTES_FILE=""
+          fi
+          if ! gh release view "$GH_RELEASE_TAG" >/dev/null 2>&1; then
+            if [ -n "$NOTES_FILE" ]; then
+              gh release create "$GH_RELEASE_TAG" \
+                --draft \
+                --title "$GH_RELEASE_TAG" \
+                --notes-file "$NOTES_FILE"
+            else
+              gh release create "$GH_RELEASE_TAG" \
+                --draft \
+                --title "$GH_RELEASE_TAG" \
+                --notes "${GH_RELEASE_TAG} — see RELEASE_NOTES_${GH_RELEASE_TAG}.md for details."
+            fi
+          fi
 
-      - name: Upload publish log on failure
+          # Upload each file matching the glob(s). --clobber replaces any
+          # existing asset with the same name (defensive against re-runs).
+          shopt -s nullglob
+          UPLOADED=0
+          for f in ${{ matrix.upload_glob }}; do
+            if [ -f "$f" ]; then
+              echo "Uploading $f..."
+              gh release upload "$GH_RELEASE_TAG" "$f" --clobber
+              UPLOADED=$((UPLOADED + 1))
+            fi
+          done
+          if [ "$UPLOADED" -eq 0 ]; then
+            echo "ERROR: no files matched upload_glob: ${{ matrix.upload_glob }}"
+            echo "dist/ contents:"
+            ls -la dist/
+            exit 1
+          fi
+          echo "Uploaded $UPLOADED file(s) for ${{ matrix.label }}."
+
+      - name: Push failure log to ci-logs branch (debug fallback)
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: publish-log-${{ matrix.label }}
-          path: dist/publish.log
-          retention-days: 30
-          if-no-files-found: warn
-
-permissions:
-  # Required for actions/checkout to fetch + push tags, and for the
-  # builder to create/update releases.
-  contents: write
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          [ -f dist/build.log ] || echo "(no build.log captured)" > dist/build.log
+          git config user.email "ci@github-actions.local"
+          git config user.name "ci-logs-bot"
+          git checkout --orphan ci-logs-tmp
+          git rm -rf . 2>/dev/null || true
+          mkdir -p "release-${{ matrix.label }}"
+          cp dist/build.log "release-${{ matrix.label }}/build.log"
+          [ -f dist/builder-debug.yml ] && cp dist/builder-debug.yml "release-${{ matrix.label }}/builder-debug.yml" || true
+          {
+            echo "Run ID: ${{ github.run_id }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Tag:    ${{ github.ref_name }}"
+            echo "Job:    release-${{ matrix.label }}"
+            echo "URL:    https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > "release-${{ matrix.label }}/meta.txt"
+          git add "release-${{ matrix.label }}/"
+          git commit -m "release-ci-log: ${{ matrix.label }} failure for ${{ github.sha }}"
+          git push -f \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            "ci-logs-tmp:ci-logs"
