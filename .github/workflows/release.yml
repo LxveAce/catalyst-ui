@@ -83,44 +83,84 @@ jobs:
           ${{ matrix.build_cmd }} 2>&1 | tee dist/build.log
 
       - name: Create release (idempotent) + upload installers
-        # Each matrix job creates the release on first call, then all 3 jobs
-        # upload their respective installers via `--clobber` (replaces any
-        # existing file with the same name). Sibling-job race: gh release
-        # create errors with "already exists" if another job got there first;
-        # we check existence first and skip create in that case.
+        # Each matrix job tries to create the release; if a sibling job
+        # got there first, we tolerate "already exists" and skip to
+        # upload. Verbose echo throughout so we can see in the log what
+        # actually happened.
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -e
+
+          echo "=== Release context ==="
+          echo "Tag:        $GH_RELEASE_TAG"
+          echo "Repo:       ${{ github.repository }}"
+          echo "Run ID:     ${{ github.run_id }}"
+          echo "Matrix job: ${{ matrix.label }}"
+          echo "gh version: $(gh --version | head -1)"
+
           NOTES_FILE="docs/RELEASE_NOTES_${GH_RELEASE_TAG}.md"
           if [ ! -f "$NOTES_FILE" ]; then
+            echo "NOTES_FILE not found at $NOTES_FILE — falling back to inline notes"
             NOTES_FILE=""
+          else
+            echo "NOTES_FILE: $NOTES_FILE"
           fi
-          if ! gh release view "$GH_RELEASE_TAG" >/dev/null 2>&1; then
+
+          echo ""
+          echo "=== Check if release already exists ==="
+          if gh release view "$GH_RELEASE_TAG" 2>&1; then
+            echo "Release $GH_RELEASE_TAG already exists — skipping create, proceeding to upload."
+          else
+            VIEW_EXIT=$?
+            echo "gh release view exited $VIEW_EXIT — release doesn't exist, creating..."
+            echo ""
+            echo "=== Create release ==="
             if [ -n "$NOTES_FILE" ]; then
-              gh release create "$GH_RELEASE_TAG" \
-                --draft \
-                --title "$GH_RELEASE_TAG" \
-                --notes-file "$NOTES_FILE"
+              # Capture create output so we can detect "already exists" race
+              if ! CREATE_OUT=$(gh release create "$GH_RELEASE_TAG" --draft --title "$GH_RELEASE_TAG" --notes-file "$NOTES_FILE" 2>&1); then
+                echo "$CREATE_OUT"
+                if echo "$CREATE_OUT" | grep -qi "already exists"; then
+                  echo "Sibling job created it first — fine, proceeding to upload."
+                else
+                  echo "FATAL: gh release create failed for non-exists reason"
+                  exit 1
+                fi
+              else
+                echo "$CREATE_OUT"
+              fi
             else
-              gh release create "$GH_RELEASE_TAG" \
-                --draft \
-                --title "$GH_RELEASE_TAG" \
-                --notes "${GH_RELEASE_TAG} — see RELEASE_NOTES_${GH_RELEASE_TAG}.md for details."
+              if ! CREATE_OUT=$(gh release create "$GH_RELEASE_TAG" --draft --title "$GH_RELEASE_TAG" --notes "${GH_RELEASE_TAG} — see RELEASE_NOTES_${GH_RELEASE_TAG}.md" 2>&1); then
+                echo "$CREATE_OUT"
+                if echo "$CREATE_OUT" | grep -qi "already exists"; then
+                  echo "Sibling job created it first — fine, proceeding to upload."
+                else
+                  echo "FATAL: gh release create failed for non-exists reason"
+                  exit 1
+                fi
+              else
+                echo "$CREATE_OUT"
+              fi
             fi
           fi
 
-          # Upload each file matching the glob(s). --clobber replaces any
-          # existing asset with the same name (defensive against re-runs).
+          echo ""
+          echo "=== Verify release now exists ==="
+          gh release view "$GH_RELEASE_TAG"
+
+          echo ""
+          echo "=== Upload installers ==="
           shopt -s nullglob
           UPLOADED=0
           for f in ${{ matrix.upload_glob }}; do
             if [ -f "$f" ]; then
-              echo "Uploading $f..."
+              echo "Uploading $f ($(stat -c %s "$f" 2>/dev/null || stat -f %z "$f") bytes)..."
               gh release upload "$GH_RELEASE_TAG" "$f" --clobber
               UPLOADED=$((UPLOADED + 1))
+            else
+              echo "SKIP (not a file): $f"
             fi
           done
           if [ "$UPLOADED" -eq 0 ]; then
@@ -130,6 +170,10 @@ jobs:
             exit 1
           fi
           echo "Uploaded $UPLOADED file(s) for ${{ matrix.label }}."
+
+          echo ""
+          echo "=== Final release state ==="
+          gh release view "$GH_RELEASE_TAG" --json assets --jq '.assets[].name'
 
       - name: Push failure log to ci-logs branch (debug fallback)
         if: failure()
