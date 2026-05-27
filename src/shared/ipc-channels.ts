@@ -113,11 +113,30 @@ export const IPC = {
   /** Main → renderer: each line of npm install output during cli:install. */
   CLI_INSTALL_PROGRESS: 'cli:install-progress',
 
-  // v3.0 multi-model scaffold.
+  // v3.0 multi-model — catalog + Ollama lifecycle + hardware/project detection.
   MODELS_LIST: 'models:list',
   MODELS_GET: 'models:get',
   MODELS_ADD: 'models:add',
   MODELS_UPDATE: 'models:update',
   MODELS_REMOVE: 'models:remove',
   MODELS_RESET_SEED: 'models:reset-seed',
+  MODELS_RECOMMEND: 'models:recommend',
+  MODELS_LAUNCH: 'models:launch',
+  /** Open an allowlisted external URL related to models (license pages,
+   *  Ollama.com, HuggingFace, etc.). Separate from github:open-external
+   *  because the allowlist differs. */
+  MODELS_OPEN_EXTERNAL: 'models:open-external',
+
+  // Ollama lifecycle wrapper. Pull progress streams via OLLAMA_PULL_PROGRESS.
+  OLLAMA_VERSION: 'ollama:version',
+  OLLAMA_LIST: 'ollama:list',
+  OLLAMA_PULL_START: 'ollama:pull-start',
+  OLLAMA_PULL_CANCEL: 'ollama:pull-cancel',
+  OLLAMA_DELETE: 'ollama:delete',
+  /** Main → renderer: each parsed line of `ollama pull` progress. */
+  OLLAMA_PULL_PROGRESS: 'ollama:pull-progress',
+
+  // Hardware + project detection.
+  HARDWARE_DETECT: 'hardware:detect',
+  PROJECT_DETECT: 'project:detect',
 } as const;

@@ -203,5 +203,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke(IPC.MODELS_UPDATE, id, patch),
     remove: (id: string) => ipcRenderer.invoke(IPC.MODELS_REMOVE, id),
     resetSeed: () => ipcRenderer.invoke(IPC.MODELS_RESET_SEED),
+    recommend: (cwd?: string) =>
+      ipcRenderer.invoke(IPC.MODELS_RECOMMEND, cwd ?? null),
+    launch: (modelId: string, cwd?: string) =>
+      ipcRenderer.invoke(IPC.MODELS_LAUNCH, modelId, cwd ?? null),
+    openExternal: (url: string) => ipcRenderer.invoke(IPC.MODELS_OPEN_EXTERNAL, url),
+  },
+  ollama: {
+    version: (force = false) => ipcRenderer.invoke(IPC.OLLAMA_VERSION, force),
+    list: () => ipcRenderer.invoke(IPC.OLLAMA_LIST),
+    pullStart: (name: string) => ipcRenderer.invoke(IPC.OLLAMA_PULL_START, name),
+    pullCancel: (name: string) => ipcRenderer.invoke(IPC.OLLAMA_PULL_CANCEL, name),
+    delete: (name: string) => ipcRenderer.invoke(IPC.OLLAMA_DELETE, name),
+    onPullProgress: (callback: (evt: unknown) => void) =>
+      subscribe<[unknown]>(IPC.OLLAMA_PULL_PROGRESS, callback),
+  },
+  hardware: {
+    detect: (force = false) => ipcRenderer.invoke(IPC.HARDWARE_DETECT, force),
+  },
+  project: {
+    detect: (cwd?: string) => ipcRenderer.invoke(IPC.PROJECT_DETECT, cwd ?? null),
   },
 });
