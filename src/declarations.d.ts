@@ -260,6 +260,7 @@ interface Window {
         outcome: 'skipped' | 'completed'
       ) => Promise<import('./shared/types').ModelsOnboardingState>;
       onboardingReset: () => Promise<import('./shared/types').ModelsOnboardingState>;
+      listRunning: () => Promise<import('./shared/types').RunningModelPane[]>;
     };
     ollama: {
       version: (force?: boolean) => Promise<import('./shared/types').OllamaVersionInfo>;
@@ -282,6 +283,23 @@ interface Window {
     };
     app: {
       version: () => Promise<string>;
+      resetUserData: () => Promise<import('./shared/types').AppResetResult>;
+      openUninstaller: () => Promise<{ ok: boolean; error: string | null }>;
+    };
+    projectExplorer: {
+      listDir: (
+        root: string,
+        target: string
+      ) => Promise<import('./shared/types').DirListing>;
+      recentList: () => Promise<import('./shared/types').RecentProject[]>;
+      recentAdd: (target: string) => Promise<import('./shared/types').RecentProject[]>;
+      recentRemove: (target: string) => Promise<import('./shared/types').RecentProject[]>;
+    };
+    cliFlags: {
+      get: () => Promise<import('./shared/types').CliFlags>;
+      set: (
+        flags: Partial<import('./shared/types').CliFlags>
+      ) => Promise<import('./shared/types').CliFlags>;
     };
   };
 }

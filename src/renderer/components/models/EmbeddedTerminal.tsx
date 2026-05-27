@@ -89,6 +89,24 @@ export function EmbeddedTerminal({ paneId, compact = true }: Props) {
       term.write(`\r\n\x1b[2m[process exited with code ${code}]\x1b[0m\r\n`);
     });
 
+    // 3.0.0-beta.3: probe whether the PTY actually exists. If the user
+    // clicks Pop-out on a stale running-list entry (e.g. after panel
+    // re-mount with a launched PTY that died while away), the embed will
+    // be silent forever — write a placeholder so they know what happened.
+    setTimeout(() => {
+      void (async () => {
+        try {
+          const live = await window.electronAPI.models.listRunning();
+          if (!live.some((p) => p.paneId === paneId)) {
+            term.write(`\x1b[33m[paneId ${paneId} not found — the model may have exited.]\x1b[0m\r\n`);
+            term.write(`\x1b[2mClose this view and Launch again from the Models panel.\x1b[0m\r\n`);
+          }
+        } catch {
+          // listRunning unavailable — skip the warning; the PTY may still be live
+        }
+      })();
+    }, 1500);
+
     const offUserInput = term.onData((data) => {
       window.electronAPI.terminal.sendInput(paneId, data);
     });

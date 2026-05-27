@@ -27,6 +27,7 @@ const VALID_PANEL_IDS = new Set([
   'auth',
   'settings',
   'models',
+  'files',
 ]);
 
 interface PersistedSession {

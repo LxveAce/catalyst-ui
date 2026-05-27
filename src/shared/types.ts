@@ -240,6 +240,58 @@ export interface ModelPopoutResult {
   error: string | null;
 }
 
+// --- File / project explorer (3.0.0-beta.3) ---
+
+export interface DirEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'dir' | 'symlink' | 'other';
+  size: number;
+  modified: string;
+  hidden: boolean;
+}
+
+export interface DirListing {
+  root: string;
+  path: string;
+  truncated: boolean;
+  totalEntries: number;
+  entries: DirEntry[];
+  error: 'not-found' | 'not-a-directory' | 'access-denied' | 'outside-root' | null;
+}
+
+export interface RecentProject {
+  path: string;
+  addedAt: string;
+  label: string;
+}
+
+// --- CLI flags (3.0.0-beta.3) ---
+
+export interface CliFlags {
+  /** When true, the Claude PTY launches with --dangerously-skip-permissions.
+   *  Bypasses permission prompts. Convenient in trusted projects only. */
+  dangerouslySkipPermissions: boolean;
+}
+
+// --- App reset (3.0.0-beta.3) ---
+
+export interface AppResetResult {
+  ok: boolean;
+  /** Files that were removed (relative to userData). */
+  removed: string[];
+  /** Files that couldn't be removed (with error reasons). */
+  failed: Array<{ file: string; error: string }>;
+}
+
+/** Live snapshot of a currently-running model PTY — used by ModelsPanel
+ *  to rebuild its "Running" list after a tab switch / panel re-mount. */
+export interface RunningModelPane {
+  paneId: string;
+  pid: number;
+  commandLine: string;
+}
+
 export interface ModelRegistryState {
   /** All registered models. Order is the user's display order in the panel. */
   models: ModelDefinition[];
@@ -255,11 +307,35 @@ export interface ResourceSnapshot {
     ramTotalGB: number;
     gpuPercent: number | null;
   };
+  /** Claude CLI PTYs (the original terminal flow). */
   claude: {
     cpuPercent: number;
     ramPercent: number;
     ramMB: number;
     pidCount: number;
+  };
+  /**
+   * Local-model PTYs launched via MODELS_LAUNCH (typically `ollama run X`).
+   * Added in 3.0.0-beta.3 — backward-compatible: older renderers that
+   * only read `system` + `claude` still work.
+   */
+  models?: {
+    cpuPercent: number;
+    ramMB: number;
+    pidCount: number;
+  };
+  /**
+   * The persistent Ollama daemon + its model-loader children, if Ollama
+   * is installed and running. Found via process-name scan each poll.
+   */
+  ollama?: {
+    present: boolean;
+    cpuPercent: number;
+    ramMB: number;
+    pidCount: number;
+    /** Number of `ollama runner` / `llama-server` children — i.e.,
+     *  currently-loaded models. 0 means daemon is idle. */
+    runnerCount: number;
   };
   timestamp: number;
 }
@@ -641,7 +717,8 @@ export type SessionPanelId =
   | 'sync'
   | 'auth'
   | 'settings'
-  | 'models';
+  | 'models'
+  | 'files';
 
 export interface SessionState {
   version: number;

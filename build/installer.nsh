@@ -197,11 +197,52 @@
 !macroend
 
 ; ----------------------------------------------------------------------------
-; customUnInstall — clean up the bundled runtime.
+; customUnInstall — clean up the bundled runtime + (optionally) user data.
 ;
 ; Without this, uninstall would orphan ~150 MB of node_modules in
 ; $INSTDIR\resources\runtime\.
+;
+; 3.0.0-beta.3 — also prompts to remove the user-data JSON files we wrote
+; under %APPDATA%\Claude Code Studio. NSIS's electron-builder uninstaller
+; never touches those by default (they're outside $INSTDIR), so an
+; uninstall-then-reinstall used to leave the user's old settings,
+; registries, debug logs, etc. floating around. Now we ask once at
+; uninstall time and (if confirmed) wipe them too. The Chromium profile
+; dirs (Cache, Local Storage, etc.) are left alone — they're rebuilt on
+; first launch and have nothing the user needs to lose.
 ; ----------------------------------------------------------------------------
 !macro customUnInstall
+  ; Step 1 — the bundled Node + Claude CLI runtime.
   RMDir /r "$INSTDIR\resources\runtime"
+
+  ; Step 2 — prompt for user data wipe. MB_YESNO returns IDYES (6) on yes.
+  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
+    "Also remove your Claude Code Studio settings, history, model registry, debug logs, and other JSON state?$\n$\nThese files live under %APPDATA%\Claude Code Studio\ and are written by the app itself (not the installer). Choose Yes to wipe them, No to keep them for a future reinstall.$\n$\nThe Claude CLI's own data (~\.claude\), the Ollama install, and any pulled models are NEVER touched here." \
+    /SD IDNO \
+    IDNO skip_userdata
+
+  ; Wipe each of the files Studio writes. Listed explicitly rather than
+  ; nuking the whole %APPDATA%\Claude Code Studio\ folder so we don't
+  ; accidentally delete Chromium profile state (Cache/, Local Storage/,
+  ; etc.) which lives in the same dir and is harmless to keep.
+  Delete "$APPDATA\Claude Code Studio\session.json"
+  Delete "$APPDATA\Claude Code Studio\cost-history.json"
+  Delete "$APPDATA\Claude Code Studio\cost-settings.json"
+  Delete "$APPDATA\Claude Code Studio\github-auth.json"
+  Delete "$APPDATA\Claude Code Studio\cloud-sync-settings.json"
+  Delete "$APPDATA\Claude Code Studio\cli-onboarding.json"
+  Delete "$APPDATA\Claude Code Studio\cli-flags.json"
+  Delete "$APPDATA\Claude Code Studio\hotkeys.json"
+  Delete "$APPDATA\Claude Code Studio\tray-settings.json"
+  Delete "$APPDATA\Claude Code Studio\notif-settings.json"
+  Delete "$APPDATA\Claude Code Studio\snippets.json"
+  Delete "$APPDATA\Claude Code Studio\lmm-settings.json"
+  Delete "$APPDATA\Claude Code Studio\updater-settings.json"
+  Delete "$APPDATA\Claude Code Studio\model-registry.json"
+  Delete "$APPDATA\Claude Code Studio\models-onboarding.json"
+  Delete "$APPDATA\Claude Code Studio\recent-projects.json"
+  Delete "$APPDATA\Claude Code Studio\debug-dump.jsonl"
+  RMDir /r "$APPDATA\Claude Code Studio\lmm-journal"
+
+  skip_userdata:
 !macroend

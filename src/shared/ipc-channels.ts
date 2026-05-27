@@ -126,6 +126,9 @@ export const IPC = {
    *  Ollama.com, HuggingFace, etc.). Separate from github:open-external
    *  because the allowlist differs. */
   MODELS_OPEN_EXTERNAL: 'models:open-external',
+  /** Live list of running model PTYs — rebuilds ModelsPanel's "Running"
+   *  list after a panel re-mount. Returns RunningModelPane[]. */
+  MODELS_LIST_RUNNING: 'models:list-running',
 
   // Ollama lifecycle wrapper. Pull progress streams via OLLAMA_PULL_PROGRESS.
   OLLAMA_VERSION: 'ollama:version',
@@ -136,8 +139,23 @@ export const IPC = {
   /** Main → renderer: each parsed line of `ollama pull` progress. */
   OLLAMA_PULL_PROGRESS: 'ollama:pull-progress',
 
-  // App metadata.
+  // App metadata + lifecycle.
   APP_VERSION: 'app:version',
+  /** Wipe all user data JSON (settings, registries, history, auth) and
+   *  relaunch the app fresh. Does NOT uninstall the binary — see APP_OPEN_UNINSTALLER. */
+  APP_RESET_USER_DATA: 'app:reset-user-data',
+  /** Spawn the platform uninstaller (NSIS on Windows). */
+  APP_OPEN_UNINSTALLER: 'app:open-uninstaller',
+
+  // File / project explorer (3.0.0-beta.3).
+  PROJECT_LIST_DIR: 'project:list-dir',
+  PROJECT_RECENT_LIST: 'project:recent-list',
+  PROJECT_RECENT_ADD: 'project:recent-add',
+  PROJECT_RECENT_REMOVE: 'project:recent-remove',
+
+  // Claude CLI auto-flags (3.0.0-beta.3 — --dangerously-skip-permissions toggle).
+  CLI_FLAGS_GET: 'cli:flags-get',
+  CLI_FLAGS_SET: 'cli:flags-set',
 
   // Hardware + project detection.
   HARDWARE_DETECT: 'hardware:detect',

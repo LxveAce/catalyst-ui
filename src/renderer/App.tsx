@@ -15,6 +15,7 @@ import { CommandPalette } from './components/palette/CommandPalette';
 import { CliAuthOnboarding } from './components/auth/CliAuthOnboarding';
 import { ModelsPanel } from './components/models/ModelsPanel';
 import { PopoutView } from './components/models/PopoutView';
+import { FileTreePanel } from './components/project/FileTreePanel';
 import {
   SplitLayout,
   splitPane,
@@ -41,7 +42,8 @@ export type SidebarPanel =
   | 'sync'
   | 'auth'
   | 'settings'
-  | 'models';  // v3.0 multi-model scaffold
+  | 'models'   // v3.0 multi-model scaffold
+  | 'files';   // 3.0.0-beta.3 file directory navigator
 
 const DEFAULT_LAYOUT: SplitNode = {
   type: 'pane',
@@ -494,6 +496,8 @@ function RightPanel({
       return <SyncPanel />;
     case 'models':
       return <ModelsPanel />;
+    case 'files':
+      return <FileTreePanel />;
     default:
       return <PlaceholderPanel panel={panel} />;
   }

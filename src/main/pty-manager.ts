@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { findBundledRuntime } from './runtime-paths';
+import { readCliFlags } from './cli-flags';
 
 let pty: typeof import('node-pty') | null = null;
 try {
@@ -57,7 +58,18 @@ export class PtyManager extends EventEmitter {
 
   spawn(cwd?: string, opts?: PtySpawnOpts): void {
     const command = opts?.command ?? this.findClaudePath();
-    const args = opts?.args ?? [];
+    let args = opts?.args ?? [];
+    // Claude-only auto-flags. When opts.command is unset (the default
+    // terminal flow that spawns the bundled claude CLI), respect the
+    // user-toggled flags from cli-flags.json. Model PTYs (opts.command
+    // explicitly set) are never modified — those use the model's verbatim
+    // command + args from ModelDefinition.
+    if (!opts?.command) {
+      const flags = readCliFlags();
+      if (flags.dangerouslySkipPermissions) {
+        args = ['--dangerously-skip-permissions', ...args];
+      }
+    }
     const workDir = cwd || os.homedir();
     this._cwd = workDir;
     this._commandLine = [command, ...args].join(' ');

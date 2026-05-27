@@ -91,6 +91,56 @@ export function ModelsPanel() {
     };
   }, []);
 
+  // 3.0.0-beta.3: rebuild the Running list from main on panel mount.
+  // Pre-beta.3 the list lived in component state only — switching to
+  // another sidebar tab and back wiped it (PTYs survived but the panel
+  // forgot about them). Now we query PtyRegistry.listModelPanes() and
+  // rehydrate, including each model's display name from the catalog.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const [livePanes, allModels] = await Promise.all([
+          window.electronAPI.models.listRunning(),
+          window.electronAPI.models.list(),
+        ]);
+        if (!alive) return;
+        const modelById = new Map(allModels.map((m) => [m.id, m] as const));
+        const rebuilt: RunningModel[] = livePanes.map((p) => {
+          // paneId format from MODELS_LAUNCH: "model:<safeIdPart>-<base36ts>".
+          // Extract the model id (best-effort) so we can label nicely.
+          const match = p.paneId.match(/^model:([^-]+(?:-[^-]+)*)-([0-9a-z]+)$/);
+          const idPart = match ? match[1] : '';
+          // The safeIdPart replaced any chars not in [A-Za-z0-9_\-:] with _.
+          // Match against catalog by reversing the substitution loosely.
+          let model = modelById.get(idPart);
+          if (!model) {
+            // Fallback: scan for any model whose id matches after underscore-norm
+            for (const m of allModels) {
+              if (m.id.replace(/[^A-Za-z0-9_\-:]/g, '_').slice(0, 40) === idPart) {
+                model = m;
+                break;
+              }
+            }
+          }
+          return {
+            paneId: p.paneId,
+            modelId: model?.id ?? idPart,
+            modelName: model?.name ?? p.commandLine.split(/\s+/)[0] ?? 'Model',
+            commandLine: p.commandLine,
+            startedAt: Date.now(), // best-effort; real start time isn't tracked
+          };
+        });
+        setRunning(rebuilt);
+      } catch {
+        // listRunning IPC may not exist in older preload — non-fatal
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // Auto-select the most recently launched model so the embedded terminal
   // has something to show by default. Also clears the selection when its
   // PTY exits and is pruned from `running`.

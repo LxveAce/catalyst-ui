@@ -22,6 +22,16 @@ import { detectHardware } from './hardware-detection';
 import { detectProject } from './project-language-detect';
 import { probeDisk } from './disk-info';
 import { FirstRunService } from './first-run-service';
+import { readCliFlags, writeCliFlags, type CliFlags } from './cli-flags';
+import {
+  listDir as projectListDir,
+  readRecentProjects,
+  addRecentProject,
+  removeRecentProject,
+} from './project-explorer';
+import { spawn as childSpawn } from 'node:child_process';
+import * as nodeFs from 'node:fs';
+import * as nodeFsp from 'node:fs/promises';
 import { IPC } from '../shared/ipc-channels';
 import type {
   HotkeyAction,
@@ -243,7 +253,16 @@ function safeSend(channel: string, ...args: unknown[]) {
 }
 
 function syncResourcePids() {
-  resourceMonitor.setClaudePids(ptyRegistry.allPids());
+  // 3.0.0-beta.3: split by category so the Resources panel can show
+  // Claude RAM vs model RAM as separate gauges instead of one aggregated
+  // "Claude" number that grew silently when the user launched a model.
+  // Falls back to legacy behavior if the registry doesn't know the
+  // category (treats unknowns as 'claude' — preserves pre-beta.3
+  // accounting).
+  resourceMonitor.setTrackedPids(
+    ptyRegistry.pidsByCategory('claude'),
+    ptyRegistry.pidsByCategory('model')
+  );
 }
 
 function setupTerminal() {
@@ -315,6 +334,10 @@ function setupTerminal() {
       }
       const safeCwd =
         typeof cwd === 'string' && cwd.length > 0 && cwd.length <= 4096 ? cwd : undefined;
+      // Default terminal-pane spawn = Claude PTY → categorize for the
+      // ResourceMonitor's claude bucket. Model PTYs spawned via
+      // MODELS_LAUNCH explicitly set category='model' instead.
+      ptyRegistry.setPaneCategory(paneId, 'claude');
       ptyRegistry.spawn(paneId, safeCwd);
       return true;
     }
@@ -439,6 +462,10 @@ function setupModels() {
       const safeIdPart = model.id.replace(/[^A-Za-z0-9_\-:]/g, '_').slice(0, 40);
       const paneId = `model:${safeIdPart}-${Date.now().toString(36)}`.slice(0, 64);
       try {
+        // Tag for ResourceMonitor's `models` bucket — keeps its RAM/CPU
+        // out of the `claude` bucket and out of `ollama` (the daemon is
+        // tracked separately via process-name scan).
+        ptyRegistry.setPaneCategory(paneId, 'model');
         ptyRegistry.spawn(paneId, safeCwd, {
           command: model.command,
           args: model.args,
@@ -543,6 +570,111 @@ function setupAppMeta() {
   // resources). Prevents the title=v1.0.0 / status=v2.0.0 / installer=v3.0.0
   // tri-version drift observed in beta.1.
   ipcMain.handle(IPC.APP_VERSION, () => app.getVersion());
+
+  // Danger-zone: wipe everything in <userData> EXCEPT Electron's own
+  // Cache / Local Storage / etc. dirs (those rebuild themselves). We
+  // only nuke the JSON-y state files we ourselves wrote — keeps the
+  // Chromium profile intact so the next launch isn't a slow first-run.
+  ipcMain.handle(IPC.APP_RESET_USER_DATA, async () => {
+    const userData = app.getPath('userData');
+    // Allowlist of files/dirs WE own (everything else is Chromium's).
+    const ourArtifacts = [
+      'session.json',
+      'cost-history.json',
+      'cost-settings.json',
+      'github-auth.json',
+      'cloud-sync-settings.json',
+      'cli-onboarding.json',
+      'cli-flags.json',
+      'hotkeys.json',
+      'tray-settings.json',
+      'notif-settings.json',
+      'snippets.json',
+      'lmm-settings.json',
+      'updater-settings.json',
+      'model-registry.json',
+      'models-onboarding.json',
+      'recent-projects.json',
+      'debug-dump.jsonl',
+      'lmm-journal',
+    ];
+    const removed: string[] = [];
+    const failed: Array<{ file: string; error: string }> = [];
+    for (const name of ourArtifacts) {
+      const full = path.join(userData, name);
+      try {
+        await nodeFsp.rm(full, { recursive: true, force: true });
+        removed.push(name);
+      } catch (e) {
+        failed.push({ file: name, error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    return { ok: failed.length === 0, removed, failed };
+  });
+
+  // Spawn the NSIS uninstaller. The installer creates an "Uninstall
+  // Claude Code Studio.exe" alongside the app — we just shell it out
+  // (detached so Studio can quit while the uninstaller is still running).
+  ipcMain.handle(IPC.APP_OPEN_UNINSTALLER, () => {
+    if (process.platform !== 'win32') {
+      return { ok: false, error: `Uninstall via app is Windows-only — on ${process.platform} use the OS's app manager.` };
+    }
+    const exeDir = path.dirname(app.getPath('exe'));
+    // Per electron-builder's NSIS layout, the uninstaller lives in $INSTDIR.
+    // Name varies by `productName`: try both spellings before giving up.
+    const candidates = [
+      path.join(exeDir, 'Uninstall Claude Code Studio.exe'),
+      path.join(exeDir, 'Uninstall claude-code-studio.exe'),
+    ];
+    const uninstaller = candidates.find((p) => nodeFs.existsSync(p));
+    if (!uninstaller) {
+      return {
+        ok: false,
+        error: `Uninstaller not found next to the app exe. Searched: ${candidates.join(' ; ')}`,
+      };
+    }
+    try {
+      childSpawn(uninstaller, [], { detached: true, stdio: 'ignore' }).unref();
+      // Give the uninstaller a moment to start, then quit Studio so the
+      // uninstaller can remove files we have open.
+      setTimeout(() => app.quit(), 500);
+      return { ok: true, error: null };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+}
+
+function setupProjectExplorer() {
+  ipcMain.handle(
+    IPC.PROJECT_LIST_DIR,
+    async (_event, root: unknown, target: unknown) => {
+      const safeRoot = typeof root === 'string' ? root : '';
+      const safeTarget = typeof target === 'string' ? target : '';
+      return projectListDir(safeRoot, safeTarget);
+    }
+  );
+  ipcMain.handle(IPC.PROJECT_RECENT_LIST, () => readRecentProjects());
+  ipcMain.handle(IPC.PROJECT_RECENT_ADD, (_event, target: unknown) => {
+    const safe = typeof target === 'string' ? target : '';
+    return addRecentProject(safe);
+  });
+  ipcMain.handle(IPC.PROJECT_RECENT_REMOVE, (_event, target: unknown) => {
+    const safe = typeof target === 'string' ? target : '';
+    return removeRecentProject(safe);
+  });
+}
+
+function setupCliFlags() {
+  ipcMain.handle(IPC.CLI_FLAGS_GET, () => readCliFlags());
+  ipcMain.handle(IPC.CLI_FLAGS_SET, (_event, flags: unknown) => {
+    if (!flags || typeof flags !== 'object') return readCliFlags();
+    return writeCliFlags(flags as Partial<CliFlags>);
+  });
+}
+
+function setupRunningModels() {
+  ipcMain.handle(IPC.MODELS_LIST_RUNNING, () => ptyRegistry.listModelPanes());
 }
 
 function setupFirstRun() {
@@ -918,6 +1050,9 @@ app.whenReady().then(() => {
   setupFirstRun();
   setupPopout();
   setupAppMeta();
+  setupProjectExplorer();
+  setupCliFlags();
+  setupRunningModels();
   setupWindowControls();
   setupHotkeys();
   setupTray();

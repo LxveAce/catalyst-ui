@@ -214,6 +214,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onboardingMarkShown: (outcome: 'skipped' | 'completed') =>
       ipcRenderer.invoke(IPC.MODELS_ONBOARDING_MARK_SHOWN, outcome),
     onboardingReset: () => ipcRenderer.invoke(IPC.MODELS_ONBOARDING_RESET),
+    listRunning: () => ipcRenderer.invoke(IPC.MODELS_LIST_RUNNING),
   },
   ollama: {
     version: (force = false) => ipcRenderer.invoke(IPC.OLLAMA_VERSION, force),
@@ -235,5 +236,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   app: {
     version: () => ipcRenderer.invoke(IPC.APP_VERSION),
+    resetUserData: () => ipcRenderer.invoke(IPC.APP_RESET_USER_DATA),
+    openUninstaller: () => ipcRenderer.invoke(IPC.APP_OPEN_UNINSTALLER),
+  },
+  projectExplorer: {
+    listDir: (root: string, target: string) =>
+      ipcRenderer.invoke(IPC.PROJECT_LIST_DIR, root, target),
+    recentList: () => ipcRenderer.invoke(IPC.PROJECT_RECENT_LIST),
+    recentAdd: (target: string) => ipcRenderer.invoke(IPC.PROJECT_RECENT_ADD, target),
+    recentRemove: (target: string) =>
+      ipcRenderer.invoke(IPC.PROJECT_RECENT_REMOVE, target),
+  },
+  cliFlags: {
+    get: () => ipcRenderer.invoke(IPC.CLI_FLAGS_GET),
+    set: (flags: { dangerouslySkipPermissions?: boolean }) =>
+      ipcRenderer.invoke(IPC.CLI_FLAGS_SET, flags),
   },
 });
