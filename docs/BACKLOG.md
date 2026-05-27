@@ -7,6 +7,34 @@ to start.
 
 ---
 
+## ★ v3.0.0-beta.3 — queued for next push
+
+User request, 2026-05-26 (while testing beta.2):
+
+**Easier uninstall throughout.** Concrete asks not yet detailed; capture
+when user provides them. Likely items to investigate:
+- Verify the NSIS uninstaller actually removes everything we create
+  (bundled Node runtime, model-registry.json, debug-dump.jsonl,
+  models-onboarding.json, cli-onboarding.json, github-auth.json,
+  cost-history, lmm-journal, sync state, vault tails).
+- Add a "Reset Claude Code Studio" action inside the app (Settings →
+  Danger zone) that wipes `<userData>` without uninstalling the binary
+  — useful for the "I want to start fresh without going through Windows
+  Settings → Apps" path.
+- The Windows uninstaller currently lives at
+  `%LOCALAPPDATA%\Programs\claude-code-studio\Uninstall Claude Code Studio.exe`.
+  Add a Start Menu shortcut to it AND a "Uninstall Claude Code Studio"
+  action inside the app's Settings panel that just spawns that exe.
+- Consider whether uninstall should optionally also remove the user's
+  Ollama install + pulled models (separate question — likely "no by
+  default, yes with explicit checkbox").
+- Confirm `customUnInstall` in `build/installer.nsh` walks the right
+  directories on uninstall (today it just `RMDir /r` on
+  `$INSTDIR\resources\runtime` — userData isn't touched, which may or
+  may not be intentional).
+
+---
+
 ## ★ v3.0.0-beta.2 red-team fixes (2026-05-26)
 
 After packaging beta.1 and trying it on a real machine, three concrete
