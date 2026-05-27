@@ -7,11 +7,45 @@ to start.
 
 ---
 
-## ★ Multi-model support — "API Models" + "Local Models" tabs (v3.0 direction)
+## ★ Multi-model support — IMPLEMENTED (full scope, 2026-05-26)
 
-**Status:** Brainstorm only — captured 2026-05-26 from user. Significant
-re-architecture; not v2.x work. Sketch the design here so it can be
-refined when we're ready to start.
+**Status:** Built. The full-scope catalog + Ollama bootstrap + hardware
+detection + recommendation engine landed on `feature/multi-model-scaffold`
+on 2026-05-26. See `docs/MULTI_MODEL.md` for the design + research,
+and `_backups/2026-05-26-pre-fullscope/` for the pre-change snapshot.
+
+**Shipped this push:**
+- 33-model curated catalog seeded into `ModelRegistry` (covers general
+  chat, frontend, backend, polyglot code, reasoning, vision, long
+  context, edge, embedding — across all 5 hardware tiers).
+- `OllamaService` wrapper: detect, list installed, pull with progress,
+  cancel, delete.
+- `HardwareDetection`: RAM/CPU/GPU probe → `toaster` / `low` / `mid` /
+  `high` / `workstation` tier classification.
+- `ProjectLanguageDetect`: cwd → `frontend` / `backend` / `data` /
+  `systems` / etc. via package.json / pyproject.toml / Cargo.toml / etc.
+- `ModelRegistry.recommend()`: scores models against hardware + project,
+  surfaces top picks with reason strings.
+- `PtyManager` + `PtyRegistry` generalized: now accept arbitrary
+  `command` + `args` so any model can spawn into a pane.
+- NSIS installer bootstrap: detects Ollama at well-known install paths
+  + PATH; if absent, downloads OllamaSetup.exe via `curl.exe` and runs
+  silently with `/verysilent /norestart`.
+- `ModelsPanel` UI: hardware-tier banner, recommendations row, role +
+  tier + search filters, per-model card with full metadata, pull
+  progress bar, license disclosure, launch + kill flow.
+
+**Still deferred (documented in MULTI_MODEL.md):**
+- In-panel xterm output viewer for launched models (today: PTY runs in
+  background, output reaches the renderer via existing TERMINAL_DATA but
+  no Models-panel-local viewer is mounted)
+- Pop-out windows per model
+- "Add custom model" form (catalog-side CRUD is wired; UI is not)
+- Per-provider API-key entry UI (extend AuthPanel beyond Anthropic)
+- macOS + Linux installer Ollama bootstrap (Windows shipped this push;
+  POSIX install-OllamaSetup logic follows the same curl pattern)
+
+**Original brainstorm (preserved for context):**
 
 ### The pitch
 

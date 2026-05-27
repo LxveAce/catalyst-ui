@@ -29,8 +29,20 @@ declare module 'node-pty' {
 declare module 'systeminformation' {
   export function currentLoad(): Promise<{ currentLoad: number }>;
   export function mem(): Promise<{ total: number; used: number }>;
+  export function cpu(): Promise<{
+    manufacturer?: string;
+    brand?: string;
+    physicalCores?: number;
+    cores?: number;
+    speed?: number;
+  }>;
   export function graphics(): Promise<{
-    controllers: Array<{ utilizationGpu?: number }>;
+    controllers: Array<{
+      vendor?: string;
+      model?: string;
+      vram?: number;
+      utilizationGpu?: number;
+    }>;
   }>;
   export function processes(): Promise<{
     list: Array<{
@@ -239,6 +251,25 @@ interface Window {
       update: (id: string, patch: Partial<import('./shared/types').ModelDefinition>) => Promise<import('./shared/types').ModelRegistryState>;
       remove: (id: string) => Promise<import('./shared/types').ModelRegistryState>;
       resetSeed: () => Promise<import('./shared/types').ModelRegistryState>;
+      recommend: (cwd?: string) => Promise<import('./shared/types').ModelRecommendation[]>;
+      launch: (modelId: string, cwd?: string) => Promise<import('./shared/types').ModelLaunchResult>;
+      openExternal: (url: string) => Promise<boolean>;
+    };
+    ollama: {
+      version: (force?: boolean) => Promise<import('./shared/types').OllamaVersionInfo>;
+      list: () => Promise<import('./shared/types').OllamaInstalledModel[]>;
+      pullStart: (name: string) => Promise<{ ok: boolean; error: string | null }>;
+      pullCancel: (name: string) => Promise<{ ok: boolean }>;
+      delete: (name: string) => Promise<{ ok: boolean; error: string | null }>;
+      onPullProgress: (
+        cb: (evt: import('./shared/types').OllamaPullProgressEvent) => void
+      ) => () => void;
+    };
+    hardware: {
+      detect: (force?: boolean) => Promise<import('./shared/types').HardwareProfile>;
+    };
+    project: {
+      detect: (cwd?: string) => Promise<import('./shared/types').ProjectFingerprint>;
     };
   };
 }

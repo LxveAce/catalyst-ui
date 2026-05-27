@@ -17,8 +17,15 @@ import { TrayService } from './tray-service';
 import { CostService } from './cost-service';
 import { CliService } from './cli-service';
 import { ModelRegistry } from './model-registry';
+import { OllamaService, type OllamaPullProgressEvent } from './ollama-service';
+import { detectHardware } from './hardware-detection';
+import { detectProject } from './project-language-detect';
 import { IPC } from '../shared/ipc-channels';
-import type { HotkeyAction } from '../shared/types';
+import type {
+  HotkeyAction,
+  ModelDefinition,
+  ModelLaunchResult,
+} from '../shared/types';
 
 if (require('electron-squirrel-startup')) {
   app.quit();
@@ -353,8 +360,9 @@ function setupCli() {
 }
 
 function setupModels() {
-  // v3.0 multi-model scaffold. Catalog CRUD only — actual launch /
-  // download flows come later. See BACKLOG.md ★ multi-model section.
+  // v3.0 multi-model — catalog + recommend + launch. The catalog seed
+  // lives in model-catalog-seed.ts; recommend() ranks against the host's
+  // hardware tier + the cwd's project fingerprint.
   const reg = ModelRegistry.instance();
   ipcMain.handle(IPC.MODELS_LIST, () => reg.list());
   ipcMain.handle(IPC.MODELS_GET, (_event, id: unknown) => {
@@ -362,19 +370,155 @@ function setupModels() {
     return reg.get(id);
   });
   ipcMain.handle(IPC.MODELS_ADD, (_event, model: unknown) => {
-    // Cast trusted via renderer-side type-checking; main process
-    // validation lives in ModelRegistry.add.
-    return reg.add(model as import('../shared/types').ModelDefinition);
+    return reg.add(model as ModelDefinition);
   });
   ipcMain.handle(IPC.MODELS_UPDATE, (_event, id: unknown, patch: unknown) => {
     if (typeof id !== 'string') throw new Error('model id must be string');
-    return reg.update(id, patch as Partial<import('../shared/types').ModelDefinition>);
+    return reg.update(id, patch as Partial<ModelDefinition>);
   });
   ipcMain.handle(IPC.MODELS_REMOVE, (_event, id: unknown) => {
     if (typeof id !== 'string') throw new Error('model id must be string');
     return reg.remove(id);
   });
   ipcMain.handle(IPC.MODELS_RESET_SEED, () => reg.resetToSeed());
+
+  ipcMain.handle(IPC.MODELS_OPEN_EXTERNAL, (_event, url: unknown) => {
+    if (typeof url !== 'string') return false;
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
+    }
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    // Model-related allowlist: official license sources + model registries.
+    const allowed =
+      host === 'ollama.com' ||
+      host.endsWith('.ollama.com') ||
+      host === 'huggingface.co' ||
+      host.endsWith('.huggingface.co') ||
+      host === 'ai.google.dev' ||
+      host === 'llama.com' ||
+      host.endsWith('.llama.com') ||
+      host === 'www.bigcode-project.org' ||
+      host === 'bigcode-project.org' ||
+      host === 'github.com';
+    if (!allowed) return false;
+    void shell.openExternal(parsed.toString());
+    return true;
+  });
+
+  ipcMain.handle(IPC.MODELS_RECOMMEND, async (_event, cwd: unknown) => {
+    const safeCwd =
+      typeof cwd === 'string' && cwd.length > 0 && cwd.length <= 4096 ? cwd : null;
+    const hardware = await detectHardware();
+    const project = safeCwd ? detectProject(safeCwd) : null;
+    return reg.recommend(hardware, project);
+  });
+
+  ipcMain.handle(
+    IPC.MODELS_LAUNCH,
+    async (_event, modelId: unknown, cwd: unknown): Promise<ModelLaunchResult> => {
+      if (typeof modelId !== 'string') {
+        return { ok: false, paneId: null, commandLine: null, error: 'modelId must be a string' };
+      }
+      const model = reg.get(modelId);
+      if (!model) {
+        return { ok: false, paneId: null, commandLine: null, error: `Unknown model: ${modelId}` };
+      }
+      const safeCwd =
+        typeof cwd === 'string' && cwd.length > 0 && cwd.length <= 4096 ? cwd : undefined;
+      // paneId = "model:<id>-<timestamp>" — bounded length, only allowed chars.
+      const safeIdPart = model.id.replace(/[^A-Za-z0-9_\-:]/g, '_').slice(0, 40);
+      const paneId = `model:${safeIdPart}-${Date.now().toString(36)}`.slice(0, 64);
+      try {
+        ptyRegistry.spawn(paneId, safeCwd, {
+          command: model.command,
+          args: model.args,
+          label: model.name,
+        });
+        syncResourcePids();
+        return {
+          ok: true,
+          paneId,
+          commandLine: ptyRegistry.commandLineFor(paneId),
+          error: null,
+        };
+      } catch (e) {
+        return {
+          ok: false,
+          paneId: null,
+          commandLine: null,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+    }
+  );
+}
+
+function setupOllama() {
+  const svc = OllamaService.instance();
+  // Forward pull progress to the renderer as a broadcast event keyed by
+  // model name (renderer routes to the right per-model UI).
+  ipcMain.handle(IPC.OLLAMA_VERSION, (_event, force: unknown) =>
+    svc.getVersion(force === true)
+  );
+  ipcMain.handle(IPC.OLLAMA_LIST, () => svc.listInstalled());
+  ipcMain.handle(IPC.OLLAMA_PULL_START, (_event, name: unknown) => {
+    if (typeof name !== 'string') {
+      return { ok: false, error: 'name must be a string' };
+    }
+    try {
+      const ee = svc.startPull(name);
+      ee.on('progress', (evt: OllamaPullProgressEvent) =>
+        safeSend(IPC.OLLAMA_PULL_PROGRESS, evt)
+      );
+      ee.on('done', () =>
+        safeSend(IPC.OLLAMA_PULL_PROGRESS, {
+          modelName: name,
+          percent: 100,
+          status: 'done',
+          bytesCompleted: null,
+          bytesTotal: null,
+        })
+      );
+      ee.on('error', (err: Error) =>
+        safeSend(IPC.OLLAMA_PULL_PROGRESS, {
+          modelName: name,
+          percent: null,
+          status: `error: ${err.message}`,
+          bytesCompleted: null,
+          bytesTotal: null,
+        })
+      );
+      return { ok: true, error: null };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+  ipcMain.handle(IPC.OLLAMA_PULL_CANCEL, (_event, name: unknown) => {
+    if (typeof name !== 'string') return { ok: false };
+    return { ok: svc.cancelPull(name) };
+  });
+  ipcMain.handle(IPC.OLLAMA_DELETE, (_event, name: unknown) => {
+    if (typeof name !== 'string') return { ok: false, error: 'name must be a string' };
+    return svc.delete(name);
+  });
+}
+
+function setupHardware() {
+  ipcMain.handle(IPC.HARDWARE_DETECT, (_event, force: unknown) =>
+    detectHardware(force === true)
+  );
+}
+
+function setupProject() {
+  ipcMain.handle(IPC.PROJECT_DETECT, (_event, cwd: unknown) => {
+    const safeCwd =
+      typeof cwd === 'string' && cwd.length > 0 && cwd.length <= 4096 ? cwd : gitService.getCwd();
+    return detectProject(safeCwd);
+  });
 }
 
 function setupGit() {
@@ -667,6 +811,9 @@ app.whenReady().then(() => {
   setupCost();
   setupCli();
   setupModels();
+  setupOllama();
+  setupHardware();
+  setupProject();
   setupWindowControls();
   setupHotkeys();
   setupTray();

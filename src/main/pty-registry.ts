@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { PtyManager } from './pty-manager';
+import { PtyManager, type PtySpawnOpts } from './pty-manager';
 
 /**
  * Per-pane PTY registry.
@@ -73,7 +73,7 @@ export class PtyRegistry extends EventEmitter {
    *
    * Returns `true` if a NEW PTY was created, `false` if we reattached.
    */
-  spawn(paneId: string, cwd?: string): boolean {
+  spawn(paneId: string, cwd?: string, opts?: PtySpawnOpts): boolean {
     if (!PtyRegistry.isValidPaneId(paneId)) {
       throw new Error(`Invalid paneId: ${String(paneId)}`);
     }
@@ -109,13 +109,18 @@ export class PtyRegistry extends EventEmitter {
     this.paneListeners.set(paneId, { onData, onExit, onReady });
 
     try {
-      mgr.spawn(cwd);
+      mgr.spawn(cwd, opts);
     } catch (e) {
       // Roll back map entries on spawn failure so a future spawn(paneId) works.
       this.dispose(paneId);
       throw e;
     }
     return true;
+  }
+
+  /** Resolved command-line for a pane, or empty string if not spawned. */
+  commandLineFor(paneId: string): string {
+    return this.panes.get(paneId)?.commandLine ?? '';
   }
 
   write(paneId: string, data: string): void {
