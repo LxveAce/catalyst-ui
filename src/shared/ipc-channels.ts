@@ -139,4 +139,16 @@ export const IPC = {
   // Hardware + project detection.
   HARDWARE_DETECT: 'hardware:detect',
   PROJECT_DETECT: 'project:detect',
+  /** Probe available + total disk bytes at a path (or the Ollama models dir). */
+  DISK_INFO: 'disk:info',
+
+  // First-run model picker persistence.
+  MODELS_ONBOARDING_GET: 'models:onboarding-get',
+  MODELS_ONBOARDING_MARK_SHOWN: 'models:onboarding-mark-shown',
+  MODELS_ONBOARDING_RESET: 'models:onboarding-reset',
+
+  /** Open a new BrowserWindow that renders only a terminal for the given
+   *  paneId — the "pop out a model" flow. paneId must already exist
+   *  (created by MODELS_LAUNCH); the new window simply attaches. */
+  MODELS_POPOUT: 'models:popout',
 } as const;

@@ -10,6 +10,9 @@ import type {
   OllamaPullProgressEvent,
   OllamaVersionInfo,
 } from '../../../shared/types';
+import { EmbeddedTerminal } from './EmbeddedTerminal';
+import { AddModelModal } from './AddModelModal';
+import { FirstRunPicker } from './FirstRunPicker';
 
 /**
  * v3.0 multi-model catalog panel — full-scope build (May 2026).
@@ -69,7 +72,38 @@ export function ModelsPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [showRecommended, setShowRecommended] = useState(true);
+  const [selectedRunningPaneId, setSelectedRunningPaneId] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showFirstRun, setShowFirstRun] = useState(false);
   const detectedAtRef = useRef<string | null>(null);
+
+  // First-run picker — check persisted onboarding flag once on mount. If
+  // the user hasn't been shown the picker yet, open it now. They can also
+  // re-open it from the panel footer ("Show first-run picker again").
+  useEffect(() => {
+    let alive = true;
+    void window.electronAPI.models.onboardingGet().then((state) => {
+      if (!alive) return;
+      if (!state.shown) setShowFirstRun(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Auto-select the most recently launched model so the embedded terminal
+  // has something to show by default. Also clears the selection when its
+  // PTY exits and is pruned from `running`.
+  useEffect(() => {
+    if (running.length === 0) {
+      setSelectedRunningPaneId(null);
+      return;
+    }
+    setSelectedRunningPaneId((prev) => {
+      if (prev && running.some((r) => r.paneId === prev)) return prev;
+      return running[running.length - 1].paneId;
+    });
+  }, [running]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -196,6 +230,25 @@ export function ModelsPanel() {
 
   const handlePull = async (m: ModelDefinition) => {
     if (!m.ollamaName) return;
+    // Disk quota check — warn (don't block) if the user is close to
+    // running out. Ollama's pull will fail with a less friendly error.
+    // We use 1.5x model size as the warn threshold to leave headroom for
+    // the manifest + temp files.
+    if (m.vramGB || m.download?.sizeBytes) {
+      const needBytes = (m.download?.sizeBytes ?? (m.vramGB ?? 0) * 1e9) * 1.5;
+      try {
+        const disk = await window.electronAPI.disk.info();
+        if (disk.ok && disk.freeBytes != null && disk.freeBytes < needBytes) {
+          const freeGB = (disk.freeBytes / 1e9).toFixed(1);
+          const needGB = (needBytes / 1e9).toFixed(1);
+          if (!confirm(`Low disk space warning.\n\nYou have ~${freeGB} GB free at ${disk.path}, but this pull needs ~${needGB} GB (1.5× the model size, to allow for manifest + temp files).\n\nContinue anyway?`)) {
+            return;
+          }
+        }
+      } catch {
+        // disk probe failed — just proceed; ollama will error if truly out of space
+      }
+    }
     setBusy((p) => ({ ...p, [m.id]: true }));
     try {
       await window.electronAPI.ollama.pullStart(m.ollamaName);
@@ -374,21 +427,57 @@ export function ModelsPanel() {
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Running ({running.length})
           </div>
-          {running.map((r) => (
-            <div key={r.paneId} style={runningRowStyle}>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-primary)', fontWeight: 500 }}>{r.modelName}</div>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.commandLine}
+          {running.map((r) => {
+            const isSel = r.paneId === selectedRunningPaneId;
+            return (
+              <div
+                key={r.paneId}
+                style={{
+                  ...runningRowStyle,
+                  background: isSel ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+                  borderRadius: 4,
+                  padding: isSel ? '6px 8px' : '4px 0',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setSelectedRunningPaneId(r.paneId)}
+              >
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-primary)', fontWeight: 500 }}>
+                    {isSel && '▸ '}{r.modelName}
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.commandLine}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void window.electronAPI.models.popout(r.paneId, r.modelName).catch(() => undefined);
+                  }}
+                  style={popoutBtnStyle}
+                  title="Pop out into its own window"
+                >
+                  Pop out
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleKill(r.paneId);
+                  }}
+                  style={killBtnStyle}
+                >
+                  Kill
+                </button>
               </div>
-              <button type="button" onClick={() => handleKill(r.paneId)} style={killBtnStyle}>Kill</button>
+            );
+          })}
+          {selectedRunningPaneId && (
+            <div style={{ marginTop: 6, height: 220 }}>
+              <EmbeddedTerminal paneId={selectedRunningPaneId} compact />
             </div>
-          ))}
-          <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 4 }}>
-            Launched PTYs run in the background. In-panel output viewer + pop-out
-            windows are tracked in <code>docs/MULTI_MODEL.md</code>.
-          </div>
+          )}
         </div>
       )}
 
@@ -419,6 +508,9 @@ export function ModelsPanel() {
       </div>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => setShowAddModal(true)} style={btnStyle}>
+          + Add custom model
+        </button>
         <button type="button" onClick={handleResetSeed} style={btnStyle}>
           Reset catalog to defaults
         </button>
@@ -429,7 +521,34 @@ export function ModelsPanel() {
         >
           Refresh
         </button>
+        <button
+          type="button"
+          onClick={() => setShowFirstRun(true)}
+          style={btnStyle}
+          title="Re-open the welcome picker"
+        >
+          First-run picker
+        </button>
       </div>
+
+      {showAddModal && (
+        <AddModelModal
+          onCancel={() => setShowAddModal(false)}
+          onSaved={() => {
+            setShowAddModal(false);
+            void refresh();
+          }}
+        />
+      )}
+      {showFirstRun && (
+        <FirstRunPicker
+          onClose={(outcome) => {
+            setShowFirstRun(false);
+            void window.electronAPI.models.onboardingMarkShown(outcome).catch(() => undefined);
+            if (outcome === 'completed') void refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -902,6 +1021,17 @@ const killBtnStyle: React.CSSProperties = {
   fontSize: 10,
   borderRadius: 4,
   cursor: 'pointer',
+};
+
+const popoutBtnStyle: React.CSSProperties = {
+  background: 'rgba(59, 130, 246, 0.15)',
+  border: '1px solid rgba(59, 130, 246, 0.4)',
+  color: '#93c5fd',
+  padding: '2px 8px',
+  fontSize: 10,
+  borderRadius: 4,
+  cursor: 'pointer',
+  marginRight: 4,
 };
 
 const progressBarStyle: React.CSSProperties = {

@@ -208,6 +208,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     launch: (modelId: string, cwd?: string) =>
       ipcRenderer.invoke(IPC.MODELS_LAUNCH, modelId, cwd ?? null),
     openExternal: (url: string) => ipcRenderer.invoke(IPC.MODELS_OPEN_EXTERNAL, url),
+    popout: (paneId: string, label?: string) =>
+      ipcRenderer.invoke(IPC.MODELS_POPOUT, paneId, label ?? null),
+    onboardingGet: () => ipcRenderer.invoke(IPC.MODELS_ONBOARDING_GET),
+    onboardingMarkShown: (outcome: 'skipped' | 'completed') =>
+      ipcRenderer.invoke(IPC.MODELS_ONBOARDING_MARK_SHOWN, outcome),
+    onboardingReset: () => ipcRenderer.invoke(IPC.MODELS_ONBOARDING_RESET),
   },
   ollama: {
     version: (force = false) => ipcRenderer.invoke(IPC.OLLAMA_VERSION, force),
@@ -223,5 +229,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   project: {
     detect: (cwd?: string) => ipcRenderer.invoke(IPC.PROJECT_DETECT, cwd ?? null),
+  },
+  disk: {
+    info: (target?: string) => ipcRenderer.invoke(IPC.DISK_INFO, target ?? null),
   },
 });

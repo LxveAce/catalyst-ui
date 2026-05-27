@@ -14,6 +14,7 @@ import { CostPanel } from './components/cost/CostPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { CliAuthOnboarding } from './components/auth/CliAuthOnboarding';
 import { ModelsPanel } from './components/models/ModelsPanel';
+import { PopoutView } from './components/models/PopoutView';
 import {
   SplitLayout,
   splitPane,
@@ -49,6 +50,22 @@ const DEFAULT_LAYOUT: SplitNode = {
 };
 
 export function App() {
+  // Pop-out window short-circuit. When this renderer is the child of a
+  // models:popout BrowserWindow it loads with ?popout=<paneId>&label=<name>
+  // — render only the terminal for that paneId, skip the full app shell.
+  // Computed before any other hooks so the popout window doesn't waste
+  // cycles on session/hotkey/auth wiring.
+  const popoutParams = (() => {
+    if (typeof window === 'undefined') return null;
+    const sp = new URLSearchParams(window.location.search);
+    const paneId = sp.get('popout');
+    if (!paneId) return null;
+    return { paneId, label: sp.get('label') ?? 'Model' };
+  })();
+  if (popoutParams) {
+    return <PopoutView paneId={popoutParams.paneId} label={popoutParams.label} />;
+  }
+
   const [hydrated, setHydrated] = useState(false);
   const [activePanel, setActivePanel] = useState<SidebarPanel>('terminal');
   const [layout, setLayout] = useState<SplitNode>(DEFAULT_LAYOUT);

@@ -218,6 +218,28 @@ export interface ModelLaunchResult {
   error: string | null;
 }
 
+export interface DiskInfo {
+  path: string;
+  freeBytes: number | null;
+  totalBytes: number | null;
+  ok: boolean;
+  error: string | null;
+}
+
+export type ModelsOnboardingOutcome = 'skipped' | 'completed';
+
+export interface ModelsOnboardingState {
+  shown: boolean;
+  outcome: ModelsOnboardingOutcome | null;
+  completedAt: string | null;
+}
+
+export interface ModelPopoutResult {
+  ok: boolean;
+  windowId: number | null;
+  error: string | null;
+}
+
 export interface ModelRegistryState {
   /** All registered models. Order is the user's display order in the panel. */
   models: ModelDefinition[];

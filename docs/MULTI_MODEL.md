@@ -152,39 +152,67 @@ now.
 
 ---
 
-## What still doesn't work (and why)
+## Now shipped (the "follow-up features" push, 2026-05-26)
 
-### In-panel xterm viewer for launched models
+### In-panel xterm viewer — DONE
+`EmbeddedTerminal` component mounts an xterm inline in the Models
+panel, attached to the selected running model's paneId. The PTY was
+already spawned by `MODELS_LAUNCH`; this just attaches a renderer.
+Auto-selects the most recent launch.
 
-When you click "Launch in app" today, the PTY spawns successfully and
-the paneId is registered with PtyRegistry. Data flows through the
-existing `TERMINAL_DATA` IPC. **But:** the Models panel doesn't mount
-an xterm for it — only the main Terminal panel does, and that's hard-
-coded to one paneId per leaf in the split layout.
+### Pop-out windows — DONE
+`models:popout` IPC creates a new `BrowserWindow` with `?popout=<paneId>&label=<name>`.
+The renderer's App.tsx detects the popout param and short-circuits to
+`PopoutView`, which renders only an `EmbeddedTerminal` for that paneId.
+Popout windows are tracked in `popoutWindows` map keyed by paneId so a
+second pop-out request focuses the existing window instead of dupli-
+cating. All popouts are destroyed in `before-quit` before PTYs die.
 
-To fix this, the terminal-panel split system needs to know about
-"external" paneIds (created by something other than the user clicking
-"new pane"). Two reasonable approaches:
+### "Add custom model" form — DONE
+`AddModelModal` component, opened from the Models panel footer. Same
+ID regex as the registry so the add succeeds on first try. Catches
+duplicate IDs via the existing `ModelRegistry.add` error.
 
-1. Add a "pending launches" intent to session state; the layout
-   component sees it and adds a split to mount the new paneId.
-2. Add an inline xterm to the Models panel itself (small, just for
-   viewing). User can "move to terminal panel" if they want full
-   layout integration.
+### First-run model picker — DONE
+`FirstRunPicker` modal, gated by `FirstRunService` persistence at
+`<userData>/models-onboarding.json`. Opens automatically on first
+launch when the flag is unset. Pre-selects the top recommendation;
+"Pull N models" kicks off parallel `ollama pull` calls. "Skip for now"
+still marks the flag so it doesn't reshow. A footer button re-opens
+the picker on demand.
 
-Option 2 is simpler and gives more immediate value. Probably the next
-follow-up.
+### Auto-pull from first-run — DONE
+Folded into FirstRunPicker — selecting models + clicking "Pull" calls
+`ollama:pull-start` for each. Progress shows in the regular Models
+panel once the modal closes.
 
-### Pop-out windows
+### Disk-quota check before pull — DONE
+`disk:info` IPC probes available bytes at the Ollama models dir
+(`%USERPROFILE%\.ollama\models` or `~/.ollama/models`). Before any
+pull, `handlePull` checks `freeBytes < 1.5 * sizeBytes` and prompts
+confirmation. Skipped gracefully if the probe fails — Ollama's own
+error surfaces if disk runs out mid-pull.
 
-Was in the original brainstorm. Pop-out needs:
-- New `BrowserWindow` per model
-- IPC routing per window (the preload script + handlers work the
-  same, but each window needs its own session of subscriptions)
-- Window lifecycle management
-- Cross-window state for "this model is open in window 2"
+### Cross-platform Ollama first-launch detection — DONE
+The existing `OllamaService.getVersion()` works on win32, darwin, and
+linux (well-known paths + PATH probe). FirstRunPicker surfaces a
+prominent "Install Ollama" link with the official URL when not
+installed. On macOS / Linux, this replaces the installer-time bundle
+we don't have for those platforms (DMG / AppImage / .deb / .rpm
+postinstall hooks aren't a good fit for ~700 MB chained installers).
 
-Maybe ~1-2 weeks of focused work. Tracking but not building this push.
+### Per-model resource monitoring — PARTIAL
+The existing `ResourceMonitor.setClaudePids()` is called with
+`ptyRegistry.allPids()` after every spawn/exit, which already includes
+launched model PTYs. The aggregated "Claude" CPU/RAM number in the
+Resources panel therefore already reflects ollama-run processes
+launched via the catalog. The UI label is now slightly misleading
+("Claude" should probably read "Models" — UI rename deferred).
+
+True per-model VRAM measurement is still out — that requires querying
+the Ollama daemon's `/api/ps` endpoint or vendor GPU SDKs. Deferred.
+
+## Still deferred (not in this push)
 
 ### Per-provider API key entry
 
@@ -194,16 +222,20 @@ Gemini, OpenRouter etc., we need:
 - Per-provider credential storage via `safeStorage`
 - Provider-specific CLI shimming
 
-Not in this push — the catalog has slots for these but no UI to enter
-keys yet.
+Catalog has slots for these (`ModelDefinition.category === 'api'`) but no
+UI to enter keys yet. Probably ~3-4 days of focused work.
 
-### "Add custom model" form
+### Model comparison view (same prompt to N models)
 
-`ModelRegistry.add()` is wired and the IPC is exposed via
-`electronAPI.models.add()`. There's no UI form yet. A power-user could
-add a model via DevTools today. The button is intentionally absent
-because a forgiving UI here is meaningful work and the seed catalog
-already covers most legitimate use cases.
+UI requires parallel pane management + a synced-input mode + a result-
+diff view. Substantial component work. Defer until the catalog has
+seen real use and we know which comparison axes matter.
+
+### Embedding-RAG over past sessions
+
+The catalog now includes Qwen3 Embedding 0.6B + BGE-M3 + Nomic. A real
+RAG flow needs: vault index → chunking → embedding → vector store →
+query UI. Probably ~1-2 weeks. Worth its own dedicated push.
 
 ---
 

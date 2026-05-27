@@ -20,11 +20,14 @@ import { ModelRegistry } from './model-registry';
 import { OllamaService, type OllamaPullProgressEvent } from './ollama-service';
 import { detectHardware } from './hardware-detection';
 import { detectProject } from './project-language-detect';
+import { probeDisk } from './disk-info';
+import { FirstRunService } from './first-run-service';
 import { IPC } from '../shared/ipc-channels';
 import type {
   HotkeyAction,
   ModelDefinition,
   ModelLaunchResult,
+  ModelPopoutResult,
 } from '../shared/types';
 
 if (require('electron-squirrel-startup')) {
@@ -35,6 +38,9 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
+/** Pop-out BrowserWindows keyed by paneId so we can close them when the main
+ *  window closes (and detect "already popped out" attempts to focus instead). */
+const popoutWindows = new Map<string, BrowserWindow>();
 const ptyRegistry = new PtyRegistry();
 const resourceMonitor = new ResourceMonitor();
 const compactController = new CompactController();
@@ -521,6 +527,92 @@ function setupProject() {
   });
 }
 
+function setupDisk() {
+  ipcMain.handle(IPC.DISK_INFO, async (_event, target: unknown) => {
+    const safeTarget =
+      typeof target === 'string' && target.length > 0 && target.length <= 4096
+        ? target
+        : undefined;
+    return probeDisk(safeTarget);
+  });
+}
+
+function setupFirstRun() {
+  const svc = FirstRunService.instance();
+  ipcMain.handle(IPC.MODELS_ONBOARDING_GET, () => svc.get());
+  ipcMain.handle(IPC.MODELS_ONBOARDING_MARK_SHOWN, (_event, outcome: unknown) => {
+    const safe = outcome === 'completed' ? 'completed' : 'skipped';
+    return svc.markShown(safe);
+  });
+  ipcMain.handle(IPC.MODELS_ONBOARDING_RESET, () => svc.reset());
+}
+
+function setupPopout() {
+  ipcMain.handle(
+    IPC.MODELS_POPOUT,
+    (_event, paneId: unknown, label: unknown): ModelPopoutResult => {
+      if (!PtyRegistry.isValidPaneId(paneId)) {
+        return { ok: false, windowId: null, error: 'invalid paneId' };
+      }
+      if (!ptyRegistry.has(paneId)) {
+        return { ok: false, windowId: null, error: 'pane not found — launch the model first' };
+      }
+      // Focus existing popout if present rather than spawning a duplicate.
+      const existing = popoutWindows.get(paneId);
+      if (existing && !existing.isDestroyed()) {
+        existing.show();
+        existing.focus();
+        return { ok: true, windowId: existing.id, error: null };
+      }
+
+      const safeLabel =
+        typeof label === 'string' && label.length > 0 && label.length <= 128
+          ? label
+          : 'Model';
+      try {
+        const win = new BrowserWindow({
+          width: 900,
+          height: 600,
+          title: `${safeLabel} — Claude Code Studio`,
+          parent: mainWindow ?? undefined,
+          backgroundColor: '#0a0a14',
+          webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+            webSecurity: true,
+          },
+        });
+        popoutWindows.set(paneId, win);
+        win.on('closed', () => {
+          popoutWindows.delete(paneId);
+        });
+
+        // Load the same HTML the main window uses, with query params the
+        // renderer's popout-mode branch parses. URL-encode the label so
+        // the renderer can display it in the title bar.
+        const query = `?popout=${encodeURIComponent(paneId)}&label=${encodeURIComponent(safeLabel)}`;
+        if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+          void win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}${query}`);
+        } else {
+          void win.loadFile(
+            path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+            { search: query.slice(1) }
+          );
+        }
+        return { ok: true, windowId: win.id, error: null };
+      } catch (e) {
+        return {
+          ok: false,
+          windowId: null,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+    }
+  );
+}
+
 function setupGit() {
   ipcMain.handle(IPC.GIT_DETECT, (_event, cwd?: string) => gitService.detect(cwd));
   ipcMain.handle(IPC.GIT_GET_CWD, () => gitService.getCwd());
@@ -814,6 +906,9 @@ app.whenReady().then(() => {
   setupOllama();
   setupHardware();
   setupProject();
+  setupDisk();
+  setupFirstRun();
+  setupPopout();
   setupWindowControls();
   setupHotkeys();
   setupTray();
@@ -843,6 +938,17 @@ app.on('before-quit', () => {
   isQuitting = true;
   try {
     resourceMonitor.stop();
+  } catch {
+    // ignore
+  }
+  // Close pop-out windows so their renderers tear down their xterms before
+  // we kill the PTYs they're attached to (avoids "writing to disposed term"
+  // races in the destruct order).
+  try {
+    for (const win of popoutWindows.values()) {
+      if (!win.isDestroyed()) win.destroy();
+    }
+    popoutWindows.clear();
   } catch {
     // ignore
   }
