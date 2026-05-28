@@ -11,6 +11,46 @@ v2 → v3 = multi-model surface).
 
 ---
 
+## [4.0.1] — 2026-05-28
+
+Hotfix release.  Four bugs found in v4.0.0 once it was installed and
+smoke-tested against a real environment.  Also serves as the first
+test of the auto-update channel restored in v3.2.1.
+
+### Fixed
+- **Claude (Chat) profile failed to launch** with `File not found`.
+  `cli-resolver` didn't have a case for `claude`, so the MODELS_LAUNCH
+  path for the catalog's chat-mode profile (`api.anthropic.claude-chat`)
+  couldn't resolve the bare `claude` command for node-pty.  Vanilla
+  Claude terminal tabs worked because they used the separate
+  `pty-manager.findClaudePath` route; only catalog-launched chat-mode
+  was affected.  `cli-resolver` now mirrors those candidates: bundled
+  runtime first (NSIS-installed `claude.cmd`), then `%APPDATA%/npm/claude.cmd`,
+  then `~/.local/bin/claude.exe`.
+- **Hugging Face search failed** with `expand[N] contains a duplicate
+  value`.  The `@huggingface/hub` SDK auto-includes a default set of
+  expand fields (pipeline_tag / private / disabled / downloadsAllTime /
+  gated / lastModified / likes), and our `additionalFields` passed
+  `pipeline_tag` again — the API rejected the duplicate.  Dropped the
+  collision; HF Browse + Research search now work.
+- **Right panel resize barely moved** (only a few pixels).  The
+  `panelEnter` CSS keyframe ended at `width: 320px` with `fill-mode: both`,
+  which froze the outer wrapper at 320 forever — the inner panel's
+  inline `width: panelWidth` had no effect because `overflow: hidden`
+  clipped it.  Animation now only fades opacity; width is fully
+  driven by inline style.
+- **StatusBar still read "Claude Code Studio"** instead of "Catalyst UI"
+  in the bottom-right corner.  Missed update in the rename PR.
+  `index.html`'s `<title>` had the same issue and is also fixed.
+
+### Notes
+- This is the first release shipped through the public repo's
+  auto-update channel (v3.2.1 fixed the missing `latest.yml`; v4.0.0
+  was the first build with the manifest; v4.0.1 is the first build
+  v4.0.0 users will see as an in-app update offer).
+
+---
+
 ## [4.0.0] — 2026-05-28
 
 The **Catalyst UI** release.  Renames the app (formerly **Claude Code
