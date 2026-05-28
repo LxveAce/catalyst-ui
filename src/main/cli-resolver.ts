@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { findBundledRuntime } from './runtime-paths';
 
 /**
  * CLI path resolution for spawned subprocesses.
@@ -50,6 +51,7 @@ function windowsWellKnownPaths(command: string): string[] {
   const lad = process.env.LOCALAPPDATA;
   const pf = process.env['ProgramFiles'];
   const pf86 = process.env['ProgramFiles(x86)'];
+  const appData = process.env.APPDATA;
   const home = os.homedir();
   switch (command.toLowerCase()) {
     case 'ollama':
@@ -62,17 +64,42 @@ function windowsWellKnownPaths(command: string): string[] {
       // npm global on Windows lands in %APPDATA%\npm or the Node runtime's
       // own dir; both expose a .cmd shim.
       return [
-        process.env.APPDATA ? path.join(process.env.APPDATA, 'npm', 'gemini.cmd') : '',
-        process.env.APPDATA ? path.join(process.env.APPDATA, 'npm', 'gemini.ps1') : '',
+        appData ? path.join(appData, 'npm', 'gemini.cmd') : '',
+        appData ? path.join(appData, 'npm', 'gemini.ps1') : '',
       ].filter(Boolean);
     case 'aider':
       // pip global on Windows: %APPDATA%\Python\Scripts\aider.exe, or in a
       // venv's Scripts/. We can't enumerate venvs but the user-base path is
       // canonical for `pip install --user`.
       return [
-        process.env.APPDATA ? path.join(process.env.APPDATA, 'Python', 'Scripts', 'aider.exe') : '',
+        appData ? path.join(appData, 'Python', 'Scripts', 'aider.exe') : '',
         path.join(home, '.local', 'bin', 'aider.exe'),
       ].filter(Boolean);
+    case 'claude': {
+      // v4.0.1 hotfix: MODELS_LAUNCH path for Claude (Chat) profile spawns
+      // a bare `claude` command, which node-pty's CreateProcess can't find.
+      // Prior versions only handled the vanilla Claude terminal tab via
+      // pty-manager's findClaudePath; catalog launches bypassed that and
+      // failed with "File not found".  Mirror those candidates here so
+      // every spawn site sees the same resolution.
+      const candidates: string[] = [];
+      try {
+        // Bundled runtime (NSIS-installed claude.cmd) — highest priority.
+        const bundled = findBundledRuntime();
+        if (bundled) candidates.push(bundled.claudeBin);
+      } catch {
+        // findBundledRuntime needs app.isPackaged context; in dev it returns null.
+      }
+      // npm global install location (the default when the user ran
+      // `npm install -g @anthropic-ai/claude-code`).
+      if (appData) {
+        candidates.push(path.join(appData, 'npm', 'claude.cmd'));
+        candidates.push(path.join(appData, 'npm', 'claude.ps1'));
+      }
+      // Legacy ~/.local/bin path (older installs).
+      candidates.push(path.join(home, '.local', 'bin', 'claude.exe'));
+      return candidates;
+    }
     default:
       return [];
   }
