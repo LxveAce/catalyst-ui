@@ -6,6 +6,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { findBundledRuntime } from './runtime-paths';
 import { readCliFlags } from './cli-flags';
+import { resolveCommandPath, explainResolution } from './cli-resolver';
 
 let pty: typeof import('node-pty') | null = null;
 try {
@@ -57,7 +58,7 @@ export class PtyManager extends EventEmitter {
   }
 
   spawn(cwd?: string, opts?: PtySpawnOpts): void {
-    const command = opts?.command ?? this.findClaudePath();
+    const rawCommand = opts?.command ?? this.findClaudePath();
     let args = opts?.args ?? [];
     // Claude-only auto-flags. When opts.command is unset (the default
     // terminal flow that spawns the bundled claude CLI), respect the
@@ -68,6 +69,31 @@ export class PtyManager extends EventEmitter {
       const flags = readCliFlags();
       if (flags.dangerouslySkipPermissions) {
         args = ['--dangerously-skip-permissions', ...args];
+      }
+    }
+    // Resolve the command to an absolute path when possible. Critical on
+    // Windows: node-pty's spawn does CreateProcess directly (no shell),
+    // so a bare 'ollama' fails to find ollama.exe. cli-resolver checks
+    // well-known install dirs + where.exe before falling back to the
+    // bare name. Claude paths returned by findClaudePath are already
+    // absolute when bundled-runtime is found; for the 'claude' fallback,
+    // this resolver helps if the user has a system claude install.
+    const command = resolveCommandPath(rawCommand);
+    if (command !== rawCommand) {
+      // Print to stderr so --enable-logging captures the resolution trace.
+      // Non-fatal — successful resolution.
+      try {
+        process.stderr.write(`[pty-manager] ${explainResolution(rawCommand)}\n`);
+      } catch {
+        // ignore
+      }
+    } else if (process.platform === 'win32' && !command.includes('.') && command !== 'claude') {
+      // Bare command name on Windows that didn't resolve — likely to fail.
+      // Surface a diagnostic before spawn so the user (or log) can see why.
+      try {
+        process.stderr.write(`[pty-manager] WARNING: ${explainResolution(rawCommand)}\n`);
+      } catch {
+        // ignore
       }
     }
     const workDir = cwd || os.homedir();

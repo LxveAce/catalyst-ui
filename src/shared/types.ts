@@ -27,6 +27,30 @@ export interface CliOnboardingState {
 }
 
 /**
+ * Capability flags parsed from `claude --help`. Used to gate features that
+ * depend on specific CLI flag support (e.g., `Claude (Chat)` requires
+ * `--input-format=stream-json` / `--output-format=stream-json`). Cached in
+ * main per app launch — `claude --help` is fast but not free, and the
+ * binary doesn't change underneath a running session.
+ */
+export interface CliCapabilities {
+  /** True if the binary's help output mentions stream-json support. */
+  streamJson: boolean;
+  /** True if `--print` flag is supported (non-interactive mode). */
+  printMode: boolean;
+  /** Parsed version string if discoverable (e.g., '1.2.3'); null otherwise. */
+  version: string | null;
+  /** True iff the probe actually ran successfully. False = couldn't even
+   *  invoke claude --help (CLI missing / hang / spawn error); the other
+   *  fields should be ignored in that case. */
+  probed: boolean;
+  /** ISO timestamp of the probe. */
+  probedAt: string | null;
+  /** First few lines of help output for debug surfacing — capped at ~2 KB. */
+  helpExcerpt: string;
+}
+
+/**
  * v3.0 multi-model scaffold types.
  *
  * Two categories of model the app can run side-by-side:
@@ -47,7 +71,7 @@ export type ModelCategory = 'api' | 'local';
  * (which tiers does this model target?) and the hardware detector
  * (what tier is the host machine?). See src/main/hardware-detection.ts.
  */
-export type HardwareTier = 'toaster' | 'low' | 'mid' | 'high' | 'workstation';
+export type HardwareTier = 'toaster' | 'low' | 'mid' | 'high' | 'workstation' | 'jetson-thor';
 
 /**
  * Catalog-side use-case tags. Multi-select per model so a polyglot
@@ -174,16 +198,45 @@ export interface OllamaPullProgressEvent {
   bytesTotal: number | null;
 }
 
+/** Canonical GPU vendor used by the Ollama routing decisions. */
+export type GpuVendor = 'nvidia' | 'amd' | 'intel' | 'apple' | 'other';
+
+/** Backend Ollama would target for a given GPU. */
+export type GpuBackend = 'cuda' | 'rocm' | 'metal' | 'vulkan' | 'cpu';
+
+export interface GpuInfo {
+  name: string;
+  vendor: GpuVendor;
+  vramGB: number | null;
+  isDedicated: boolean;
+  vendorId: number | null;
+  backend: GpuBackend;
+  index: number;
+}
+
 export interface HardwareProfile {
   cpu: { model: string; physicalCores: number; logicalCores: number };
   ramGB: number;
-  gpus: Array<{ name: string; vendor: string; vramGB: number | null }>;
+  gpus: GpuInfo[];
   maxVramGB: number;
   totalVramGB: number;
+  /** Largest dedicated GPU; null if no dedicated GPU is present. */
+  preferredGpu: GpuInfo | null;
+  /** Backend that would route the preferred GPU. `cpu` if no dedicated GPU. */
+  ollamaCompat: GpuBackend;
   tier: HardwareTier;
   summary: string;
   platform: 'win32' | 'darwin' | 'linux' | 'other';
   detectedAt: string;
+}
+
+/** GPU routing preference for the Ollama daemon. Mirrors `src/main/gpu-prefs.ts`. */
+export type GpuMode = 'auto' | 'gpu' | 'cpu';
+export interface GpuPrefs {
+  mode: GpuMode;
+  targetGpuIndex: number | null;
+  enableVulkan: boolean;
+  flashAttention: boolean;
 }
 
 export type ProjectRole =
@@ -681,29 +734,26 @@ export interface AuthCredentials {
   allowPlaintextToken?: boolean;
 }
 
-// Session / split-pane layout (Phase 7c) -------------------------------------
+// Session / terminal tabs ----------------------------------------------------
 
 /**
- * A node in the terminal split tree. `pane` is a leaf hosting one PTY. `split`
- * is a 2-child container with a direction and percentage sizes that sum to
- * 100. The tree is kept intentionally simple — n-ary splits can always be
- * built from nested binary splits.
+ * A persisted terminal tab. Only Claude tabs survive a restart — model
+ * tabs (Ollama, BitNet, Gemini, etc.) are ephemeral because their PTYs
+ * are killed on app shutdown and re-launching them silently on hydrate
+ * would risk surprising the user with downloads / GPU spin-up.
+ *
+ * Runtime tabs carry an extra `ready` flag (see TerminalTabs.tsx); the
+ * persisted shape stays minimal so old session files migrate cleanly.
  */
-export type SplitNode = SplitPaneNode | SplitContainerNode;
-
-export interface SplitPaneNode {
-  type: 'pane';
-  /** Opaque stable id; must match `^[A-Za-z0-9_\-:]+$`, ≤ 64 chars. */
+export interface PersistedTab {
+  /** Stable renderer tab id. Same regex constraints as paneId. */
   id: string;
-  /** Best-effort cwd to restore the PTY in; null = home dir. */
-  cwd: string | null;
-}
-
-export interface SplitContainerNode {
-  type: 'split';
-  direction: 'horizontal' | 'vertical';
-  sizes: [number, number];
-  children: [SplitNode, SplitNode];
+  /** Display label shown in the tab strip. */
+  label: string;
+  /** PTY paneId backing this tab. For Claude tabs: `p_<id>`. */
+  paneId: string;
+  /** Profile id: 'claude' for the bundled Claude CLI; model id otherwise. */
+  profile: string;
 }
 
 export type SessionPanelId =
@@ -725,7 +775,10 @@ export interface SessionState {
   activePanel: SessionPanelId;
   /** Theme preset name; null = renderer default. */
   theme: string | null;
-  layout: SplitNode;
+  /** Open terminal tabs. Persisted Claude tabs only — see PersistedTab. */
+  tabs: PersistedTab[];
+  /** Id of the currently focused tab, or null if there are no tabs. */
+  activeTabId: string | null;
 }
 
 // Hotkeys + tray (Phase 7d) ---------------------------------------------------
@@ -749,6 +802,90 @@ export interface HotkeySettings {
 
 export interface TraySettings {
   minimizeToTrayOnClose: boolean;
+}
+
+// Themes — user-defined accent presets persisted to <userData>/themes.json.
+// Built-in presets live in src/renderer/theme-presets.ts and are not
+// duplicated here; the shape mirrors `ThemePreset` from that file minus the
+// `custom` discriminator (always true for stored themes).
+export interface CustomTheme {
+  name: string;
+  accent: string;
+  accentLight: string;
+  gradient: string;
+  gradientSoft: string;
+  borderActive: string;
+  glow: string;
+}
+
+// Window state persistence — per-window-id geometry saved to
+// <userData>/window-state.json. Used by main + popout BrowserWindows so the
+// user's resize/position survives an app restart.
+export interface WindowState {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  maximized: boolean;
+}
+
+export type WindowStateMap = Record<string, WindowState>;
+
+// Provider auth — universal API key store for non-Anthropic CLI providers
+// (Gemini, OpenAI access via Aider, OpenRouter, …). Persisted to
+// <userData>/provider-auth.json via Electron safeStorage; raw keys never
+// leave the main process. Renderer only sees presence/timestamps.
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter';
+
+/** Where auth for a given provider came from. */
+export type AuthSource =
+  /** Stored encrypted via our safeStorage. */
+  | 'stored'
+  /** Env var already set in process.env (inherited from shell). */
+  | 'env'
+  /** Anthropic only — Claude CLI's OAuth flow has produced a token in
+   *  ~/.claude.json (set by `claude /login`). No key is exportable. */
+  | 'cli-oauth'
+  /** Nothing detected; user needs to provide a key. */
+  | 'none';
+
+export interface ProviderAuthEntry {
+  provider: ProviderId;
+  hasKey: boolean;
+  /** ISO 8601 timestamp when the key was last set. Null if never set. */
+  lastUpdated: string | null;
+  /** Auto-detected auth source; lets the UI skip prompting when the
+   *  CLI is already authed via OAuth or an env var. */
+  source: AuthSource;
+}
+
+/** Renderer-visible info about a "we need an API key now" prompt from a
+ *  spawned CLI. Either from the pre-launch check or the PTY interceptor. */
+export interface ProviderKeyPromptEvent {
+  /** PTY pane id if this is from the interceptor; null for pre-launch. */
+  paneId: string | null;
+  provider: ProviderId;
+  /** Source of the prompt for analytics / debug. */
+  source: 'pre-launch' | 'pty-interceptor';
+}
+
+/** Detection result for a provider CLI. Used by the catalog to gate
+ *  Launch buttons + surface install instructions when missing. */
+export interface ProviderCliDetectResult {
+  cli: string;
+  installed: boolean;
+  version: string | null;
+  installHint: string;
+  installUrl: string;
+}
+
+/** Live state of the Ollama daemon (Cat 7). `ownedByStudio` distinguishes
+ *  the daemon Studio spawned from an externally-managed Ollama (e.g.,
+ *  the Windows tray app), so we know whether `daemonStop` will affect it. */
+export interface OllamaDaemonState {
+  state: 'stopped' | 'starting' | 'running' | 'failed';
+  ownedByStudio: boolean;
+  lastError: string | null;
 }
 
 // The full ElectronAPI shape lives in src/declarations.d.ts as an ambient

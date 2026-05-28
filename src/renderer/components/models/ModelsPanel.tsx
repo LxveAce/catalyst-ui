@@ -9,10 +9,26 @@ import type {
   OllamaInstalledModel,
   OllamaPullProgressEvent,
   OllamaVersionInfo,
+  ProviderId,
 } from '../../../shared/types';
 import { EmbeddedTerminal } from './EmbeddedTerminal';
 import { AddModelModal } from './AddModelModal';
 import { FirstRunPicker } from './FirstRunPicker';
+import { ProviderSetupModal } from './ProviderSetupModal';
+import { ApiKeyModal } from '../auth/ApiKeyModal';
+import type { ProviderCliDetectResult } from '../../../shared/types';
+
+/** Map a ModelDefinition.provider display name → canonical ProviderId (or
+ *  null for providers that don't need an API key). Mirrors the main-process
+ *  `normalizeProvider` in provider-auth-service.ts. */
+function rendererNormalizeProvider(displayName: string): ProviderId | null {
+  const n = displayName.toLowerCase().trim();
+  if (n === 'anthropic') return 'anthropic';
+  if (n === 'openai') return 'openai';
+  if (n === 'google' || n === 'gemini') return 'gemini';
+  if (n === 'openrouter') return 'openrouter';
+  return null;
+}
 
 /**
  * v3.0 multi-model catalog panel — full-scope build (May 2026).
@@ -75,6 +91,13 @@ export function ModelsPanel() {
   const [selectedRunningPaneId, setSelectedRunningPaneId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(false);
+  /** When the user clicks the "+" tab, open a small picker anchored to
+   *  the strip. Picker shows the catalog as a searchable list; choosing
+   *  an entry runs the same `handleLaunch` flow that the catalog cards
+   *  use. Lives outside the running-strip's conditional render because
+   *  the user can open it even with zero current tabs. */
+  const [showTabPicker, setShowTabPicker] = useState(false);
+  const [tabPickerQuery, setTabPickerQuery] = useState('');
   const detectedAtRef = useRef<string | null>(null);
 
   // First-run picker — check persisted onboarding flag once on mount. If
@@ -331,10 +354,41 @@ export function ModelsPanel() {
     }
   };
 
-  const handleLaunch = async (m: ModelDefinition) => {
-    if (m.licenseFlag && !confirm(`${m.name} is governed by "${m.license}". This license has commercial-use restrictions worth reviewing before regular use. Continue launch?`)) {
-      return;
-    }
+  /** Pre-launch state: when an API model needs a key and we don't have one,
+   *  we stash the pending model + provider here and show ApiKeyModal. On
+   *  successful key save we fall through to `performLaunch`. */
+  const [pendingLaunch, setPendingLaunch] = useState<{
+    model: ModelDefinition;
+    provider: ProviderId;
+  } | null>(null);
+
+  /** Setup-instructions state: when the model's CLI isn't on PATH, we
+   *  pause the launch and show ProviderSetupModal. Retry re-probes and
+   *  proceeds if the user installed in the meantime. */
+  const [pendingSetup, setPendingSetup] = useState<{
+    model: ModelDefinition;
+    detect: ProviderCliDetectResult;
+  } | null>(null);
+
+  /** Returns the detection result for a model's command if we know how to
+   *  detect it; null otherwise. Detected CLIs are limited to providers we
+   *  don't bundle (gemini, aider). Claude is handled separately, Ollama
+   *  has its own panel-level surfacing. */
+  const detectModelCli = useCallback(
+    async (m: ModelDefinition): Promise<ProviderCliDetectResult | null> => {
+      const cmd = m.command;
+      // We only know how to probe these.
+      if (cmd !== 'gemini' && cmd !== 'aider') return null;
+      try {
+        return await window.electronAPI.providerAuth.detectGet(cmd);
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
+
+  const performLaunch = useCallback(async (m: ModelDefinition) => {
     setBusy((p) => ({ ...p, [m.id]: true }));
     try {
       const cwd = await window.electronAPI.git.getCwd().catch(() => undefined);
@@ -356,6 +410,70 @@ export function ModelsPanel() {
     } finally {
       setBusy((p) => ({ ...p, [m.id]: false }));
     }
+  }, []);
+
+  const handleLaunch = async (m: ModelDefinition) => {
+    // Launch-gate ordering (post-Cat 6 audit fix):
+    //   1) CLI detect → cheapest gate; if the binary isn't there, NOTHING
+    //      else matters yet. Was after license-flag pre-audit; users
+    //      shouldn't have to confirm a license for a tool they don't have.
+    //   2) Per-provider API key → still cheap, no user friction if cached.
+    //   3) License-flag confirm → ask LAST so the user has already shown
+    //      intent to launch (everything else is sorted).
+    //   4) Spawn.
+    const detect = await detectModelCli(m);
+    if (detect && !detect.installed) {
+      setPendingSetup({ model: m, detect });
+      return;
+    }
+    // Pre-launch key check for API providers. We only prompt for known
+    // providers that need a key (anthropic / openai / gemini / openrouter);
+    // local providers (Ollama) skip this entirely. If a key is on file we
+    // launch directly; if not, the modal opens and the user can dismiss
+    // without launching ("don't be overbearing").
+    const provider = rendererNormalizeProvider(m.provider);
+    if (provider) {
+      try {
+        const has = await window.electronAPI.providerAuth.hasKey(provider);
+        if (!has) {
+          setPendingLaunch({ model: m, provider });
+          return;
+        }
+      } catch {
+        // Provider-auth IPC missing — fall through to direct launch.
+      }
+    }
+    if (m.licenseFlag && !confirm(`${m.name} is governed by "${m.license}". This license has commercial-use restrictions worth reviewing before regular use. Continue launch?`)) {
+      return;
+    }
+    await performLaunch(m);
+  };
+
+  const onSetupRetry = useCallback(async () => {
+    if (!pendingSetup) return;
+    const { model } = pendingSetup;
+    let next: ProviderCliDetectResult | null = null;
+    try {
+      next = await window.electronAPI.providerAuth.detectGet(model.command, true);
+    } catch {
+      // Probe error — keep modal open so user can retry again.
+      return;
+    }
+    if (next?.installed) {
+      setPendingSetup(null);
+      await handleLaunch(model);
+    } else {
+      // Still not installed — update the modal's detect snapshot.
+      setPendingSetup({ model, detect: next });
+    }
+  }, [pendingSetup]);
+
+  const onPendingKeySubmit = async (key: string) => {
+    if (!pendingLaunch) return;
+    const { model, provider } = pendingLaunch;
+    await window.electronAPI.providerAuth.setKey(provider, key);
+    setPendingLaunch(null);
+    await performLaunch(model);
   };
 
   const handleKill = async (paneId: string) => {
@@ -472,43 +590,97 @@ export function ModelsPanel() {
         </div>
       )}
 
-      {running.length > 0 && (
-        <div style={runningSectionStyle}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-            Running ({running.length})
-          </div>
+      <div style={runningSectionStyle}>
+        {/* Tab strip — terminal-app style. Each running model is a tab;
+            "+" at the end opens a model picker. Click tab to focus its
+            embedded terminal below. ↗ pops out as its own window
+            (preserves the chat-skin toggle). × kills.
+            Always rendered so the "+" is reachable even with zero tabs. */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 2,
+            alignItems: 'stretch',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 8,
+            overflowX: 'auto',
+            paddingBottom: 0,
+            position: 'relative',
+          }}
+        >
           {running.map((r) => {
             const isSel = r.paneId === selectedRunningPaneId;
             return (
               <div
                 key={r.paneId}
-                style={{
-                  ...runningRowStyle,
-                  background: isSel ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
-                  borderRadius: 4,
-                  padding: isSel ? '6px 8px' : '4px 0',
-                  cursor: 'pointer',
-                }}
                 onClick={() => setSelectedRunningPaneId(r.paneId)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 10px 8px',
+                  cursor: 'pointer',
+                  borderRadius: '6px 6px 0 0',
+                  background: isSel ? 'var(--bg-primary)' : 'transparent',
+                  borderTop: isSel ? '1px solid var(--border)' : '1px solid transparent',
+                  borderLeft: isSel ? '1px solid var(--border)' : '1px solid transparent',
+                  borderRight: isSel ? '1px solid var(--border)' : '1px solid transparent',
+                  borderBottom: isSel ? '1px solid var(--bg-primary)' : 'none',
+                  marginBottom: -1,
+                  position: 'relative',
+                  top: isSel ? 1 : 0,
+                  flexShrink: 0,
+                }}
               >
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-primary)', fontWeight: 500 }}>
-                    {isSel && '▸ '}{r.modelName}
-                  </div>
-                  <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {r.commandLine}
-                  </div>
-                </div>
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: isSel ? 'var(--accent)' : 'rgba(134,239,172,0.7)',
+                    boxShadow: isSel ? 'var(--shadow-glow)' : 'none',
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: isSel ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: isSel ? 600 : 400,
+                    maxWidth: 140,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {r.modelName}
+                </span>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    void window.electronAPI.models.popout(r.paneId, r.modelName).catch(() => undefined);
+                    void window.electronAPI.models
+                      .popout(r.paneId, r.modelName)
+                      .catch(() => undefined);
                   }}
-                  style={popoutBtnStyle}
                   title="Pop out into its own window"
+                  aria-label={`Pop out ${r.modelName}`}
+                  style={tabIconBtnStyle}
                 >
-                  Pop out
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <line x1="7" y1="17" x2="17" y2="7" />
+                    <polyline points="7 7 17 7 17 17" />
+                  </svg>
                 </button>
                 <button
                   type="button"
@@ -516,20 +688,95 @@ export function ModelsPanel() {
                     e.stopPropagation();
                     void handleKill(r.paneId);
                   }}
-                  style={killBtnStyle}
+                  title="Kill this model"
+                  aria-label={`Close ${r.modelName}`}
+                  style={tabIconBtnStyle}
                 >
-                  Kill
+                  ×
                 </button>
               </div>
             );
           })}
-          {selectedRunningPaneId && (
-            <div style={{ marginTop: 6, height: 220 }}>
-              <EmbeddedTerminal paneId={selectedRunningPaneId} compact />
+
+          {/* "+" tab — opens the model picker dropdown. */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowTabPicker((v) => !v);
+                setTabPickerQuery('');
+              }}
+              title="Open a new model in a new tab"
+              aria-label="New model tab"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '6px 10px 8px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-secondary)',
+                fontSize: 13,
+                lineHeight: 1,
+                flexShrink: 0,
+                borderRadius: '6px 6px 0 0',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1 }}>+</span>
+              <span style={{ fontSize: 11 }}>New</span>
+            </button>
+            {showTabPicker && (
+              <TabModelPicker
+                models={models}
+                query={tabPickerQuery}
+                setQuery={setTabPickerQuery}
+                onPick={(m) => {
+                  setShowTabPicker(false);
+                  void handleLaunch(m);
+                }}
+                onClose={() => setShowTabPicker(false)}
+              />
+            )}
+          </div>
+
+          {/* Spacer so "no tabs yet" hint sits to the right of "+". */}
+          {running.length === 0 && (
+            <div
+              style={{
+                padding: '8px 10px',
+                fontSize: 10,
+                color: 'var(--text-secondary)',
+                alignSelf: 'center',
+              }}
+            >
+              No active models. Click "+ New" to launch one, or use a catalog card below.
             </div>
           )}
         </div>
-      )}
+
+        {selectedRunningPaneId && (
+          <div
+            style={{
+              height: 360,
+              border: '1px solid var(--border)',
+              borderRadius: '0 6px 6px 6px',
+              overflow: 'hidden',
+              background: 'var(--bg-primary)',
+            }}
+          >
+            <EmbeddedTerminal paneId={selectedRunningPaneId} compact />
+          </div>
+        )}
+      </div>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading && <div style={mutedStyle}>Loading catalog…</div>}
@@ -599,6 +846,24 @@ export function ModelsPanel() {
           }}
         />
       )}
+
+      {pendingLaunch && (
+        <ApiKeyModal
+          provider={pendingLaunch.provider}
+          source="pre-launch"
+          onSubmit={onPendingKeySubmit}
+          onDismiss={() => setPendingLaunch(null)}
+        />
+      )}
+
+      {pendingSetup && (
+        <ProviderSetupModal
+          modelName={pendingSetup.model.name}
+          detect={pendingSetup.detect}
+          onRetry={onSetupRetry}
+          onDismiss={() => setPendingSetup(null)}
+        />
+      )}
     </div>
   );
 }
@@ -646,9 +911,155 @@ function HardwareBanner({ hardware, ollama }: { hardware: HardwareProfile | null
           </a>
         )}
       </div>
+      <GpuRoutingRow hardware={hardware} ollamaReachable={Boolean(ollama?.installed && ollama.daemonReachable)} />
     </div>
   );
 }
+
+/**
+ * GPU routing controls — let the user override Ollama's auto-detect when
+ * it's getting their dedicated GPU wrong. Renders inside HardwareBanner.
+ *
+ * Behavior: dropdown selects mode (Auto / GPU / CPU). On GPU mode with
+ * multiple dedicated GPUs, a second dropdown picks which one. "Apply"
+ * persists the prefs + restarts the daemon (vars only take effect on
+ * fresh `ollama serve`).
+ */
+function GpuRoutingRow({
+  hardware,
+  ollamaReachable,
+}: {
+  hardware: HardwareProfile;
+  ollamaReachable: boolean;
+}) {
+  const [prefs, setPrefs] = useState<import('../../../shared/types').GpuPrefs | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.electronAPI.gpuPrefs
+      .get()
+      .then((p) => {
+        if (!cancelled) setPrefs(p);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!prefs) return null;
+  const dedicatedGpus = hardware.gpus.filter((g) => g.isDedicated);
+
+  const onModeChange = (mode: 'auto' | 'gpu' | 'cpu') => {
+    setPrefs({ ...prefs, mode });
+    setDirty(true);
+    setStatus(null);
+  };
+  const onGpuChange = (idxStr: string) => {
+    const idx = idxStr === '' ? null : Number(idxStr);
+    setPrefs({ ...prefs, targetGpuIndex: idx });
+    setDirty(true);
+    setStatus(null);
+  };
+  const onApply = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const saved = await window.electronAPI.gpuPrefs.set(prefs);
+      setPrefs(saved);
+      if (ollamaReachable) {
+        const r = await window.electronAPI.ollama.daemonRestart();
+        if (!r.ok) {
+          setStatus(`Daemon restart failed: ${r.error ?? 'unknown'}`);
+        } else {
+          setStatus('Applied. Daemon restarted with new GPU routing.');
+        }
+      } else {
+        setStatus('Saved. Will apply on next daemon start.');
+      }
+      setDirty(false);
+    } catch (e) {
+      setStatus(`Save failed: ${(e as Error).message ?? String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 6,
+        flexWrap: 'wrap',
+        fontSize: 10,
+        color: 'var(--text-secondary)',
+      }}
+    >
+      <span>GPU routing:</span>
+      <select
+        value={prefs.mode}
+        onChange={(e) => onModeChange(e.target.value as 'auto' | 'gpu' | 'cpu')}
+        disabled={busy}
+        style={gpuSelectStyle}
+      >
+        <option value="auto">Auto-detect</option>
+        <option value="gpu" disabled={dedicatedGpus.length === 0}>
+          Force GPU {dedicatedGpus.length === 0 ? '(none detected)' : ''}
+        </option>
+        <option value="cpu">Force CPU</option>
+      </select>
+      {prefs.mode === 'gpu' && dedicatedGpus.length > 1 && (
+        <select
+          value={String(prefs.targetGpuIndex ?? '')}
+          onChange={(e) => onGpuChange(e.target.value)}
+          disabled={busy}
+          style={gpuSelectStyle}
+        >
+          <option value="">Largest VRAM (auto)</option>
+          {dedicatedGpus.map((g) => (
+            <option key={g.index} value={g.index}>
+              {g.name} ({g.vramGB ?? '?'} GB)
+            </option>
+          ))}
+        </select>
+      )}
+      {dirty && (
+        <button
+          onClick={() => void onApply()}
+          disabled={busy}
+          style={{
+            padding: '3px 10px',
+            borderRadius: 6,
+            border: '1px solid var(--accent)',
+            background: 'var(--accent)',
+            color: 'white',
+            cursor: busy ? 'wait' : 'pointer',
+            fontSize: 10,
+            fontWeight: 600,
+          }}
+        >
+          {busy ? 'Applying…' : 'Apply + restart daemon'}
+        </button>
+      )}
+      {status && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{status}</span>}
+    </div>
+  );
+}
+
+const gpuSelectStyle: React.CSSProperties = {
+  fontSize: 10,
+  padding: '2px 6px',
+  border: '1px solid var(--border)',
+  borderRadius: 4,
+  background: 'var(--bg-primary)',
+  color: 'var(--text-primary)',
+  fontFamily: 'inherit',
+};
 
 function ModelCard({
   model,
@@ -866,6 +1277,9 @@ function fmtBytes(n: number): string {
 function tierColor(t: HardwareTier): string {
   switch (t) {
     case 'workstation': return 'linear-gradient(135deg, #8b5cf6, #ec4899)';
+    // NVIDIA-green for Jetson Thor — visually distinct from generic
+    // workstation while keeping the same "top tier" weight.
+    case 'jetson-thor': return 'linear-gradient(135deg, #22c55e, #76b900)';
     case 'high': return 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
     case 'mid': return 'linear-gradient(135deg, #22c55e, #3b82f6)';
     case 'low': return 'linear-gradient(135deg, #facc15, #22c55e)';
@@ -1083,6 +1497,236 @@ const popoutBtnStyle: React.CSSProperties = {
   cursor: 'pointer',
   marginRight: 4,
 };
+
+/** Tab-strip icon button (popout / close). Quiet by default, brightens on
+ *  hover. Inline-only — used in the running-models tab strip. */
+const tabIconBtnStyle: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  color: 'var(--text-secondary)',
+  padding: '2px 5px',
+  fontSize: 11,
+  lineHeight: 1,
+  borderRadius: 4,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+/**
+ * Anchored picker shown when the user clicks "+" on the tab strip.
+ * Renders the catalog as a searchable list with grouping by category
+ * (API / Local). Picking an entry runs the same `handleLaunch` flow
+ * the catalog cards use (which honors license-flag + CLI-detect +
+ * API-key gates).
+ *
+ * UX is intentionally similar to the terminal-app profile dropdown
+ * (Windows Terminal, iTerm): hit "+", pick a profile, get a new tab.
+ */
+function TabModelPicker({
+  models,
+  query,
+  setQuery,
+  onPick,
+  onClose,
+}: {
+  models: ModelDefinition[];
+  query: string;
+  setQuery: (q: string) => void;
+  onPick: (m: ModelDefinition) => void;
+  onClose: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Dismiss on Escape OR click outside the popover.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (!target?.closest('[data-tab-picker]')) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    // Bind after a tick so the "+" click that opened us doesn't immediately close.
+    const t = setTimeout(() => window.addEventListener('mousedown', onClick), 0);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onClick);
+    };
+  }, [onClose]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const all = models.filter((m) => {
+      if (!q) return true;
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.provider.toLowerCase().includes(q) ||
+        (m.description ?? '').toLowerCase().includes(q)
+      );
+    });
+    // Group by category for clearer scanability.
+    const api = all.filter((m) => m.category === 'api');
+    const local = all.filter((m) => m.category === 'local');
+    return { api, local };
+  }, [models, query]);
+
+  return (
+    <div
+      data-tab-picker
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        marginTop: 2,
+        width: 340,
+        maxHeight: 420,
+        zIndex: 50,
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        boxShadow: '0 12px 36px rgba(0,0,0,0.5)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          padding: '8px 10px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search models…"
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            fontSize: 12,
+            fontFamily: 'inherit',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {filtered.api.length === 0 && filtered.local.length === 0 && (
+          <div
+            style={{
+              padding: 16,
+              fontSize: 11,
+              color: 'var(--text-secondary)',
+              textAlign: 'center',
+            }}
+          >
+            No models match "{query}".
+          </div>
+        )}
+        {filtered.api.length > 0 && (
+          <PickerGroup label="API" models={filtered.api} onPick={onPick} />
+        )}
+        {filtered.local.length > 0 && (
+          <PickerGroup label="Local" models={filtered.local} onPick={onPick} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PickerGroup({
+  label,
+  models,
+  onPick,
+}: {
+  label: string;
+  models: ModelDefinition[];
+  onPick: (m: ModelDefinition) => void;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          padding: '6px 12px 4px',
+          fontSize: 10,
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          background: 'var(--bg-secondary)',
+        }}
+      >
+        {label} · {models.length}
+      </div>
+      {models.map((m) => (
+        <button
+          key={m.id}
+          onClick={() => onPick(m)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: '8px 12px',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            textAlign: 'left',
+            borderBottom: '1px solid rgba(255,255,255,0.03)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {m.name}
+            </div>
+            <div
+              style={{
+                fontSize: 10,
+                color: 'var(--text-secondary)',
+                marginTop: 1,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {m.provider}
+              {m.description ? ` · ${m.description}` : ''}
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const progressBarStyle: React.CSSProperties = {
   width: '100%',

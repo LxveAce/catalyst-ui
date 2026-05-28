@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { THEME_PRESETS, applyTheme, findThemePreset, type ThemePreset } from '../../theme-presets';
+import { THEME_PRESETS, applyTheme, findThemePreset, parseThemeKey, type ThemePreset } from '../../theme-presets';
 import type {
+  CustomTheme,
   HotkeyAction,
   HotkeyBinding,
   HotkeySettings,
@@ -10,6 +11,8 @@ import type {
   UpdaterState,
 } from '../../../shared/types';
 import { ACTION_LABELS, chordFromEvent } from '../../hotkeys';
+import { ThemeEditor } from './ThemeEditor';
+import { ProviderKeysList } from '../auth/ProviderKeysList';
 
 function hexToRgb(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -21,6 +24,11 @@ function hexToRgb(hex: string): string {
 export function SettingsPanel() {
   const [activeTheme, setActiveTheme] = useState('Purple');
   const [hoveredTheme, setHoveredTheme] = useState<string | null>(null);
+  const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  /** Snapshot of the theme that was active when the user opened the editor —
+   * used to restore on close-without-save (live previews mutate the chrome). */
+  const [editorRestoreTheme, setEditorRestoreTheme] = useState<ThemePreset | null>(null);
   // Version sourced from main app.getVersion() — same IPC the title bar uses,
   // so the About row, title bar, and status bar always match. Was hardcoded
   // "2.0.0" pre-3.0.0-beta.3, which drifted from the actual package.json.
@@ -47,12 +55,29 @@ export function SettingsPanel() {
   );
 
   useEffect(() => {
-    const saved = localStorage.getItem('claude-studio-theme');
-    const preset = findThemePreset(saved);
-    if (preset) {
-      setActiveTheme(preset.name);
-      applyTheme(preset);
+    // Read the persisted theme name to seed the `activeTheme` highlighted
+    // state in the picker. We do NOT call applyTheme() here — App.tsx is
+    // the single source of truth for applying the theme on startup, so
+    // calling applyTheme() here would race with App.tsx's hydration and
+    // (because applyTheme writes localStorage) could flap the stored key.
+    // After Cat 4 audit (post-RD-pass).
+    const stored = localStorage.getItem('claude-studio-theme');
+    const parsed = parseThemeKey(stored);
+    if (parsed?.custom) {
+      setActiveTheme(`custom:${parsed.name}`);
+    } else if (parsed) {
+      const builtin = findThemePreset(parsed.name);
+      if (builtin) setActiveTheme(builtin.name);
     }
+    // Hydrate the custom-theme list so the grid can render them.
+    void (async () => {
+      try {
+        const customs = await window.electronAPI.themes.list();
+        setCustomThemes(customs);
+      } catch {
+        // themes IPC missing — built-ins still work.
+      }
+    })();
     let cancelled = false;
     void (async () => {
       try {
@@ -105,8 +130,58 @@ export function SettingsPanel() {
   }, []);
 
   const handleThemeChange = (preset: ThemePreset) => {
-    setActiveTheme(preset.name);
+    setActiveTheme(preset.custom ? `custom:${preset.name}` : preset.name);
     applyTheme(preset);
+  };
+
+  const openThemeEditor = () => {
+    // Snapshot the currently-applied theme so we can restore it on
+    // close-without-save. We rebuild from the active key.
+    const stored = localStorage.getItem('claude-studio-theme');
+    const parsed = parseThemeKey(stored);
+    let snapshot: ThemePreset | null = null;
+    if (parsed?.custom) {
+      const match = customThemes.find((t) => t.name === parsed.name);
+      if (match) snapshot = { ...match, custom: true };
+    } else if (parsed) {
+      snapshot = findThemePreset(parsed.name) ?? null;
+    }
+    setEditorRestoreTheme(snapshot ?? THEME_PRESETS[0]);
+    setEditorOpen(true);
+  };
+
+  const handleCustomSave = async (theme: CustomTheme) => {
+    try {
+      const next = await window.electronAPI.themes.save(theme);
+      setCustomThemes(next);
+      // Apply the saved theme as active immediately.
+      const asPreset: ThemePreset = { ...theme, custom: true };
+      handleThemeChange(asPreset);
+      setEditorOpen(false);
+    } catch (e) {
+      alert(`Couldn't save theme: ${(e as Error).message ?? String(e)}`);
+    }
+  };
+
+  const handleCustomDelete = async (name: string) => {
+    try {
+      const next = await window.electronAPI.themes.delete(name);
+      setCustomThemes(next);
+      // If the deleted theme was active, fall back to first built-in.
+      const stored = localStorage.getItem('claude-studio-theme');
+      const parsed = parseThemeKey(stored);
+      if (parsed?.custom && parsed.name === name) {
+        const fallback = THEME_PRESETS[0];
+        setActiveTheme(fallback.name);
+        applyTheme(fallback);
+      }
+    } catch (e) {
+      alert(`Couldn't delete theme: ${(e as Error).message ?? String(e)}`);
+    }
+  };
+
+  const closeThemeEditor = () => {
+    setEditorOpen(false);
   };
 
   const updateNotif = async (patch: Partial<NotificationSettings>) => {
@@ -236,12 +311,32 @@ export function SettingsPanel() {
         marginBottom: 20,
       }}>
         <div style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: 'var(--text-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           marginBottom: 10,
         }}>
-          Accent Color
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+          }}>
+            Accent Color
+          </div>
+          <button
+            onClick={openThemeEditor}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              borderRadius: 'var(--radius-md)',
+              padding: '4px 10px',
+              cursor: 'pointer',
+              fontSize: 11,
+            }}
+          >
+            Edit themes…
+          </button>
         </div>
 
         <div style={{
@@ -249,14 +344,15 @@ export function SettingsPanel() {
           gridTemplateColumns: '1fr 1fr',
           gap: 8,
         }}>
-          {THEME_PRESETS.map((preset) => {
-            const isActive = activeTheme === preset.name;
-            const isHovered = hoveredTheme === preset.name;
+          {[...THEME_PRESETS, ...customThemes.map((t) => ({ ...t, custom: true }) as ThemePreset)].map((preset) => {
+            const themeKey = preset.custom ? `custom:${preset.name}` : preset.name;
+            const isActive = activeTheme === themeKey;
+            const isHovered = hoveredTheme === themeKey;
             return (
               <button
-                key={preset.name}
+                key={themeKey}
                 onClick={() => handleThemeChange(preset)}
-                onMouseEnter={() => setHoveredTheme(preset.name)}
+                onMouseEnter={() => setHoveredTheme(themeKey)}
                 onMouseLeave={() => setHoveredTheme(null)}
                 style={{
                   padding: '10px 12px',
@@ -301,6 +397,11 @@ export function SettingsPanel() {
             );
           })}
         </div>
+      </div>
+
+      {/* Provider API keys (multi-provider plumbing — Cat 5). */}
+      <div style={{ marginBottom: 20 }}>
+        <ProviderKeysList />
       </div>
 
       {/* Terminal Settings */}
@@ -646,6 +747,19 @@ export function SettingsPanel() {
         <SettingRow label="React" value="19.x" />
         <SettingRow label="Author" value="LxveAce" />
       </div>
+
+      {editorOpen && (
+        <ThemeEditor
+          initialThemes={customThemes}
+          onLivePreview={(p) => applyTheme(p)}
+          onRestoreActiveTheme={() => {
+            if (editorRestoreTheme) applyTheme(editorRestoreTheme);
+          }}
+          onSaveAndApply={handleCustomSave}
+          onDelete={(name) => { void handleCustomDelete(name); }}
+          onClose={closeThemeEditor}
+        />
+      )}
     </div>
   );
 }

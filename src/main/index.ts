@@ -22,6 +22,16 @@ import { detectHardware } from './hardware-detection';
 import { detectProject } from './project-language-detect';
 import { probeDisk } from './disk-info';
 import { FirstRunService } from './first-run-service';
+import { ThemeService } from './theme-service';
+import { WindowStateService } from './window-state-service';
+import {
+  ProviderAuthService,
+  normalizeProvider,
+  PROVIDER_ENV_KEY,
+} from './provider-auth-service';
+import { PtyKeyInterceptor } from './pty-key-interceptor';
+import { providerDetect } from './provider-detect';
+import { readGpuPrefs, writeGpuPrefs } from './gpu-prefs';
 import { readCliFlags, writeCliFlags, type CliFlags } from './cli-flags';
 import {
   listDir as projectListDir,
@@ -67,6 +77,9 @@ let hotkeysService: HotkeysService | null = null;
 let trayService: TrayService | null = null;
 let costService: CostService | null = null;
 let cliService: CliService | null = null;
+let themeService: ThemeService | null = null;
+let windowStateService: WindowStateService | null = null;
+const ptyKeyInterceptor = new PtyKeyInterceptor();
 let isQuitting = false;
 /** Pane IDs whose PTY was killed by an explicit user "restart" — suppresses
  * the imminent "Claude exited" notification once per restart. Superseded the
@@ -109,6 +122,16 @@ function getSnippets(): SnippetsService {
 function getNotifications(): NotificationsService {
   if (!notificationsService) notificationsService = new NotificationsService();
   return notificationsService;
+}
+
+function getThemes(): ThemeService {
+  if (!themeService) themeService = new ThemeService();
+  return themeService;
+}
+
+function getWindowState(): WindowStateService {
+  if (!windowStateService) windowStateService = new WindowStateService();
+  return windowStateService;
 }
 
 function isDevMode(): boolean {
@@ -183,11 +206,21 @@ function getCost(): CostService {
 }
 
 const createWindow = () => {
-  mainWindow = new BrowserWindow({
+  const savedState = getWindowState().loadState('main', {
+    x: -1,
+    y: -1,
     width: 1400,
     height: 900,
+    maximized: false,
+  });
+  const usingSavedPosition = savedState.x >= 0 && savedState.y >= 0;
+  mainWindow = new BrowserWindow({
+    ...(usingSavedPosition ? { x: savedState.x, y: savedState.y } : {}),
+    width: savedState.width,
+    height: savedState.height,
     minWidth: 900,
     minHeight: 600,
+    resizable: true,
     frame: false,
     backgroundColor: '#1a1a2e',
     webPreferences: {
@@ -198,6 +231,8 @@ const createWindow = () => {
       webSecurity: true,
     },
   });
+  if (savedState.maximized) mainWindow.maximize();
+  getWindowState().bindWindow('main', mainWindow);
 
   mainWindow.on('close', (event) => {
     // If minimize-to-tray is on and we're not in the middle of a real quit,
@@ -267,12 +302,32 @@ function syncResourcePids() {
 
 function setupTerminal() {
   ptyRegistry.on('data', (paneId: string, data: string) => {
+    // Feed the key interceptor first — it's a no-op for unregistered panes,
+    // so the cost is one Map lookup per data event. If the pane has a
+    // registered provider and the data contains a key prompt, the
+    // interceptor fires `key-prompt` which we forward to the renderer.
+    try {
+      ptyKeyInterceptor.feed(paneId, data);
+    } catch {
+      // Never let interception break terminal data flow.
+    }
     safeSend(IPC.TERMINAL_DATA, paneId, data);
+  });
+
+  ptyKeyInterceptor.on('key-prompt', (payload: { paneId: string; provider: string }) => {
+    safeSend(IPC.PROVIDER_KEY_PROMPT, {
+      paneId: payload.paneId,
+      provider: payload.provider,
+      source: 'pty-interceptor',
+    });
   });
 
   ptyRegistry.on('exit', (paneId: string, code: number) => {
     safeSend(IPC.TERMINAL_EXIT, paneId, code);
     syncResourcePids();
+    // Stop watching this pane — even if the PTY is replaced, the interceptor
+    // attaches fresh on the next spawn.
+    ptyKeyInterceptor.detach(paneId);
     if (suppressedRestartPanes.has(paneId)) {
       suppressedRestartPanes.delete(paneId);
       return;
@@ -375,6 +430,9 @@ function setupCompact() {
 function setupCli() {
   // Phase 6 onboarding — recovers from Phase 4 NSIS bootstrap soft-fail.
   ipcMain.handle(IPC.CLI_STATUS, () => getCli().getStatus());
+  // PR #25 — `claude --help` capability probe used by the picker to gate
+  // the Claude (Chat) catalog entry.
+  ipcMain.handle(IPC.CLI_CAPABILITIES, () => getCli().getCapabilities());
   ipcMain.handle(IPC.CLI_INSTALL, () =>
     getCli().install((line) => {
       // Stream each line to the renderer for live progress in the
@@ -461,6 +519,16 @@ function setupModels() {
       // paneId = "model:<id>-<timestamp>" — bounded length, only allowed chars.
       const safeIdPart = model.id.replace(/[^A-Za-z0-9_\-:]/g, '_').slice(0, 40);
       const paneId = `model:${safeIdPart}-${Date.now().toString(36)}`.slice(0, 64);
+      // Map the model's provider display name → canonical ProviderId (or
+      // null for local/Ollama models that don't need an API key). If we
+      // have a key on file, inject it as the env var the spawned CLI
+      // expects (ANTHROPIC_API_KEY / OPENAI_API_KEY / etc.). The PTY
+      // interceptor also attaches so an interactive prompt from the CLI
+      // can be intercepted + answered via ApiKeyModal.
+      const providerId = normalizeProvider(model.provider);
+      const envInjection: Record<string, string> = providerId
+        ? ProviderAuthService.instance().envForProvider(providerId)
+        : {};
       try {
         // Tag for ResourceMonitor's `models` bucket — keeps its RAM/CPU
         // out of the `claude` bucket and out of `ollama` (the daemon is
@@ -469,8 +537,15 @@ function setupModels() {
         ptyRegistry.spawn(paneId, safeCwd, {
           command: model.command,
           args: model.args,
+          env: envInjection,
           label: model.name,
         });
+        // Only attach the interceptor if we have a provider we know how to
+        // recognize. Avoids extra work on Ollama / Claude (which already
+        // handle their own auth).
+        if (providerId) {
+          ptyKeyInterceptor.attach(paneId, providerId);
+        }
         syncResourcePids();
         return {
           ok: true,
@@ -538,6 +613,59 @@ function setupOllama() {
     if (typeof name !== 'string') return { ok: false, error: 'name must be a string' };
     return svc.delete(name);
   });
+
+  // Cat 7: daemon lifecycle. The renderer can query state, force-start (used
+  // by ModelsPanel's "Restart daemon" affordance), and stop. Lifecycle
+  // events stream via OLLAMA_DAEMON_STATE_CHANGED.
+  ipcMain.handle(IPC.OLLAMA_DAEMON_STATE, () => svc.daemonState());
+  ipcMain.handle(IPC.OLLAMA_DAEMON_START, () => svc.daemonStart());
+  ipcMain.handle(IPC.OLLAMA_DAEMON_STOP, () => {
+    svc.daemonStop();
+    return svc.daemonState();
+  });
+  ipcMain.handle(IPC.OLLAMA_DAEMON_RESTART, () => svc.daemonRestart());
+  ipcMain.handle(IPC.GPU_PREFS_GET, () => readGpuPrefs());
+  ipcMain.handle(IPC.GPU_PREFS_SET, (_event, patch: unknown) => {
+    return writeGpuPrefs((patch ?? {}) as Parameters<typeof writeGpuPrefs>[0]);
+  });
+  svc.on('daemon-state', (state) => {
+    safeSend(IPC.OLLAMA_DAEMON_STATE_CHANGED, state);
+  });
+}
+
+/**
+ * Cat 7 — autostart the Ollama daemon when local models are registered.
+ *
+ * Conditions:
+ *   - At least one registered model has `provider === 'Ollama'` (display
+ *     name match — the registry preserves catalog provider strings).
+ *   - `ollama` is installed (getVersion().installed === true).
+ *
+ * If both true and the daemon isn't already reachable, spawn it. If the
+ * daemon is already running (externally — tray app on Windows, LaunchAgent
+ * on macOS), `daemonStart` detects that and reports running without
+ * spawning a duplicate.
+ *
+ * Failures are non-fatal — Studio runs without Ollama just fine for Claude
+ * users.
+ */
+async function maybeAutostartOllama(): Promise<void> {
+  try {
+    const reg = ModelRegistry.instance();
+    const hasLocalModel = reg
+      .list()
+      .some((m) => m.provider === 'Ollama' || m.command === 'ollama');
+    if (!hasLocalModel) return;
+    const svc = OllamaService.instance();
+    const v = await svc.getVersion();
+    if (!v.installed) return;
+    // Fire-and-forget — startup shouldn't block on the daemon poll.
+    void svc.daemonStart().catch(() => {
+      // Non-fatal; user can retry from the UI.
+    });
+  } catch {
+    // Never let Ollama autostart take down the app.
+  }
 }
 
 function setupHardware() {
@@ -766,10 +894,25 @@ function setupPopout() {
         typeof label === 'string' && label.length > 0 && label.length <= 128
           ? label
           : 'Model';
+      const popoutId = `models-popout:${paneId}`;
+      const savedPopoutState = getWindowState().loadState(popoutId, {
+        x: -1,
+        y: -1,
+        width: 900,
+        height: 600,
+        maximized: false,
+      });
+      const popoutUseSavedPos = savedPopoutState.x >= 0 && savedPopoutState.y >= 0;
       try {
         const win = new BrowserWindow({
-          width: 900,
-          height: 600,
+          ...(popoutUseSavedPos
+            ? { x: savedPopoutState.x, y: savedPopoutState.y }
+            : {}),
+          width: savedPopoutState.width,
+          height: savedPopoutState.height,
+          minWidth: 400,
+          minHeight: 300,
+          resizable: true,
           title: `${safeLabel} — Claude Code Studio`,
           parent: mainWindow ?? undefined,
           backgroundColor: '#0a0a14',
@@ -781,6 +924,8 @@ function setupPopout() {
             webSecurity: true,
           },
         });
+        if (savedPopoutState.maximized) win.maximize();
+        getWindowState().bindWindow(popoutId, win);
         popoutWindows.set(paneId, win);
         win.on('closed', () => {
           popoutWindows.delete(paneId);
@@ -926,6 +1071,74 @@ function setupNotifications() {
     getNotifications().setSettings(partial)
   );
   ipcMain.handle(IPC.NOTIF_TEST, () => getNotifications().fireTest());
+}
+
+function setupThemes() {
+  ipcMain.handle(IPC.THEMES_LIST, () => getThemes().list());
+  ipcMain.handle(IPC.THEMES_SAVE, (_event, theme) => getThemes().save(theme));
+  ipcMain.handle(IPC.THEMES_DELETE, (_event, name: string) =>
+    getThemes().delete(name)
+  );
+}
+
+function setupProviderAuth() {
+  const svc = ProviderAuthService.instance();
+  ipcMain.handle(IPC.PROVIDER_AUTH_HAS_KEY, (_event, provider: unknown) => {
+    if (typeof provider !== 'string') return false;
+    const id = normalizeProvider(provider) ?? (provider as never);
+    try {
+      // hasKey throws on unknown provider; treat as "no key" for safety.
+      return svc.hasKey(id);
+    } catch {
+      return false;
+    }
+  });
+  ipcMain.handle(
+    IPC.PROVIDER_AUTH_SET_KEY,
+    (_event, provider: unknown, key: unknown) => {
+      if (typeof provider !== 'string') throw new Error('provider must be string');
+      if (typeof key !== 'string') throw new Error('key must be string');
+      const id = normalizeProvider(provider) ?? (provider as never);
+      return svc.setKey(id, key);
+    }
+  );
+  ipcMain.handle(IPC.PROVIDER_AUTH_LIST, () => svc.list());
+  ipcMain.handle(IPC.PROVIDER_AUTH_DELETE, (_event, provider: unknown) => {
+    if (typeof provider !== 'string') throw new Error('provider must be string');
+    const id = normalizeProvider(provider) ?? (provider as never);
+    return svc.delete(id);
+  });
+  ipcMain.handle(IPC.PROVIDER_DETECT_LIST, async (_event, force: unknown) => {
+    return await providerDetect.list(force === true);
+  });
+  ipcMain.handle(
+    IPC.PROVIDER_DETECT_GET,
+    async (_event, cli: unknown, force: unknown) => {
+      if (typeof cli !== 'string') throw new Error('cli must be string');
+      return await providerDetect.get(cli, force === true);
+    }
+  );
+  ipcMain.handle(
+    IPC.PROVIDER_KEY_SUBMIT,
+    (_event, paneId: unknown, provider: unknown, key: unknown) => {
+      if (typeof paneId !== 'string') throw new Error('paneId must be string');
+      if (typeof provider !== 'string') throw new Error('provider must be string');
+      if (typeof key !== 'string') throw new Error('key must be string');
+      if (!PtyRegistry.isValidPaneId(paneId)) {
+        throw new Error('invalid paneId');
+      }
+      const id = normalizeProvider(provider) ?? (provider as never);
+      // Persist the key for next time.
+      svc.setKey(id, key);
+      // Write the key to the PTY stdin so the running CLI receives it as
+      // typed input. We append a newline so the CLI's read-line completes.
+      // The renderer should not also write — that would double-submit.
+      ptyRegistry.write(paneId, key + '\r');
+      // Reset interceptor state so a follow-up wrong-key prompt fires.
+      ptyKeyInterceptor.resetPromptState(paneId);
+      return true;
+    }
+  );
 }
 
 function setupUpdater() {
@@ -1095,12 +1308,17 @@ app.whenReady().then(() => {
   setupCloudSync();
   setupSnippets();
   setupNotifications();
+  setupThemes();
+  setupProviderAuth();
   setupUpdater();
   setupSession();
   setupCost();
   setupCli();
   setupModels();
   setupOllama();
+  // Cat 7 — autostart the Ollama daemon if local models are registered.
+  // Fire-and-forget; non-fatal on failure.
+  void maybeAutostartOllama();
   setupHardware();
   setupProject();
   setupDisk();
@@ -1165,6 +1383,21 @@ app.on('before-quit', () => {
   }
   try {
     costService?.stop();
+  } catch {
+    // ignore
+  }
+  // Flush any pending window-state write so a quick close-after-resize doesn't
+  // lose the user's geometry. WindowStateService debounces writes by 500 ms.
+  try {
+    windowStateService?.flush();
+  } catch {
+    // ignore
+  }
+  // Cat 7 — clean shutdown of the Studio-owned Ollama daemon. Externally-
+  // managed Ollama processes are untouched (daemonStop is a no-op if we
+  // never spawned one).
+  try {
+    OllamaService.instance().daemonStop();
   } catch {
     // ignore
   }

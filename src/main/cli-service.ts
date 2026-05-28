@@ -6,7 +6,7 @@ import * as https from 'node:https';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import type { CliStatus, CliOnboardingState } from '../shared/types';
+import type { CliStatus, CliOnboardingState, CliCapabilities } from '../shared/types';
 import { findBundledRuntime, targetRuntimePaths, targetRuntimeRoot } from './runtime-paths';
 
 const execFileAsync = promisify(execFile);
@@ -27,6 +27,10 @@ const ONBOARDING_DEFAULT: CliOnboardingState = {
 /** Hard timeout for `claude doctor`. Doctor is normally <2 s; longer means
  * something is wedged. */
 const DOCTOR_TIMEOUT_MS = 10000;
+
+/** Hard timeout for `claude --help`. Should be near-instant; longer
+ * means the binary is wedged. */
+const HELP_TIMEOUT_MS = 5000;
 
 /** Hard timeout for the npm install fallback. CLI is ~30 MB; on a slow
  * connection this can legitimately take a couple minutes. */
@@ -104,6 +108,9 @@ function nodeDownloadFor(platform: NodeJS.Platform, arch: string): NodeDownload 
  */
 export class CliService {
   private onboardingPath: string;
+  /** Cached `claude --help` parse result. null = not probed yet. The
+   *  binary is stable for the lifetime of a session, so cache forever. */
+  private capabilitiesCache: CliCapabilities | null = null;
 
   constructor() {
     this.onboardingPath = path.join(app.getPath('userData'), ONBOARDING_FILE);
@@ -211,6 +218,86 @@ export class CliService {
           : (err.message || 'claude doctor failed'),
       };
     }
+  }
+
+  /**
+   * Probe `claude --help` once per session and parse for flag support.
+   * Used by the renderer to badge / gate the `Claude (Chat)` catalog
+   * entry — that profile needs `--input-format=stream-json` +
+   * `--output-format=stream-json` + `--print`, all introduced in
+   * recent Claude CLI builds. Older binaries won't recognize them.
+   *
+   * Result is cached for the lifetime of the CliService instance (one
+   * per main process). If you want to re-probe (e.g., after a CLI
+   * upgrade mid-session), set `force: true`.
+   *
+   * Failure modes:
+   *  - Binary missing → `probed: false`, helpExcerpt = error message.
+   *  - Binary present but `--help` exits non-zero → `probed: false`,
+   *    excerpt has whatever stderr we got. (Modern Claude returns 0.)
+   *  - Binary hangs → killed after HELP_TIMEOUT_MS; `probed: false`.
+   *
+   * On a successful probe, all three flag fields reflect actual
+   * mentions in the help text (substring match, case-insensitive).
+   */
+  async getCapabilities(opts: { force?: boolean } = {}): Promise<CliCapabilities> {
+    if (this.capabilitiesCache && !opts.force) return this.capabilitiesCache;
+
+    const { path: claudeBin } = this.findClaudePath();
+    const emptyResult: CliCapabilities = {
+      streamJson: false,
+      printMode: false,
+      version: null,
+      probed: false,
+      probedAt: new Date().toISOString(),
+      helpExcerpt: '',
+    };
+
+    let stdout = '';
+    let stderr = '';
+    try {
+      const result = await execFileAsync(claudeBin, ['--help'], {
+        timeout: HELP_TIMEOUT_MS,
+        windowsHide: true,
+      });
+      stdout = result.stdout;
+      stderr = result.stderr;
+    } catch (e: unknown) {
+      const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
+      // Even on non-zero exit `claude --help` often still prints usage to
+      // stderr — capture whatever we got rather than failing flat.
+      stdout = err.stdout ?? '';
+      stderr = err.stderr ?? '';
+      if (err.code === 'ENOENT') {
+        this.capabilitiesCache = {
+          ...emptyResult,
+          helpExcerpt: 'Claude CLI binary not found on this machine.',
+        };
+        return this.capabilitiesCache;
+      }
+      // Spawn worked but exited non-zero. Fall through and parse anything
+      // we got — most modern CLIs still print help text to stderr on
+      // unknown-arg errors.
+    }
+
+    const combined = `${stdout}\n${stderr}`;
+    const lower = combined.toLowerCase();
+    const streamJson = /stream-json|stream_json/.test(lower);
+    const printMode = /--print\b|^-p[, ]/m.test(combined);
+    const versionMatch = combined.match(/(?:^|\s)v?(\d+\.\d+\.\d+)/);
+    // Cap excerpt at ~2 KB so we don't bloat IPC. First lines are usually
+    // the most useful (banner + usage line).
+    const excerpt = combined.slice(0, 2000);
+
+    this.capabilitiesCache = {
+      streamJson,
+      printMode,
+      version: versionMatch ? versionMatch[1] : null,
+      probed: true,
+      probedAt: new Date().toISOString(),
+      helpExcerpt: excerpt,
+    };
+    return this.capabilitiesCache;
   }
 
   /**

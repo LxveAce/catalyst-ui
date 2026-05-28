@@ -8,3 +8,8 @@ src/renderer/dist/
 # Local pre-change snapshots produced before risky edits. Per-user safety net,
 # not source code — never push.
 _backups/
+
+# Runtime-verifier output logs (`scripts/runtime-verify.mjs`). Only the
+# summary .md is worth committing; the log files are ephemeral.
+runtime-verify-main.log
+runtime-verify-console.log

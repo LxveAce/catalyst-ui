@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -51,8 +52,23 @@ export function writeCliFlags(flags: Partial<CliFlags>): CliFlags {
     ...sanitizeFlags(flags),
   };
   try {
-    fs.mkdirSync(path.dirname(storePath()), { recursive: true });
-    fs.writeFileSync(storePath(), JSON.stringify(next, null, 2));
+    const target = storePath();
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    // Atomic write via tmp + rename so a crash mid-serialization can't
+    // truncate the existing file. Matches the pattern in every other
+    // user-data JSON store in this project.
+    const tmp = `${target}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(next, null, 2), { mode: 0o600 });
+      fs.renameSync(tmp, target);
+    } catch (e) {
+      try {
+        fs.unlinkSync(tmp);
+      } catch {
+        // ignore — tmp may already be gone
+      }
+      throw e;
+    }
   } catch {
     // Persistence failure is non-fatal — runtime state still applied for
     // the current session; just won't survive restart.

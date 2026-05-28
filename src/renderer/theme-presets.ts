@@ -6,6 +6,8 @@ export interface ThemePreset {
   gradientSoft: string;
   borderActive: string;
   glow: string;
+  /** Marks user-defined themes loaded from <userData>/themes.json. */
+  custom?: boolean;
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
@@ -63,7 +65,92 @@ export const THEME_PRESETS: ThemePreset[] = [
     borderActive: 'rgba(6, 182, 212, 0.3)',
     glow: '0 0 20px rgba(6, 182, 212, 0.15)',
   },
+  {
+    name: 'Slate',
+    accent: '#64748b',
+    accentLight: '#cbd5e1',
+    gradient: 'linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(100,116,139,0.2) 0%, rgba(71,85,105,0.1) 100%)',
+    borderActive: 'rgba(100, 116, 139, 0.3)',
+    glow: '0 0 20px rgba(100, 116, 139, 0.15)',
+  },
+  {
+    name: 'Indigo',
+    accent: '#6366f1',
+    accentLight: '#a5b4fc',
+    gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(79,70,229,0.1) 100%)',
+    borderActive: 'rgba(99, 102, 241, 0.3)',
+    glow: '0 0 20px rgba(99, 102, 241, 0.15)',
+  },
+  {
+    name: 'Crimson',
+    accent: '#dc2626',
+    accentLight: '#fca5a5',
+    gradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(220,38,38,0.2) 0%, rgba(185,28,28,0.1) 100%)',
+    borderActive: 'rgba(220, 38, 38, 0.3)',
+    glow: '0 0 20px rgba(220, 38, 38, 0.15)',
+  },
+  {
+    name: 'Forest',
+    accent: '#16a34a',
+    accentLight: '#86efac',
+    gradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 50%, #166534 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(22,163,74,0.2) 0%, rgba(21,128,61,0.1) 100%)',
+    borderActive: 'rgba(22, 163, 74, 0.3)',
+    glow: '0 0 20px rgba(22, 163, 74, 0.15)',
+  },
+  {
+    name: 'Magenta',
+    accent: '#d946ef',
+    accentLight: '#f0abfc',
+    gradient: 'linear-gradient(135deg, #d946ef 0%, #c026d3 50%, #a21caf 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(217,70,239,0.2) 0%, rgba(192,38,211,0.1) 100%)',
+    borderActive: 'rgba(217, 70, 239, 0.3)',
+    glow: '0 0 20px rgba(217, 70, 239, 0.15)',
+  },
+  {
+    name: 'Midnight',
+    accent: '#1e40af',
+    accentLight: '#60a5fa',
+    gradient: 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #172554 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(30,64,175,0.2) 0%, rgba(30,58,138,0.1) 100%)',
+    borderActive: 'rgba(30, 64, 175, 0.3)',
+    glow: '0 0 20px rgba(30, 64, 175, 0.15)',
+  },
+  {
+    name: 'Solarized',
+    accent: '#b58900',
+    accentLight: '#eee8d5',
+    gradient: 'linear-gradient(135deg, #b58900 0%, #93770a 50%, #6c5807 100%)',
+    gradientSoft: 'linear-gradient(135deg, rgba(181,137,0,0.2) 0%, rgba(147,119,10,0.1) 100%)',
+    borderActive: 'rgba(181, 137, 0, 0.3)',
+    glow: '0 0 20px rgba(181, 137, 0, 0.15)',
+  },
 ];
+
+/**
+ * Build a complete ThemePreset from just an accent + (optional) accent-light hex.
+ * Used by the ThemeEditor — users only pick the two anchor colors; gradient,
+ * glow, and border are derived. Same shape as the curated built-ins above.
+ */
+export function deriveThemeFromAccent(name: string, accent: string, accentLight?: string): ThemePreset {
+  const light = accentLight ?? lighten(accent, 0.4);
+  const mid = darken(accent, 0.1);
+  const deep = darken(accent, 0.25);
+  const rgb = hexToRgb(accent);
+  return {
+    name,
+    accent,
+    accentLight: light,
+    gradient: `linear-gradient(135deg, ${accent} 0%, ${mid} 50%, ${deep} 100%)`,
+    gradientSoft: `linear-gradient(135deg, rgba(${rgb},0.2) 0%, rgba(${rgb},0.1) 100%)`,
+    borderActive: `rgba(${rgb}, 0.3)`,
+    glow: `0 0 20px rgba(${rgb}, 0.15)`,
+    custom: true,
+  };
+}
 
 export function applyTheme(preset: ThemePreset): void {
   const root = document.documentElement;
@@ -77,12 +164,27 @@ export function applyTheme(preset: ThemePreset): void {
   root.style.setProperty('--accent-dim', `rgba(${rgb}, 0.15)`);
   root.style.setProperty('--gauge-purple', preset.accent);
   root.style.setProperty('--bg-hover', `rgba(${rgb}, 0.08)`);
-  localStorage.setItem('claude-studio-theme', preset.name);
+  // Persist with a `custom:` prefix for user themes so restore can route to
+  // the right lookup (built-ins by name, customs through theme-service IPC).
+  const key = preset.custom ? `custom:${preset.name}` : preset.name;
+  localStorage.setItem('claude-studio-theme', key);
 }
 
 export function findThemePreset(name: string | null): ThemePreset | undefined {
   if (!name) return undefined;
+  // Custom themes are loaded async via IPC; this lookup only resolves built-ins.
+  // Callers needing customs must check the theme-service result.
+  if (name.startsWith('custom:')) return undefined;
   return THEME_PRESETS.find((p) => p.name === name);
+}
+
+/** Strip the `custom:` prefix from a stored theme key, if present. */
+export function parseThemeKey(stored: string | null): { custom: boolean; name: string } | null {
+  if (!stored) return null;
+  if (stored.startsWith('custom:')) {
+    return { custom: true, name: stored.slice('custom:'.length) };
+  }
+  return { custom: false, name: stored };
 }
 
 function hexToRgb(hex: string): string {
@@ -90,4 +192,32 @@ function hexToRgb(hex: string): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
+}
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
+}
+
+/** Mix the color toward white by `amount` (0–1). */
+function lighten(hex: string, amount: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const k = clamp01(amount);
+  const nr = Math.round(r + (255 - r) * k);
+  const ng = Math.round(g + (255 - g) * k);
+  const nb = Math.round(b + (255 - b) * k);
+  return `#${[nr, ng, nb].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Mix the color toward black by `amount` (0–1). */
+function darken(hex: string, amount: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const k = clamp01(amount);
+  const nr = Math.round(r * (1 - k));
+  const ng = Math.round(g * (1 - k));
+  const nb = Math.round(b * (1 - k));
+  return `#${[nr, ng, nb].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }

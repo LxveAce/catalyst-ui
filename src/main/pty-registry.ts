@@ -5,8 +5,9 @@ import { PtyManager, type PtySpawnOpts } from './pty-manager';
  * Per-pane PTY registry.
  *
  * Manages multiple {@link PtyManager} instances keyed by paneId so that the
- * renderer can host an arbitrary tree of terminal panes (see
- * {@link SplitLayout}) without changing the underlying single-PTY semantics.
+ * renderer can host multiple terminal sessions (one per TerminalTabs tab,
+ * plus model-launch panes) without changing the underlying single-PTY
+ * semantics.
  *
  * Forwarded events are decorated with the originating paneId so the renderer
  * can route them to the correct xterm instance.
