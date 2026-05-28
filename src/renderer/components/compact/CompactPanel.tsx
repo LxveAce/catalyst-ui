@@ -121,11 +121,15 @@ export function CompactPanel({ activeFamily = 'claude' }: CompactPanelProps = {}
             Auto-compact hooks
           </div>
         </div>
-        <ToggleSwitch
-          enabled={status?.enabled ?? false}
-          onChange={handleToggle}
-          disabled={toggling}
-        />
+        <div title={status?.enabled
+          ? 'Auto-compact is on. Hooks in ~/.claude/settings.json will trim sessions automatically as they approach the limit.'
+          : 'Turn on auto-compact to install hooks in ~/.claude/settings.json that trim Claude sessions as they approach the context limit.'}>
+          <ToggleSwitch
+            enabled={status?.enabled ?? false}
+            onChange={handleToggle}
+            disabled={toggling}
+          />
+        </div>
       </div>
 
       {/* Stats Grid */}

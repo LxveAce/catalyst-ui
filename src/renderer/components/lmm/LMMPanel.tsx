@@ -684,6 +684,7 @@ function CycleEditor({
           <button
             key={p}
             onClick={() => onSwitchPhase(p)}
+            title={`${PHASE_LABEL[p]} — ${PHASE_HINT[p]}`}
             style={{
               flex: 1,
               padding: '5px 0',
@@ -735,6 +736,7 @@ function CycleEditor({
         <button
           onClick={onSave}
           disabled={busy || !dirty}
+          title="Save the current phase content without leaving this phase."
           style={{
             flex: 1,
             padding: '7px',
@@ -752,6 +754,7 @@ function CycleEditor({
           <button
             onClick={onSaveAdvance}
             disabled={busy}
+            title={`Save and move on to the ${PHASE_LABEL[nextPhase(phase)]} phase.`}
             style={{
               flex: 1,
               padding: '7px',
