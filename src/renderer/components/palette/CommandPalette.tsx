@@ -19,12 +19,12 @@ interface CommandPaletteProps {
   onSwitchPanel: (panel: SidebarPanel) => void;
   onSendToTerminal: (text: string, submit: boolean) => void;
   onRestartTerminal: () => void;
-  // Phase 7c: split-pane actions.
-  onSplit: (direction: 'horizontal' | 'vertical') => void;
-  onClosePane: () => void;
-  onFocusNext: () => void;
-  onFocusPrev: () => void;
-  onResetLayout: () => void;
+  // Tab actions (replaces the Phase 7c split-pane actions).
+  onNewClaudeTab: () => void;
+  onCloseTab: () => void;
+  onFocusNextTab: () => void;
+  onFocusPrevTab: () => void;
+  onResetTabs: () => void;
 }
 
 export function CommandPalette({
@@ -33,11 +33,11 @@ export function CommandPalette({
   onSwitchPanel,
   onSendToTerminal,
   onRestartTerminal,
-  onSplit,
-  onClosePane,
-  onFocusNext,
-  onFocusPrev,
-  onResetLayout,
+  onNewClaudeTab,
+  onCloseTab,
+  onFocusNextTab,
+  onFocusPrevTab,
+  onResetTabs,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -157,54 +157,46 @@ export function CommandPalette({
       },
     ];
 
-    const splitActions: PaletteAction[] = [
+    const tabActions: PaletteAction[] = [
       {
-        id: 'pane:split-horizontal',
-        title: 'Split horizontal',
-        subtitle: 'Open a new pane to the right of the active one',
-        group: 'Panes',
-        keywords: 'split pane horizontal right',
-        run: () => onSplit('horizontal'),
+        id: 'tab:new-claude',
+        title: 'New Claude tab',
+        subtitle: 'Open a fresh Claude CLI session in a new tab',
+        group: 'Tabs',
+        keywords: 'new tab claude open spawn',
+        run: () => onNewClaudeTab(),
       },
       {
-        id: 'pane:split-vertical',
-        title: 'Split vertical',
-        subtitle: 'Open a new pane below the active one',
-        group: 'Panes',
-        keywords: 'split pane vertical bottom below',
-        run: () => onSplit('vertical'),
+        id: 'tab:close',
+        title: 'Close tab',
+        subtitle: 'Close the active tab (refuses when only one remains)',
+        group: 'Tabs',
+        keywords: 'close tab remove kill',
+        run: () => onCloseTab(),
       },
       {
-        id: 'pane:close',
-        title: 'Close pane',
-        subtitle: 'Close the active pane (refuses when only one remains)',
-        group: 'Panes',
-        keywords: 'close pane remove kill',
-        run: () => onClosePane(),
+        id: 'tab:focus-next',
+        title: 'Next tab',
+        subtitle: 'Cycle focus to the next tab',
+        group: 'Tabs',
+        keywords: 'focus next tab cycle',
+        run: () => onFocusNextTab(),
       },
       {
-        id: 'pane:focus-next',
-        title: 'Focus next pane',
-        subtitle: 'Cycle focus to the next pane in tree order',
-        group: 'Panes',
-        keywords: 'focus next pane cycle',
-        run: () => onFocusNext(),
+        id: 'tab:focus-prev',
+        title: 'Previous tab',
+        subtitle: 'Cycle focus to the previous tab',
+        group: 'Tabs',
+        keywords: 'focus previous prev tab cycle',
+        run: () => onFocusPrevTab(),
       },
       {
-        id: 'pane:focus-prev',
-        title: 'Focus previous pane',
-        subtitle: 'Cycle focus to the previous pane in tree order',
-        group: 'Panes',
-        keywords: 'focus previous prev pane cycle',
-        run: () => onFocusPrev(),
-      },
-      {
-        id: 'layout:reset',
-        title: 'Reset layout',
-        subtitle: 'Collapse all splits back to a single pane',
-        group: 'Panes',
-        keywords: 'reset layout collapse single pane default',
-        run: () => onResetLayout(),
+        id: 'tabs:reset',
+        title: 'Reset tabs',
+        subtitle: 'Close all tabs and return to a single Claude tab',
+        group: 'Tabs',
+        keywords: 'reset tabs collapse default single',
+        run: () => onResetTabs(),
       },
     ];
 
@@ -213,7 +205,7 @@ export function CommandPalette({
       ...themeActions,
       ...snippetActions,
       ...snippetMgmt,
-      ...splitActions,
+      ...tabActions,
       ...utility,
     ];
   }, [
@@ -221,11 +213,11 @@ export function CommandPalette({
     onSwitchPanel,
     onSendToTerminal,
     onRestartTerminal,
-    onSplit,
-    onClosePane,
-    onFocusNext,
-    onFocusPrev,
-    onResetLayout,
+    onNewClaudeTab,
+    onCloseTab,
+    onFocusNextTab,
+    onFocusPrevTab,
+    onResetTabs,
   ]);
 
   const filtered = useMemo(() => {

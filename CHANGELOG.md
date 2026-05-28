@@ -11,6 +11,100 @@ v2 → v3 = multi-model surface).
 
 ---
 
+## [3.2.0] — 2026-05-28
+
+First public update since v3.0.0. v3.1.0 existed only as an internal
+testing release; v3.2.0 brings the full set of v3.1.0 + v3.2.0 features
+to the public repo in a single promotion commit.
+
+Full per-release detail in `docs/RELEASE_NOTES_v3.2.0.md`.
+
+### Added
+- **Terminal Tabs** (replaces split-pane layout). Windows-Terminal-style
+  strip with `+` button → new Claude tab, `▼` profile picker → catalog
+  dropdown, ↗ popout, × close per tab. Session schema bumped v1→v2 with
+  automatic migration (old layouts become a single Claude tab on the
+  same paneId so any live PTY reattaches).
+- **Claude (Chat) profile** — runs the CLI in `--print
+  --input-format=stream-json --output-format=stream-json --verbose`
+  bidirectional JSONL mode. New `json-stream-parser.ts` turns SDK events
+  into chat bubbles; renders `tool_use`, `tool_result`, and `thinking`
+  content blocks as cards with paired correlation badges.
+- **Stop button** replaces Send while a chat-mode response streams —
+  sends SIGINT to halt generation.
+- **CLI capability probe** at app launch runs `claude --help` and
+  badges the Claude (Chat) entry with a yellow "CLI flags?" pill if the
+  local binary doesn't appear to support stream-json.
+- **Commands sidebar mirrors active tab** — six command families
+  curated (Claude / Ollama / Aider / Gemini / BitNet / unknown).
+  Header chip announces which CLI's commands are showing. Quick Action
+  "starter" commands (Aider `/add `, Ollama `/set system `) land in
+  composer without auto-submitting an empty argument; the active
+  terminal auto-focuses.
+- **Chat-skin v2** — Claude.ai-style layout (persona header, soft
+  rounded bubbles for both roles, pill composer with circular gradient
+  send button), markdown rendering via `react-markdown` + `remark-gfm`
+  + Prism syntax-highlighted code blocks. Aggressive sanitizer detects
+  TUI screen-clear sequences and starts a new assistant message instead
+  of appending. `InteractivePromptBanner` callout when the CLI is
+  asking for an Enter/Esc choice.
+- **GPU routing** for the Ollama daemon — ModelsPanel hardware banner
+  has an Auto / Force GPU / Force CPU picker; with multiple dedicated
+  GPUs a second dropdown picks which one. Routing env vars
+  (`CUDA_VISIBLE_DEVICES`, `HIP_VISIBLE_DEVICES`, `OLLAMA_VULKAN`,
+  …) are injected on `ollama serve` startup — fixes "my dedicated GPU
+  is ignored" which previously came from env being attached to the
+  wrong process.
+- **Auth auto-detect** — Settings → API keys now surfaces existing
+  Claude CLI OAuth (`~/.claude.json`) and shell env vars
+  (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) alongside keys stored
+  via safeStorage. Colored tags: green "CLI OAuth", blue "env var",
+  purple "saved". Button label switches to "Override" when an
+  external source is in play.
+- **Catalog**: BitNet b1.58 2B (Microsoft, via the bitnet.cpp runner —
+  flagged), Liquid AI LFM2.5 350M + 1.2B Instruct (via
+  `hf.co/LiquidAI/*:Q4_K_M`), new `'jetson-thor'` hardware tier
+  (workstation-equivalent compute; 28 workstation-class entries tagged
+  with it).
+- **Runtime verifier** (`scripts/runtime-verify.mjs`) — CDP-driven
+  smoke harness. v3.2.0 extended it from 12→30 assertions covering tab
+  add/close, profile picker open + Esc, palette open + Esc, family
+  chip text on tab switch.
+- **Installer chrome** — modernized NSIS wizard mode
+  (`oneClick: false`), BMP header + sidebar via accent-purple gradient,
+  optional Ollama install prompt during setup (`MessageBox MB_YESNO`).
+
+### Changed
+- `SplitLayout.tsx` removed. The pre-v3.2.0 split-pane layout is no
+  longer available; sessions migrate to a single Claude tab.
+- `package.json` engines now require Node ≥ 22, < 24.
+
+### Fixed
+- StatusBar PID readout now works for model tabs (was 0).
+- `EmbeddedTerminal` sender plumbing — palette / snippet text now
+  reaches model PTYs.
+- CLI onboarding routes `/login` to a Claude tab when the active tab
+  is a non-Claude model (was sending the slash command to whichever
+  PTY was active, confusing ollama / aider).
+- Chat-mode echo dedup uses whitespace-normalized comparison so
+  Claude's internal text normalization doesn't double-render user
+  messages.
+- Local AI launch on Windows — new `cli-resolver.ts` finds
+  `ollama.exe` / `gemini.cmd` / `aider.exe` from well-known install
+  dirs + `where.exe` before passing to node-pty. node-pty does
+  CreateProcess directly without a shell, so bare `ollama` was
+  failing.
+- Atomic writes for `cli-flags.json` + compact-controller `config.json`
+  (were non-atomic `writeFileSync`).
+- Sidebar buttons gained `aria-label` + `data-panel` for screen
+  readers + automation.
+
+### Notes
+- **v3.1.0 was a testing-only internal release.** v3.2.0 is the first
+  public update after v3.0.0; the v3.1.0 features are folded in.
+
+---
+
 ## [3.0.0] — 2026-05-26
 
 The multi-model release. Local + API model catalog, file directory

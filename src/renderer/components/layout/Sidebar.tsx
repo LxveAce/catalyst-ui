@@ -153,6 +153,7 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
         {panels.slice(0, 7).map((panel) => (
           <SidebarButton
             key={panel.id}
+            panelId={panel.id}
             icon={panel.icon}
             label={panel.label}
             active={activePanel === panel.id}
@@ -172,6 +173,7 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
         {panels.slice(7).map((panel) => (
           <SidebarButton
             key={panel.id}
+            panelId={panel.id}
             icon={panel.icon}
             label={panel.label}
             active={activePanel === panel.id}
@@ -183,7 +185,8 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
   );
 }
 
-function SidebarButton({ icon, label, active, onClick }: {
+function SidebarButton({ panelId, icon, label, active, onClick }: {
+  panelId: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
@@ -198,6 +201,11 @@ function SidebarButton({ icon, label, active, onClick }: {
         onClick={onClick}
         onMouseEnter={() => { setHovered(true); setShowTooltip(true); }}
         onMouseLeave={() => { setHovered(false); setShowTooltip(false); }}
+        // a11y + automation: the buttons are icon-only, so a screen reader
+        // sees nothing without aria-label. data-panel gives an unambiguous
+        // hook for E2E tests / CDP-driven runtime verification.
+        aria-label={label}
+        data-panel={panelId}
         title=""
         style={{
           width: 40,

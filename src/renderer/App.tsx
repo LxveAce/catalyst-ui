@@ -16,20 +16,22 @@ import { CliAuthOnboarding } from './components/auth/CliAuthOnboarding';
 import { ModelsPanel } from './components/models/ModelsPanel';
 import { PopoutView } from './components/models/PopoutView';
 import { FileTreePanel } from './components/project/FileTreePanel';
+import { ApiKeyModal } from './components/auth/ApiKeyModal';
+import { TerminalTabs, type TerminalTab } from './components/terminal/TerminalTabs';
 import {
-  SplitLayout,
-  splitPane,
-  closePane,
-  listPaneIds,
-} from './components/terminal/SplitLayout';
+  deriveCommandFamily,
+  type CommandFamily,
+} from './components/commands/command-families';
 import { buildChordMap, chordFromEvent } from './hotkeys';
 import type {
   HotkeyAction,
   HotkeyBinding,
+  ModelDefinition,
+  PersistedTab,
+  ProviderKeyPromptEvent,
   SessionState,
-  SplitNode,
 } from '../shared/types';
-import { THEME_PRESETS, applyTheme } from './theme-presets';
+import { applyTheme, findThemePreset, parseThemeKey, type ThemePreset } from './theme-presets';
 
 export type SidebarPanel =
   | 'terminal'
@@ -45,11 +47,12 @@ export type SidebarPanel =
   | 'models'   // v3.0 multi-model scaffold
   | 'files';   // 3.0.0-beta.3 file directory navigator
 
-const DEFAULT_LAYOUT: SplitNode = {
-  type: 'pane',
-  id: 'p_root',
-  cwd: null,
-};
+/** Bootstrap tab used until session-state hydrates. Mirrors the main-side
+ *  defaults() in session-service.ts so the same paneId reattaches if a PTY
+ *  survived a hot-reload. */
+const DEFAULT_TABS: TerminalTab[] = [
+  { id: 'tab_root', label: 'Claude', paneId: 'p_root', profile: 'claude', ready: true },
+];
 
 export function App() {
   // Pop-out window short-circuit. When this renderer is the child of a
@@ -70,11 +73,23 @@ export function App() {
 
   const [hydrated, setHydrated] = useState(false);
   const [activePanel, setActivePanel] = useState<SidebarPanel>('terminal');
-  const [layout, setLayout] = useState<SplitNode>(DEFAULT_LAYOUT);
-  const [activePaneId, setActivePaneId] = useState<string>('p_root');
+  const [tabs, setTabs] = useState<TerminalTab[]>(DEFAULT_TABS);
+  const [activeTabId, setActiveTabId] = useState<string | null>(DEFAULT_TABS[0]?.id ?? null);
+  const [catalog, setCatalog] = useState<ModelDefinition[]>([]);
   const [pidByPane, setPidByPane] = useState<Record<string, number>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [bindings, setBindings] = useState<HotkeyBinding[]>([]);
+
+  // The PTY currently driven by snippet inserts, palette text-injection, and
+  // the StatusBar PID readout. Derived rather than stored: keeping it in sync
+  // with the active tab is one source of truth.
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+  const activePaneId = activeTab?.paneId ?? null;
+  // Drives the Commands sidebar — `unknown` shows the generic empty-state.
+  const activeCommandFamily: CommandFamily = deriveCommandFamily(
+    activeTab?.profile ?? null,
+    catalog
+  );
   // Phase 6 — first-launch CLI onboarding. Shown when persisted
   // onboarding-complete is false AND `claude doctor` reports the CLI is
   // missing or unauthenticated. Recovers from Phase 4's NSIS bootstrap
@@ -92,19 +107,55 @@ export function App() {
         const restored = await window.electronAPI.session.get();
         if (cancelled) return;
         if (restored) {
-          setLayout(restored.layout);
+          const restoredTabs: TerminalTab[] = restored.tabs.map((t: PersistedTab) => ({
+            id: t.id,
+            label: t.label,
+            paneId: t.paneId,
+            profile: t.profile,
+            // Persisted tabs are Claude-only and represent already-known PTYs.
+            // `terminal.spawn` is idempotent so reattach is safe; mark them
+            // ready immediately so the TerminalPanel mounts and reconnects.
+            ready: true,
+          }));
+          setTabs(restoredTabs.length > 0 ? restoredTabs : DEFAULT_TABS);
           setActivePanel(restored.activePanel as SidebarPanel);
-          setActivePaneId(firstPaneId(restored.layout));
-          if (restored.theme) {
-            const preset = THEME_PRESETS.find((t) => t.name === restored.theme);
-            if (preset) applyTheme(preset);
-          }
+          setActiveTabId(
+            restored.activeTabId ?? restoredTabs[0]?.id ?? DEFAULT_TABS[0]?.id ?? null
+          );
         }
       } catch {
         // Bad session file — already handled in main; we just fall back.
-      } finally {
-        if (!cancelled) setHydrated(true);
       }
+      try {
+        const list = await window.electronAPI.models.list();
+        if (!cancelled) setCatalog(list);
+      } catch {
+        // Catalog IPC missing — the + picker just shows Claude.
+        if (!cancelled) setCatalog([]);
+      }
+      // Apply persisted theme from localStorage on startup. Supports both
+      // built-in presets and custom themes (loaded via themes:list IPC).
+      // Without this, the app renders with default CSS until the user opens
+      // Settings, which mounts SettingsPanel and applies the theme there.
+      try {
+        const parsed = parseThemeKey(localStorage.getItem('claude-studio-theme'));
+        if (parsed) {
+          if (parsed.custom) {
+            const customs = await window.electronAPI.themes.list();
+            const match = customs.find((t) => t.name === parsed.name);
+            if (match && !cancelled) {
+              const preset: ThemePreset = { ...match, custom: true };
+              applyTheme(preset);
+            }
+          } else {
+            const builtin = findThemePreset(parsed.name);
+            if (builtin && !cancelled) applyTheme(builtin);
+          }
+        }
+      } catch {
+        // Themes IPC missing or store malformed — defaults are fine.
+      }
+      if (!cancelled) setHydrated(true);
     })();
     return () => {
       cancelled = true;
@@ -114,24 +165,38 @@ export function App() {
   // --- session save (debounced) ----------------------------------------------
   useEffect(() => {
     if (!hydrated) return;
-    // Defer save to next animation frame so rapid drags coalesce. The main-side
-    // service does atomic-tmp+rename anyway, but skipping intermediate writes
-    // keeps the disk quiet during long resize gestures.
+    // Debounce so rapid tab open/close gestures coalesce. Main-side writes
+    // are already atomic; the debounce just keeps disk traffic low.
     const handle = window.setTimeout(() => {
+      // Only Claude tabs are persisted — model PTYs can't survive a restart
+      // and we don't want to silently re-trigger downloads / GPU loads.
+      const persistedTabs: PersistedTab[] = tabs
+        .filter((t) => t.profile === 'claude' && !!t.paneId)
+        .map((t) => ({
+          id: t.id,
+          label: t.label,
+          paneId: t.paneId,
+          profile: t.profile,
+        }));
+      const persistedActiveTabId =
+        activeTabId && persistedTabs.some((t) => t.id === activeTabId)
+          ? activeTabId
+          : persistedTabs[0]?.id ?? null;
       const state: SessionState = {
-        version: 1,
+        version: 2,
         activePanel,
         theme: null,
         // theme is applied at the renderer; we don't persist the active preset
         // name yet because applyTheme doesn't return it. Future enhancement.
-        layout,
+        tabs: persistedTabs,
+        activeTabId: persistedActiveTabId,
       };
       void window.electronAPI.session.set(state).catch(() => {
         // Persistence failure is non-fatal — user can re-arrange on next start.
       });
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [hydrated, layout, activePanel]);
+  }, [hydrated, tabs, activeTabId, activePanel]);
 
   // --- CLI onboarding check (Phase 6) ----------------------------------------
   // Runs once post-hydration. If user hasn't completed onboarding AND the CLI
@@ -179,6 +244,7 @@ export function App() {
   // --- terminal helpers (used by palette + commands panel) -------------------
   const sendToActive = useCallback(
     (text: string, submit: boolean) => {
+      if (!activePaneId) return;
       const sender = sendersRef.current[activePaneId];
       if (!sender) return;
       // Strip carriage returns to defuse the "snippet body with \r auto-submits"
@@ -191,79 +257,102 @@ export function App() {
   );
 
   const handleSendCommand = useCallback(
-    (command: string) => {
-      sendToActive(command, true);
+    (command: string, submit: boolean = true) => {
+      // submit=false routes the command into the pane without a CR — used
+      // by per-command "starter" entries (Aider /add, Ollama /set system,
+      // etc.) where the user needs to type an argument before submitting.
+      sendToActive(command, submit);
       setActivePanel('terminal');
+      // When the user just dropped a starter command into the pane,
+      // auto-focus the active terminal so they can finish typing the
+      // argument without an extra click (closes M-1 from
+      // SECURITY_REVIEW_POLISH.md). Dispatched as a window event so
+      // any mounted TerminalPanel / EmbeddedTerminal can opt in via
+      // its `active` prop; non-active panes ignore.
+      if (!submit) {
+        requestAnimationFrame(() => {
+          window.dispatchEvent(new CustomEvent('ccs-focus-active-terminal'));
+        });
+      }
     },
     [sendToActive]
   );
 
   const handleRestartTerminal = useCallback(() => {
+    if (!activePaneId) return;
     void window.electronAPI.terminal.restart(activePaneId);
   }, [activePaneId]);
 
-  // --- split + close + focus actions ----------------------------------------
-  /** Renderer-side mirror of PtyRegistry.MAX_PANES (16). Keep in sync. */
-  const MAX_PANES_RENDERER = 16;
+  // --- tab actions (palette + hotkeys) --------------------------------------
 
-  const handleSplit = useCallback(
-    (direction: 'horizontal' | 'vertical') => {
-      // Refuse before mutating the tree if we'd exceed the backend cap. The
-      // backend would reject the spawn anyway, but failing here keeps the UI
-      // and the PTY registry consistent (no dangling tree leaf with no PTY).
-      if (listPaneIds(layout).length >= MAX_PANES_RENDERER) return;
-      const result = splitPane(layout, activePaneId, direction);
-      if (!result) return;
-      setLayout(result.tree);
-      setActivePaneId(result.newPaneId);
-    },
-    [layout, activePaneId]
-  );
+  const handleNewClaudeTab = useCallback(() => {
+    const id = `tab_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const paneId = `p_${id.slice(4)}`;
+    const next: TerminalTab = {
+      id,
+      label: 'Claude',
+      paneId,
+      profile: 'claude',
+      ready: true,
+    };
+    setTabs((prev) => [...prev, next]);
+    setActiveTabId(id);
+    setActivePanel('terminal');
+  }, []);
 
-  const handleClosePane = useCallback(() => {
-    const ids = listPaneIds(layout);
-    if (ids.length <= 1) {
-      // Closing the only pane is forbidden; require Reset Layout instead.
+  const handleCloseActiveTab = useCallback(() => {
+    if (!activeTabId) return;
+    if (tabs.length <= 1) {
+      // Closing the only tab is forbidden; the empty-state would surprise
+      // users coming from the split-pane era. Use "Reset tabs" instead.
       return;
     }
-    const result = closePane(layout, activePaneId);
-    if (!result) return;
-    // Explicitly kill the PTY for the pane we're closing — TerminalPanel
-    // unmount does NOT auto-kill (so split/reparent doesn't lose state).
-    void window.electronAPI.terminal.kill(activePaneId).catch(() => {});
-    setLayout(result.tree);
-    setActivePaneId(result.nextFocus);
-  }, [layout, activePaneId]);
+    const closing = tabs.find((t) => t.id === activeTabId);
+    if (!closing) return;
+    if (closing.paneId) {
+      void window.electronAPI.terminal.kill(closing.paneId).catch(() => {
+        // PTY may already be dead — proceed with removal.
+      });
+    }
+    const remaining = tabs.filter((t) => t.id !== activeTabId);
+    setTabs(remaining);
+    setActiveTabId(remaining[remaining.length - 1]?.id ?? null);
+  }, [tabs, activeTabId]);
 
-  const handleFocusNext = useCallback(
+  const handleFocusTab = useCallback(
     (delta: 1 | -1) => {
-      const ids = listPaneIds(layout);
-      if (ids.length === 0) return;
-      const idx = ids.indexOf(activePaneId);
+      if (tabs.length === 0) return;
+      const idx = tabs.findIndex((t) => t.id === activeTabId);
       const safeIdx = idx === -1 ? 0 : idx;
-      const next = (safeIdx + delta + ids.length) % ids.length;
-      setActivePaneId(ids[next]);
+      const next = (safeIdx + delta + tabs.length) % tabs.length;
+      setActiveTabId(tabs[next].id);
     },
-    [layout, activePaneId]
+    [tabs, activeTabId]
   );
 
-  const handleResetLayout = useCallback(() => {
+  const handleResetTabs = useCallback(() => {
     void window.electronAPI.session.reset().then((s) => {
-      // Kill panes that are removed by the reset (everything except the
-      // surviving p_root, which the existing TerminalPanel may keep — or
-      // re-mount and reattach via PtyRegistry.spawn's alive-reattach path).
-      const oldIds = new Set(listPaneIds(layout));
-      const newIds = new Set(listPaneIds(s.layout));
-      for (const id of oldIds) {
-        if (!newIds.has(id)) {
-          void window.electronAPI.terminal.kill(id).catch(() => {});
+      // Kill any PTYs whose tabs are about to disappear. Defaults() collapses
+      // to a single Claude tab on `p_root`, so anything not on the surviving
+      // paneId list should be cleaned up.
+      const survivingPanes = new Set(s.tabs.map((t: PersistedTab) => t.paneId));
+      for (const t of tabs) {
+        if (t.paneId && !survivingPanes.has(t.paneId)) {
+          void window.electronAPI.terminal.kill(t.paneId).catch(() => {});
         }
       }
-      setLayout(s.layout);
-      setActivePaneId(firstPaneId(s.layout));
+      const restored: TerminalTab[] = s.tabs.map((t: PersistedTab) => ({
+        id: t.id,
+        label: t.label,
+        paneId: t.paneId,
+        profile: t.profile,
+        ready: true,
+      }));
+      setTabs(restored.length > 0 ? restored : DEFAULT_TABS);
+      setActiveTabId(s.activeTabId ?? restored[0]?.id ?? null);
       setActivePanel(s.activePanel as SidebarPanel);
     });
-  }, [layout]);
+  }, [tabs]);
 
   // Dispatch a renderer-side action by id. Used both by the local hotkey
   // listener and by tray-triggered events from the main process. Updated for
@@ -275,7 +364,7 @@ export function App() {
           setPaletteOpen((v) => !v);
           break;
         case 'terminal.restart':
-          void window.electronAPI.terminal.restart(activePaneId);
+          if (activePaneId) void window.electronAPI.terminal.restart(activePaneId);
           break;
         case 'compact.toggle':
           setActivePanel('compact');
@@ -356,9 +445,48 @@ export function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [bindings, dispatchAction]);
 
-  // Status-bar PID = the active pane's PID (multi-PTY aggregation happens in
+  // PTY interceptor key-prompt subscription. When a spawned CLI prints an
+  // "Enter your API key" prompt that the main-side regex map recognized,
+  // we surface ApiKeyModal app-wide (it can come from any pane, not just
+  // when the user is on ModelsPanel). Dismiss closes without nagging.
+  const [interceptedPrompt, setInterceptedPrompt] =
+    useState<ProviderKeyPromptEvent | null>(null);
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = window.electronAPI.providerAuth.onKeyPrompt((evt) => {
+        // Only show one modal at a time. If another prompt fires while one
+        // is already open, ignore — the user can dismiss the first.
+        setInterceptedPrompt((curr) => curr ?? evt);
+      });
+    } catch {
+      // Provider-auth IPC missing — skip silently.
+    }
+    return () => {
+      try {
+        unsub?.();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  const onInterceptorKeySubmit = useCallback(
+    async (key: string) => {
+      if (!interceptedPrompt || !interceptedPrompt.paneId) return;
+      await window.electronAPI.providerAuth.submitKey(
+        interceptedPrompt.paneId,
+        interceptedPrompt.provider,
+        key
+      );
+      setInterceptedPrompt(null);
+    },
+    [interceptedPrompt]
+  );
+
+  // Status-bar PID = the active tab's PID (multi-PTY aggregation happens in
   // main / ResourceMonitor; here we just show what's relevant to the user).
-  const focusedPid = pidByPane[activePaneId] ?? 0;
+  const focusedPid = activePaneId ? (pidByPane[activePaneId] ?? 0) : 0;
   const showRightPanel = activePanel !== 'terminal';
 
   return (
@@ -385,13 +513,14 @@ export function App() {
           position: 'relative',
         }}>
           <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
-            <SplitLayout
-              root={layout}
-              activePaneId={activePaneId}
-              onLayoutChange={setLayout}
-              onFocusPane={setActivePaneId}
+            <TerminalTabs
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabsChange={setTabs}
+              onActiveChange={setActiveTabId}
               onPidChange={handlePidChange}
               registerSender={registerSender}
+              catalog={catalog}
             />
           </div>
 
@@ -417,6 +546,7 @@ export function App() {
                 <RightPanel
                   panel={activePanel}
                   onSendCommand={handleSendCommand}
+                  commandFamily={activeCommandFamily}
                 />
               </div>
             </div>
@@ -432,11 +562,11 @@ export function App() {
         onSwitchPanel={setActivePanel}
         onSendToTerminal={sendToActive}
         onRestartTerminal={handleRestartTerminal}
-        onSplit={handleSplit}
-        onClosePane={handleClosePane}
-        onFocusNext={() => handleFocusNext(1)}
-        onFocusPrev={() => handleFocusNext(-1)}
-        onResetLayout={handleResetLayout}
+        onNewClaudeTab={handleNewClaudeTab}
+        onCloseTab={handleCloseActiveTab}
+        onFocusNextTab={() => handleFocusTab(1)}
+        onFocusPrevTab={() => handleFocusTab(-1)}
+        onResetTabs={handleResetTabs}
       />
 
       {cliOnboardingOpen && (
@@ -444,36 +574,52 @@ export function App() {
           onClose={() => setCliOnboardingOpen(false)}
           sendToActivePane={(text) => {
             // "Sign in to Claude" types `/login` (Claude's in-session
-            // slash command) into the active pane. The embedded PTY
-            // auto-spawns Claude, so the active pane is always a running
-            // Claude session — `/login` triggers the browser OAuth flow
-            // from inside that session. Typing `claude login` (the bare
-            // shell command) here would be treated as chat text and
-            // Claude would reply "I notice you typed claude login as a
-            // message…" — exactly the bug caught in 3.0.0-beta.1.
+            // slash command) into the active pane. PRE-TerminalTabs,
+            // the active pane was always a Claude PTY; PR #27 (M-3
+            // TerminalTabs fix) handles the multi-tab case explicitly:
+            // if the user has switched focus to an Ollama / Aider /
+            // Gemini tab, find a Claude tab first and switch to it,
+            // then send. If no Claude tab exists at all, fall back to
+            // sending into whatever's active — the worst case is a
+            // visible error in the model tab the user can recover from.
             //
             // submit=true appends CR so Claude executes the slash command
             // immediately. Without CR the text appears typed but inert.
-            setActivePanel('terminal');
-            sendToActive(text, true);
+            const claudeTab = tabs.find((t) => t.profile === 'claude');
+            if (claudeTab && claudeTab.id !== activeTabId) {
+              setActiveTabId(claudeTab.id);
+              setActivePanel('terminal');
+              // Defer the send by one tick so the new active tab's
+              // sender has time to register in App.sendersRef.
+              setTimeout(() => sendToActive(text, true), 100);
+            } else {
+              setActivePanel('terminal');
+              sendToActive(text, true);
+            }
           }}
+        />
+      )}
+
+      {interceptedPrompt && (
+        <ApiKeyModal
+          provider={interceptedPrompt.provider}
+          source="pty-interceptor"
+          onSubmit={onInterceptorKeySubmit}
+          onDismiss={() => setInterceptedPrompt(null)}
         />
       )}
     </div>
   );
 }
 
-function firstPaneId(node: SplitNode): string {
-  if (node.type === 'pane') return node.id;
-  return firstPaneId(node.children[0]);
-}
-
 function RightPanel({
   panel,
   onSendCommand,
+  commandFamily,
 }: {
   panel: SidebarPanel;
-  onSendCommand: (command: string) => void;
+  onSendCommand: (command: string, submit?: boolean) => void;
+  commandFamily: CommandFamily;
 }) {
   switch (panel) {
     case 'resources':
@@ -483,7 +629,7 @@ function RightPanel({
     case 'cost':
       return <CostPanel />;
     case 'commands':
-      return <CommandsPanel onSendCommand={onSendCommand} />;
+      return <CommandsPanel onSendCommand={onSendCommand} family={commandFamily} />;
     case 'settings':
       return <SettingsPanel />;
     case 'github':

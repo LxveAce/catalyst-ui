@@ -1,88 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QuickCommands } from './QuickCommands';
-
-interface CommandEntry {
-  name: string;
-  description: string;
-}
-
-const SLASH_COMMANDS: Record<string, CommandEntry[]> = {
-  'Model & Effort': [
-    { name: '/model [model]', description: 'Set model (opus, sonnet, haiku)' },
-    { name: '/effort [level]', description: 'Set effort: low, medium, high, max' },
-    { name: '/fast [on|off]', description: 'Toggle fast output mode' },
-  ],
-  'Session': [
-    { name: '/clear', description: 'Start new conversation' },
-    { name: '/resume [session]', description: 'Resume session by ID or name' },
-    { name: '/compact [instructions]', description: 'Free up context' },
-    { name: '/context [all]', description: 'Visualize context usage' },
-    { name: '/branch [name]', description: 'Create conversation branch' },
-    { name: '/rename [name]', description: 'Rename current session' },
-    { name: '/export [filename]', description: 'Export conversation as text' },
-    { name: '/copy [N]', description: 'Copy last N responses' },
-    { name: '/rewind', description: 'Rewind to previous point' },
-    { name: '/background [prompt]', description: 'Detach to background' },
-  ],
-  'Workflow': [
-    { name: '/plan [desc]', description: 'Enter plan mode' },
-    { name: '/review [PR]', description: 'Review pull request' },
-    { name: '/diff', description: 'View uncommitted changes' },
-    { name: '/simplify [focus]', description: 'Code quality review' },
-    { name: '/batch <instr>', description: 'Parallel codebase changes' },
-    { name: '/loop [interval]', description: 'Run prompt repeatedly' },
-    { name: '/goal [condition]', description: 'Work until goal met' },
-  ],
-  'Config': [
-    { name: '/init', description: 'Initialize project with CLAUDE.md' },
-    { name: '/memory', description: 'Edit CLAUDE.md memory files' },
-    { name: '/permissions', description: 'Manage tool permissions' },
-    { name: '/config', description: 'Open settings UI' },
-    { name: '/mcp', description: 'Manage MCP servers' },
-    { name: '/theme', description: 'Change color theme' },
-    { name: '/debug [desc]', description: 'Enable debug logging' },
-    { name: '/hooks', description: 'View hook configurations' },
-  ],
-  'Info & Utils': [
-    { name: '/help', description: 'Show help' },
-    { name: '/usage', description: 'Session cost & usage' },
-    { name: '/doctor', description: 'Diagnose installation' },
-    { name: '/feedback', description: 'Submit feedback' },
-    { name: '/btw <q>', description: 'Quick side question' },
-    { name: '/recap', description: 'Session summary' },
-    { name: '/tasks', description: 'List background tasks' },
-  ],
-};
-
-const KEYBOARD_SHORTCUTS: CommandEntry[] = [
-  { name: 'Ctrl+C', description: 'Interrupt or clear input' },
-  { name: 'Escape', description: 'Stop response' },
-  { name: 'Ctrl+D', description: 'Exit Claude Code' },
-  { name: 'Ctrl+R', description: 'Search history' },
-  { name: 'Ctrl+O', description: 'Toggle transcript' },
-  { name: 'Ctrl+L', description: 'Redraw screen' },
-  { name: 'Shift+Tab', description: 'Cycle permission modes' },
-  { name: 'Alt+P', description: 'Switch model' },
-  { name: 'Alt+T', description: 'Toggle thinking' },
-  { name: 'Alt+O', description: 'Toggle fast mode' },
-  { name: 'Ctrl+J', description: 'Newline in input' },
-];
+import { COMMAND_FAMILIES, type CommandFamily } from './command-families';
 
 interface CommandsPanelProps {
-  onSendCommand: (command: string) => void;
+  /** Optional `submit` arg lets per-command settings opt out of the
+   *  default auto-submit-on-click behavior; CommandDef.submit === false
+   *  routes the command into the composer without an Enter at the end. */
+  onSendCommand: (command: string, submit?: boolean) => void;
+  /** Family of the currently active terminal tab. Drives which command
+   *  list, quick actions, and shortcuts to surface. Defaults to 'claude'
+   *  if not provided so the panel renders sensibly in isolation. */
+  family?: CommandFamily;
 }
 
 type TabId = 'quick' | 'all' | 'keys';
 
-export function CommandsPanel({ onSendCommand }: CommandsPanelProps) {
+export function CommandsPanel({ onSendCommand, family = 'claude' }: CommandsPanelProps) {
+  const config = COMMAND_FAMILIES[family] ?? COMMAND_FAMILIES.unknown;
   const [tab, setTab] = useState<TabId>('quick');
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  // Collapse the open section whenever the family changes — the previous
+  // section name almost certainly doesn't exist in the new family.
+  useEffect(() => {
+    setExpandedSection(null);
+  }, [family]);
 
   const tabs: { id: TabId; label: string }[] = [
     { id: 'quick', label: 'Quick Actions' },
     { id: 'all', label: 'All Commands' },
     { id: 'keys', label: 'Shortcuts' },
   ];
+
+  const slashSections = Object.entries(config.slashCommands);
+  const hasSlash = slashSections.length > 0;
 
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
@@ -100,6 +51,23 @@ export function CommandsPanel({ onSendCommand }: CommandsPanelProps) {
           background: 'var(--accent-gradient)',
         }} />
         Commands
+        <span
+          data-family-chip={family}
+          style={{
+            marginLeft: 'auto',
+            fontSize: 10,
+            fontWeight: 500,
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-xl)',
+            background: 'var(--accent-dim)',
+            color: 'var(--accent-light)',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+          }}
+          title={`Mirroring the active tab's profile: ${config.label}`}
+        >
+          {config.label}
+        </span>
       </h3>
 
       {/* Tab Bar */}
@@ -133,11 +101,23 @@ export function CommandsPanel({ onSendCommand }: CommandsPanelProps) {
         ))}
       </div>
 
-      {tab === 'quick' && <QuickCommands onSendCommand={onSendCommand} />}
+      {tab === 'quick' && (
+        <QuickCommands
+          onSendCommand={onSendCommand}
+          commands={config.quickCommands}
+          categories={config.quickCategories}
+          emptyMessage={config.emptyMessage}
+        />
+      )}
 
       {tab === 'all' && (
+        !hasSlash ? (
+          <div style={emptyBlockStyle}>
+            {config.emptyMessage ?? 'No slash commands documented for this profile.'}
+          </div>
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {Object.entries(SLASH_COMMANDS).map(([section, commands]) => {
+          {slashSections.map(([section, commands]) => {
             const isOpen = expandedSection === section;
             return (
               <div
@@ -231,16 +211,22 @@ export function CommandsPanel({ onSendCommand }: CommandsPanelProps) {
             );
           })}
         </div>
+        )
       )}
 
       {tab === 'keys' && (
+        config.shortcuts.length === 0 ? (
+          <div style={emptyBlockStyle}>
+            No shortcuts documented for this profile.
+          </div>
+        ) : (
         <div style={{
           background: 'var(--bg-primary)',
           borderRadius: 'var(--radius-md)',
           border: '1px solid var(--border)',
           overflow: 'hidden',
         }}>
-          {KEYBOARD_SHORTCUTS.map((shortcut, i) => (
+          {config.shortcuts.map((shortcut, i) => (
             <div
               key={shortcut.name}
               style={{
@@ -249,7 +235,7 @@ export function CommandsPanel({ onSendCommand }: CommandsPanelProps) {
                 alignItems: 'center',
                 padding: '8px 12px',
                 borderBottom:
-                  i < KEYBOARD_SHORTCUTS.length - 1
+                  i < config.shortcuts.length - 1
                     ? '1px solid var(--border)'
                     : 'none',
               }}
@@ -272,7 +258,18 @@ export function CommandsPanel({ onSendCommand }: CommandsPanelProps) {
             </div>
           ))}
         </div>
+        )
       )}
     </div>
   );
 }
+
+const emptyBlockStyle: React.CSSProperties = {
+  padding: '20px 12px',
+  background: 'var(--bg-primary)',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--border)',
+  fontSize: 12,
+  color: 'var(--text-muted)',
+  textAlign: 'center',
+};

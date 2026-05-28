@@ -46,8 +46,27 @@
 !define CLAUDE_PKG    "@anthropic-ai/claude-code"
 !define INSTALL_LOG   "$TEMP\ccs-install.log"
 
-; (Removed 2026-05-26 post-beta.1) Ollama bundling defines used to live
-; here. The bundle was too slow + invisible — see step 5 below.
+; Cat 8 — opt-in Ollama install during the NSIS wizard. The bundled flow
+; was rolled back in beta.1 because it was silent and ~2 GB; this version
+; ASKS the user first via a MessageBox at the start of customInstall and
+; shows progress via standard NSIS DetailPrint (no separate "is anything
+; happening?" mystery). MB_YESNO is intentionally simple — a custom
+; nsDialogs page would look nicer but requires hooking into a
+; electron-builder-specific page-insertion macro whose name varies
+; across builder versions. The MessageBox is portable across versions.
+!define OLLAMA_URL    "https://ollama.com/download/OllamaSetup.exe"
+!define OLLAMA_TMP    "$TEMP\OllamaSetup-ccs.exe"
+
+; "1" if the user picked Yes on the Ollama prompt, "0" otherwise.
+; Read by step 5 to decide whether to run the install.
+;
+; NSIS warning 6001 ("Variable not referenced or never set, wasting memory!")
+; is a false positive here because the only references live inside the
+; `customInstall` macro, which the script-scanner can't see at declaration
+; time. electron-builder compiles with /WX (warnings-as-errors), so we
+; disable just this one warning rather than the whole class.
+!pragma warning disable 6001
+Var OllamaWantsInstall
 
 ; ----------------------------------------------------------------------------
 ; Helper: log to both NSIS detail view and $TEMP\ccs-install.log.
@@ -69,6 +88,30 @@
 !macro customInstall
   !insertmacro CCSLog "===== Claude Code Studio bootstrap start ====="
   !insertmacro CCSLog "INSTDIR = $INSTDIR"
+
+  ; --- Step 0 (Cat 8): Opt-in Ollama install prompt ---
+  ; Ask BEFORE the bootstrap so the user understands the choice up front,
+  ; not as a surprise during the install. /SD IDNO defaults to skip on
+  ; silent installs (someone running with /S on CI doesn't expect a 2 GB
+  ; surprise download).
+  StrCpy $OllamaWantsInstall "0"
+  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
+    "Install Ollama for local AI models?$\n$\n\
+Claude Code Studio works fully without it — Claude/Gemini/OpenAI run \
+fine via the cloud. But if you want to run local models (Qwen, DeepSeek, \
+Llama, etc.), Ollama is the runtime that makes that possible.$\n$\n\
+Choose Yes to download + install Ollama now (~2 GB download). The app \
+will work either way; you can always install Ollama later from the in-app \
+Models panel.$\n$\n\
+You can skip this if you only plan to use Claude or other API-based models." \
+    /SD IDNO \
+    IDNO ollama_choice_skip
+  StrCpy $OllamaWantsInstall "1"
+  !insertmacro CCSLog "User opted IN to Ollama install."
+  Goto ollama_choice_done
+  ollama_choice_skip:
+    !insertmacro CCSLog "User skipped Ollama install (Cloud only)."
+  ollama_choice_done:
 
   ; --- Step 1: Download Node.js portable runtime via curl ---
   !insertmacro CCSLog "Downloading Node.js ${NODE_VERSION} (~30 MB)..."
@@ -170,27 +213,65 @@
   npm_ok:
   !insertmacro CCSLog "Claude Code CLI installed"
 
-  ; --- Step 5: Ollama detection only (NOT install) ---
-  ; Decision (2026-05-26, post-beta.1): bundling the Ollama installer in
-  ; the NSIS bootstrap was too much friction. Ollama's installer turned
-  ; out to be ~2 GB (not the ~700 MB initially estimated), the NSIS UI has
-  ; no progress bar for a single curl call, and a first-time user has no
-  ; way to know if the installer is silently downloading or genuinely
-  ; stuck. See `_backups/2026-05-26-pre-fullscope/build/installer.nsh` for
-  ; the bundled flow if it ever needs to be re-enabled.
+  ; --- Step 5: Ollama detection + optional install (Cat 8) ---
   ;
-  ; Replacement: the in-app FirstRunPicker + ModelsPanel detect Ollama at
-  ; runtime via the same path probes below and surface a one-click "Install
-  ; Ollama" link to ollama.com/download. Users who don't want local models
-  ; never have to pay the download.
-  !insertmacro CCSLog "Probing for Ollama (informational only)..."
+  ; History: beta.1 bundled the Ollama install unconditionally (~2 GB
+  ; surprise download, silent, no progress). Rolled back post-beta.1
+  ; to detection-only. Cat 8 restores the install path but ONLY when
+  ; the user explicitly opted in via the Step 0 MessageBox. So:
+  ;   - $OllamaWantsInstall = "1" AND Ollama not detected → download + install.
+  ;   - $OllamaWantsInstall = "0" → detection only (legacy behavior).
+  ;   - $OllamaWantsInstall = "1" AND Ollama already present → log + skip.
+  ;
+  ; In-app ModelsPanel still surfaces the "Install Ollama" link as a
+  ; fallback when local models are pulled later without Ollama present.
+  !insertmacro CCSLog "Probing for Ollama..."
   IfFileExists "$LOCALAPPDATA\Programs\Ollama\ollama.exe" ollama_present 0
   IfFileExists "$PROGRAMFILES\Ollama\ollama.exe" ollama_present 0
   IfFileExists "$PROGRAMFILES64\Ollama\ollama.exe" ollama_present 0
-  !insertmacro CCSLog "Ollama not present — in-app catalog will offer install link"
-  Goto bootstrap_done
+
+  ; Not present — branch on the opt-in flag.
+  StrCmp $OllamaWantsInstall "1" ollama_do_install ollama_skip_install
+
   ollama_present:
-    !insertmacro CCSLog "Ollama detected — local-model catalog will be ready immediately"
+    !insertmacro CCSLog "Ollama detected — local-model catalog ready immediately"
+    Goto bootstrap_done
+
+  ollama_skip_install:
+    !insertmacro CCSLog "Ollama not present — user opted out at install time"
+    Goto bootstrap_done
+
+  ollama_do_install:
+    ; Download OllamaSetup.exe via curl. Same pattern as Step 1's Node fetch.
+    !insertmacro CCSLog "Downloading Ollama (~2 GB) — user opted in..."
+    nsExec::ExecToStack 'curl.exe -L -f --show-error -o "${OLLAMA_TMP}" --connect-timeout 30 --max-time 1800 "${OLLAMA_URL}"'
+    Pop $0
+    Pop $1
+    IntCmp $0 0 ollama_dl_ok
+      !insertmacro CCSLog "Ollama download FAILED (curl exit $0): $1"
+      ; SOFT failure — Studio installs anyway, in-app ModelsPanel surfaces
+      ; the install link as a fallback.
+      MessageBox MB_ICONEXCLAMATION|MB_OK \
+        "The Ollama installer download failed.$\n$\ncurl exit code: $0$\nError: $1$\n$\nClaude Code Studio will install without it. You can install Ollama later from inside the app's Models panel.$\n$\nFull log: ${INSTALL_LOG}"
+      Goto bootstrap_done
+    ollama_dl_ok:
+
+    !insertmacro CCSLog "Running OllamaSetup.exe..."
+    ; /SILENT runs the Ollama installer without user UI; /NORESTART
+    ; prevents an unexpected reboot mid-flow. Ollama's installer accepts
+    ; both flags (Inno Setup conventions).
+    nsExec::ExecToStack '"${OLLAMA_TMP}" /SILENT /NORESTART'
+    Pop $0
+    Pop $1
+    Delete "${OLLAMA_TMP}"
+    IntCmp $0 0 ollama_install_ok
+      !insertmacro CCSLog "Ollama installer exited with $0: $1"
+      ; SOFT failure again — don't abort our install on a third-party tool's hiccup.
+      MessageBox MB_ICONEXCLAMATION|MB_OK \
+        "The Ollama installer didn't complete cleanly (exit $0).$\n$\nClaude Code Studio will install regardless. You can rerun the Ollama installer from inside the app's Models panel.$\n$\nFull log: ${INSTALL_LOG}"
+      Goto bootstrap_done
+    ollama_install_ok:
+    !insertmacro CCSLog "Ollama installed successfully."
 
   bootstrap_done:
   !insertmacro CCSLog "===== Claude Code Studio bootstrap complete ====="

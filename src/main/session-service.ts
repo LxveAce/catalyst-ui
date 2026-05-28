@@ -2,19 +2,20 @@ import { app } from 'electron';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { SessionState, SplitNode } from '../shared/types';
+import type { PersistedTab, SessionState } from '../shared/types';
 
 const STORE_FILE = 'session.json';
-const STORE_VERSION = 1;
+const STORE_VERSION = 2;
+
 /**
- * Hard caps to keep the layout tree from growing into a denial-of-service
- * (huge JSON written to disk, huge tree rendered, etc.). Trees that exceed
- * any cap are treated as malformed and replaced with the default layout.
+ * Hard caps to keep the persisted state from growing into a denial-of-service
+ * (huge JSON written to disk, huge tab strip rendered, etc.). Trees/arrays
+ * that exceed any cap are treated as malformed and replaced with defaults.
  */
-const MAX_TREE_DEPTH = 6;
-const MAX_TREE_NODES = 32;
-const MAX_PANE_ID_LEN = 64;
-const MAX_CWD_LEN = 4096;
+const MAX_TABS = 32;
+const MAX_LABEL_LEN = 200;
+const MAX_ID_LEN = 64;
+const ID_PATTERN = /^[A-Za-z0-9_\-:]+$/;
 const VALID_PANEL_IDS = new Set([
   'terminal',
   'commands',
@@ -60,7 +61,7 @@ export class SessionService {
     return this.get();
   }
 
-  /** Reset to factory defaults; used by the palette "Reset layout" action. */
+  /** Reset to factory defaults; used by the palette "Reset tabs" action. */
   reset(): SessionState {
     this.state = this.defaults();
     this.write();
@@ -70,15 +71,20 @@ export class SessionService {
   // --- internals ---
 
   private defaults(): SessionState {
+    // Single Claude tab with the historical `p_root` paneId so that any
+    // alive PTY from a hot-reload reattaches instead of orphaning.
+    const rootTab: PersistedTab = {
+      id: 'tab_root',
+      label: 'Claude',
+      paneId: 'p_root',
+      profile: 'claude',
+    };
     return {
       version: STORE_VERSION,
       activePanel: 'terminal',
       theme: null,
-      layout: {
-        type: 'pane',
-        id: 'p_root',
-        cwd: null,
-      },
+      tabs: [rootTab],
+      activeTabId: rootTab.id,
     };
   }
 
@@ -93,73 +99,60 @@ export class SessionService {
       ? obj.theme
       : null;
 
-    let layout: SplitNode;
-    let counter = { n: 0 };
-    try {
-      layout = this.sanitizeNode(obj.layout, 0, counter, new Set());
-    } catch {
-      layout = this.defaults().layout;
+    const tabs = this.sanitizeTabs(obj.tabs);
+    // activeTabId must reference an existing tab; otherwise focus the first
+    // tab (or null when there are none).
+    let activeTabId: string | null = null;
+    if (typeof obj.activeTabId === 'string' && tabs.some((t) => t.id === obj.activeTabId)) {
+      activeTabId = obj.activeTabId;
+    } else if (tabs.length > 0) {
+      activeTabId = tabs[0].id;
     }
+
     return {
       version: STORE_VERSION,
       activePanel,
       theme,
-      layout,
+      tabs,
+      activeTabId,
     };
   }
 
-  private sanitizeNode(
-    raw: unknown,
-    depth: number,
-    counter: { n: number },
-    seenIds: Set<string>
-  ): SplitNode {
-    if (depth > MAX_TREE_DEPTH) throw new Error('layout too deep');
-    if (++counter.n > MAX_TREE_NODES) throw new Error('layout too large');
-    if (!raw || typeof raw !== 'object') throw new Error('node not object');
-    const node = raw as Record<string, unknown>;
+  private sanitizeTabs(raw: unknown): PersistedTab[] {
+    if (!Array.isArray(raw)) return this.defaults().tabs;
+    const out: PersistedTab[] = [];
+    const seenIds = new Set<string>();
+    const seenPanes = new Set<string>();
+    for (const item of raw) {
+      if (out.length >= MAX_TABS) break;
+      if (!item || typeof item !== 'object') continue;
+      const t = item as Record<string, unknown>;
 
-    if (node.type === 'pane') {
-      const id = typeof node.id === 'string' ? node.id : null;
-      if (!id || id.length === 0 || id.length > MAX_PANE_ID_LEN) {
-        throw new Error('bad pane id');
-      }
-      if (!/^[A-Za-z0-9_\-:]+$/.test(id)) throw new Error('bad pane id chars');
-      if (seenIds.has(id)) throw new Error('duplicate pane id');
+      const id = typeof t.id === 'string' ? t.id : null;
+      const paneId = typeof t.paneId === 'string' ? t.paneId : null;
+      const profile = typeof t.profile === 'string' ? t.profile : null;
+      const rawLabel = typeof t.label === 'string' ? t.label : null;
+
+      if (!id || !paneId || !profile) continue;
+      if (id.length === 0 || id.length > MAX_ID_LEN) continue;
+      if (paneId.length === 0 || paneId.length > MAX_ID_LEN) continue;
+      if (!ID_PATTERN.test(id) || !ID_PATTERN.test(paneId)) continue;
+      // Only Claude tabs are persisted. Model PTYs die on app quit; reviving
+      // them silently on the next launch would surprise users with downloads
+      // or GPU spin-up they didn't ask for. The Models panel handles relaunch.
+      if (profile !== 'claude') continue;
+      if (seenIds.has(id)) continue;
+      if (seenPanes.has(paneId)) continue;
       seenIds.add(id);
-      const cwd =
-        typeof node.cwd === 'string' &&
-        node.cwd.length > 0 &&
-        node.cwd.length <= MAX_CWD_LEN
-          ? node.cwd
-          : null;
-      return { type: 'pane', id, cwd };
-    }
+      seenPanes.add(paneId);
 
-    if (node.type === 'split') {
-      const direction = node.direction === 'vertical' ? 'vertical' : 'horizontal';
-      const children = Array.isArray(node.children) ? node.children : null;
-      if (!children || children.length !== 2) throw new Error('split needs 2 children');
-      const sizes = Array.isArray(node.sizes) ? node.sizes : null;
-      const safeSizes =
-        sizes && sizes.length === 2 && sizes.every((s) => typeof s === 'number' && Number.isFinite(s) && s > 0 && s < 100)
-          ? [sizes[0] as number, sizes[1] as number]
-          : [50, 50];
-      const sum = safeSizes[0] + safeSizes[1];
-      const normalized: [number, number] = sum > 0
-        ? [(safeSizes[0] / sum) * 100, (safeSizes[1] / sum) * 100]
-        : [50, 50];
-      const childA = this.sanitizeNode(children[0], depth + 1, counter, seenIds);
-      const childB = this.sanitizeNode(children[1], depth + 1, counter, seenIds);
-      return {
-        type: 'split',
-        direction,
-        sizes: normalized,
-        children: [childA, childB],
-      };
+      const label = rawLabel && rawLabel.length <= MAX_LABEL_LEN ? rawLabel : 'Claude';
+      out.push({ id, label, paneId, profile });
     }
-
-    throw new Error('unknown node type');
+    // Empty input → defaults (one Claude tab). Prevents a renderer race where
+    // a transient empty save would lock the user out until manual reset.
+    if (out.length === 0) return this.defaults().tabs;
+    return out;
   }
 
   private read(): SessionState {
@@ -190,10 +183,6 @@ export class SessionService {
       return this.defaults();
     }
     if (rawVersion < STORE_VERSION) {
-      // Migrate forward step-by-step. Each migrator reads the prior-version
-      // shape and returns the next-version shape. Today there's only v1, so
-      // the migration table is empty; the structure is here so future schema
-      // bumps don't have to re-architect this method.
       const migrated = this.migrate(p, rawVersion);
       if (!migrated) return this.defaults();
       return this.sanitize(migrated.state);
@@ -203,24 +192,43 @@ export class SessionService {
 
   /**
    * Step-by-step forward migration from `from` to STORE_VERSION.
-   * Add a case for each version bump. Return null to refuse the migration
-   * (caller falls back to defaults).
-   *
-   * Example skeleton for the next bump:
-   *   if (from === 1) {
-   *     // shape from v1 → v2 (e.g. add a `palette` field)
-   *     current = { ...current, state: { ...current.state, palette: {...} } };
-   *     from = 2;
-   *   }
+   * Returns null to refuse the migration (caller falls back to defaults).
    */
   private migrate(p: Partial<PersistedSession>, from: number): PersistedSession | null {
-    let current: Partial<PersistedSession> = p;
     let v = from;
-    // No bumps shipped yet — v1 is the only version.
+    let current: unknown = p.state;
+
+    // v1 → v2: collapse the old SplitNode `layout` tree into a single Claude
+    // tab carrying the first pane's id. Preserving the original paneId means
+    // an alive PTY (e.g. across hot-reload in dev) reattaches instead of
+    // being orphaned. All other panes are dropped — splits are gone in v2.
+    if (v === 1) {
+      if (!current || typeof current !== 'object') return null;
+      const v1 = current as Record<string, unknown>;
+      const firstPaneId = extractFirstPaneId(v1.layout);
+      const rootTab: PersistedTab = {
+        id: 'tab_root',
+        label: 'Claude',
+        paneId: firstPaneId ?? 'p_root',
+        profile: 'claude',
+      };
+      const v2: SessionState = {
+        version: 2,
+        activePanel: typeof v1.activePanel === 'string'
+          ? (v1.activePanel as SessionState['activePanel'])
+          : 'terminal',
+        theme: typeof v1.theme === 'string' ? v1.theme : null,
+        tabs: [rootTab],
+        activeTabId: rootTab.id,
+      };
+      current = v2;
+      v = 2;
+    }
+
     if (v !== STORE_VERSION) return null;
     return {
       version: STORE_VERSION,
-      state: (current.state ?? this.defaults()) as SessionState,
+      state: (current ?? this.defaults()) as SessionState,
     };
   }
 
@@ -245,4 +253,21 @@ export class SessionService {
       throw e;
     }
   }
+}
+
+/**
+ * Walk a v1 SplitNode and return the id of the first pane found (depth-first,
+ * left-biased). Returns null if the input isn't a recognizable v1 layout —
+ * caller falls back to `p_root`.
+ */
+function extractFirstPaneId(node: unknown): string | null {
+  if (!node || typeof node !== 'object') return null;
+  const n = node as Record<string, unknown>;
+  if (n.type === 'pane' && typeof n.id === 'string' && ID_PATTERN.test(n.id)) {
+    return n.id;
+  }
+  if (n.type === 'split' && Array.isArray(n.children) && n.children.length > 0) {
+    return extractFirstPaneId(n.children[0]);
+  }
+  return null;
 }

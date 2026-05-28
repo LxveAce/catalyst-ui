@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { ChatSkinOverlay } from '../chat-skin/ChatSkinOverlay';
+import { isSkinEnabled, setSkinEnabled } from '../chat-skin/skin-prefs';
 
 interface TerminalPanelProps {
   /** Stable identifier for this pane — keys the backend PTY. */
@@ -31,6 +33,18 @@ export function TerminalPanel({
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const [exited, setExited] = useState(false);
+
+  // Per-pane chat-skin toggle. Persisted via skin-prefs (localStorage).
+  // Initial value reads synchronously so a remount doesn't flash the xterm
+  // when the user had it skinned.
+  const [skinOn, setSkinOn] = useState<boolean>(() => isSkinEnabled(paneId));
+  const toggleSkin = useCallback(() => {
+    setSkinOn((prev) => {
+      const next = !prev;
+      setSkinEnabled(paneId, next);
+      return next;
+    });
+  }, [paneId]);
 
   // Fit the terminal to its container, but ONLY when the proposed cell grid
   // actually differs from the live one. Calling fit()+resize() unconditionally
@@ -204,6 +218,24 @@ export function TerminalPanel({
     return () => clearTimeout(t);
   }, [active, paneId, fitIfChanged]);
 
+  // App dispatches `ccs-focus-active-terminal` after a `submit:false`
+  // command (Aider /add, Ollama /set system, etc.) so the user can
+  // finish typing the argument without an extra click. Only the
+  // currently-active pane should claim focus. Closes M-1 from
+  // SECURITY_REVIEW_POLISH.md.
+  useEffect(() => {
+    if (!active) return;
+    const onFocusReq = () => {
+      try {
+        termRef.current?.focus();
+      } catch {
+        // term may not be mounted yet — first frame is the worst case.
+      }
+    };
+    window.addEventListener('ccs-focus-active-terminal', onFocusReq);
+    return () => window.removeEventListener('ccs-focus-active-terminal', onFocusReq);
+  }, [active]);
+
   // Press-any-key restart after an exit message.
   useEffect(() => {
     if (!exited || !termRef.current) return;
@@ -250,7 +282,52 @@ export function TerminalPanel({
           padding: '6px 2px 2px 6px',
           backgroundColor: 'var(--bg-primary)',
           overflow: 'hidden',
+          // When the chat skin is active, hide the xterm but keep it
+          // mounted so its scrollback + PTY subscriptions survive the
+          // toggle. The skin overlay sits on top via absolute positioning.
+          visibility: skinOn ? 'hidden' : 'visible',
         }}
+      />
+
+      {/* Floating "switch to chat" button — visible only when the skin
+          is OFF. When the skin is on, its own header has a "Terminal view"
+          button (handled inside ChatSkinOverlay). */}
+      {!skinOn && (
+        <button
+          onClick={toggleSkin}
+          title="Switch to chat skin"
+          aria-label="Switch to chat skin"
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 4,
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            background: 'rgba(15,15,26,0.7)',
+            color: 'var(--text-secondary)',
+            backdropFilter: 'blur(4px)',
+            cursor: 'pointer',
+            fontSize: 11,
+            opacity: 0.6,
+            transition: 'opacity var(--transition-fast)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.6';
+          }}
+        >
+          ✦ Chat
+        </button>
+      )}
+
+      <ChatSkinOverlay
+        paneId={paneId}
+        visible={skinOn}
+        onToggleOff={toggleSkin}
       />
     </div>
   );
