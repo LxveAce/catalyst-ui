@@ -181,7 +181,7 @@ export function StatusBar({ pid }: StatusBarProps) {
           </span>
         )}
       </div>
-      <span>Claude Code Studio{appVersion ? ` v${appVersion}` : ''}</span>
+      <span>Catalyst UI{appVersion ? ` v${appVersion}` : ''}</span>
     </div>
   );
 }
