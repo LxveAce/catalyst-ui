@@ -135,13 +135,17 @@ export class HuggingFaceService {
       // @huggingface/hub's listModels takes `search` as a structured
       // object ({ query, task, owner, tags, ... }).  We pass query
       // (free-form text) and let the SDK forward it to the API.
+      //
+      // v4.0.1 hotfix: do NOT pass additionalFields.  The SDK already
+      // includes the fields we read (pipeline_tag, gated, lastModified,
+      // downloads, likes) in its default expand list.  Passing
+      // additionalFields with values that overlap the defaults made the
+      // API reject the request with "expand[N] contains a duplicate
+      // value".  `tags` isn't in the default list, but the renderer
+      // tolerates an empty tags array, so we accept the cost for now.
       for await (const raw of mod.listModels({
         search: searchString ? { query: searchString } : undefined,
         limit: maxScan,
-        // additionalFields pulls in `tags`, `pipeline_tag`, etc.
-        // which aren't on the strict ModelEntry but ARE in the API
-        // response.  Cast lets us read them downstream.
-        additionalFields: ['tags', 'pipeline_tag'],
       } as Parameters<typeof mod.listModels>[0])) {
         const model = raw as ModelEntryLoose;
         scanned++;
@@ -181,9 +185,13 @@ export class HuggingFaceService {
     if (!isRepoId(repoId)) throw new Error('invalid repoId');
     const mod = await this.loadHubModule();
     try {
+      // v4.0.1 hotfix: same `expand[N] duplicate` cause as listModels.
+      // The SDK's modelInfo() already requests license and pipeline_tag;
+      // we drop those from additionalFields to avoid the collision.
+      // `tags` and `description` aren't in the defaults — those are safe.
       const infoRaw = await mod.modelInfo({
         name: repoId,
-        additionalFields: ['tags', 'pipeline_tag', 'license', 'description'],
+        additionalFields: ['tags', 'description'],
       } as Parameters<typeof mod.modelInfo>[0]);
       const info = infoRaw as ModelInfoLoose;
       const files: { path: string; size: number | null }[] = [];

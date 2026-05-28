@@ -195,13 +195,16 @@ html, body, #root {
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Side-panel enter: open the layout width FIRST (terminal smoothly resizes
-   into the new space), THEN fade the panel content in. The opacity is held at
-   0 until ~55% so the fade only begins once the width is essentially done. */
+/* Side-panel enter: v4.0.1 hotfix.  The previous keyframes animated
+   width 0 -> 320px and ended at width: 320px with fill-mode `both`,
+   which froze the outer wrapper at 320 px FOREVER regardless of the
+   inline `style={{ width: panelWidth }}` the renderer set on the inner
+   panel.  Result: the resize handle barely moved anything because the
+   outer overflow:hidden was pinned at 320.  Now we only fade in opacity;
+   the outer wrapper's width is controlled entirely by inline style. */
 @keyframes panelEnter {
-  0%   { width: 0;     opacity: 0; }
-  55%  { width: 320px; opacity: 0; }
-  100% { width: 320px; opacity: 1; }
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 @keyframes pulse {
