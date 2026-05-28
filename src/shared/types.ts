@@ -825,12 +825,31 @@ export interface HFSettings {
   cachePath: string | null;
 }
 
+export type HFSearchSort = 'downloads' | 'likes' | 'modified' | 'created' | 'trending';
+
 export interface HFSearchOptions {
   query?: string;
   task?: string;
   library?: string;
   limit?: number;
   ggufOnly?: boolean;
+  /** Sort key. SDK default is by downloads (descending). */
+  sort?: HFSearchSort;
+}
+
+/** Structured GGUF metadata returned by the Hub when the repo is GGUF.
+ *  Measured via the `gguf` expand value.  Renderer shows architecture,
+ *  context length, and totalFileSize on cards. */
+export interface HFGgufMetadata {
+  architecture: string | null;
+  contextLength: number | null;
+  totalParams: number | null;
+  totalFileSize: number | null;
+  /** Jinja chat template baked into the GGUF.  Useful for the
+   *  "Prompt format" viewer in the expanded card. */
+  chatTemplate: string | null;
+  bosToken: string | null;
+  eosToken: string | null;
 }
 
 export interface HFSearchHit {
@@ -840,8 +859,12 @@ export interface HFSearchHit {
   likes: number;
   tags: string[];
   pipelineTag: string | null;
+  libraryName: string | null;
   gated: boolean;
   updatedAt: string | null;
+  /** Non-null when the Hub's `gguf` expand returned structured data —
+   *  the definitive GGUF signal (no more tag-string guessing). */
+  ggufMeta: HFGgufMetadata | null;
 }
 
 export interface HFGgufVariant {
@@ -859,11 +882,43 @@ export interface HFModelCard {
   likes: number;
   tags: string[];
   pipelineTag: string | null;
+  libraryName: string | null;
   license: string | null;
+  licenseLink: string | null;
   gated: boolean;
   files: { path: string; size: number | null }[];
   gguf: HFGgufVariant[];
+  ggufMeta: HFGgufMetadata | null;
+  /** Direct link to the repo page (for the "Web ↗" button). */
+  webUrl: string;
   updatedAt: string | null;
+  createdAt: string | null;
+}
+
+/** Download progress event broadcast from main to renderer over IPC. */
+export interface HFDownloadProgress {
+  repoId: string;
+  fileName: string;
+  bytesCompleted: number;
+  bytesTotal: number | null;
+  percent: number | null;
+  /** Rolling-window throughput in bytes/sec (null until enough samples). */
+  bytesPerSec: number | null;
+  /** Estimated seconds remaining based on bytesPerSec.  Null until enough samples. */
+  etaSeconds: number | null;
+  /** True when the download finished successfully. */
+  done: boolean;
+  /** Non-null when the download failed; bytesCompleted/percent reflect
+   *  the state at failure.  Includes `'cancelled'` when the user
+   *  aborted via hf.cancelDownload. */
+  error: string | null;
+}
+
+export interface HFDownloadResult {
+  ok: boolean;
+  destPath: string | null;
+  bytesWritten: number;
+  error: string | null;
 }
 
 export interface HFCachedEntry {
