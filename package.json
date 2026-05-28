@@ -1,7 +1,7 @@
 {
   "name": "claude-code-studio",
   "productName": "Claude Code Studio",
-  "version": "3.0.0",
+  "version": "3.2.0",
   "description": "Full desktop GUI for Claude Code with resource monitoring, GitHub integration, compact optimization, and cloud sync",
   "main": ".vite/build/index.js",
   "private": true,
@@ -45,7 +45,10 @@
     "node-pty": "^1.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-markdown": "^9.1.0",
     "react-resizable-panels": "^3.0.6",
+    "react-syntax-highlighter": "^15.6.6",
+    "remark-gfm": "^4.0.1",
     "systeminformation": "^5.31.6"
   },
   "devDependencies": {
@@ -62,6 +65,7 @@
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^6.0.2",
     "electron": "42.2.0",
     "electron-builder": "^26.8.1",

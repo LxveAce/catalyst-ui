@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -60,7 +61,23 @@ export class CompactController {
     const current = this.getConfig();
     const merged = { ...current, ...config };
     fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2));
+    // Atomic write via tmp + rename. The original direct writeFileSync
+    // could truncate this shared-with-claude-compact-controller config
+    // if Node crashed mid-serialization. The same atomic pattern already
+    // protects writeSettings() (line 202) where the blast radius is the
+    // user's whole ~/.claude/settings.json.
+    const tmp = `${CONFIG_FILE}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(merged, null, 2), { mode: 0o600 });
+      fs.renameSync(tmp, CONFIG_FILE);
+    } catch (e) {
+      try {
+        fs.unlinkSync(tmp);
+      } catch {
+        // ignore
+      }
+      throw e;
+    }
     return merged;
   }
 

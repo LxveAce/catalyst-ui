@@ -1,48 +1,58 @@
-import React, { useState } from 'react';
-
-interface CommandDef {
-  label: string;
-  command: string;
-  description: string;
-  category: string;
-}
-
-const QUICK_COMMANDS: CommandDef[] = [
-  { label: 'Opus', command: '/model opus', description: 'Most capable model', category: 'Model' },
-  { label: 'Sonnet', command: '/model sonnet', description: 'Fast & capable', category: 'Model' },
-  { label: 'Haiku', command: '/model haiku', description: 'Fastest model', category: 'Model' },
-  { label: 'Fast Mode', command: '/fast', description: 'Toggle fast output', category: 'Model' },
-  { label: 'Max', command: '/effort max', description: 'Maximum reasoning', category: 'Effort' },
-  { label: 'High', command: '/effort high', description: 'High reasoning', category: 'Effort' },
-  { label: 'Medium', command: '/effort medium', description: 'Balanced', category: 'Effort' },
-  { label: 'Low', command: '/effort low', description: 'Quick responses', category: 'Effort' },
-  { label: 'Compact', command: '/compact', description: 'Summarize & free context', category: 'Session' },
-  { label: 'Clear', command: '/clear', description: 'New conversation', category: 'Session' },
-  { label: 'Resume', command: '/resume', description: 'Resume previous', category: 'Session' },
-  { label: 'Context', command: '/context', description: 'View usage grid', category: 'Session' },
-  { label: 'Plan', command: '/plan', description: 'Enter plan mode', category: 'Workflow' },
-  { label: 'Review', command: '/review', description: 'Review PR', category: 'Workflow' },
-  { label: 'Diff', command: '/diff', description: 'View changes', category: 'Workflow' },
-  { label: 'Simplify', command: '/simplify', description: 'Code quality check', category: 'Workflow' },
-  { label: 'Usage', command: '/usage', description: 'Session cost & stats', category: 'Info' },
-  { label: 'Help', command: '/help', description: 'Show help', category: 'Info' },
-  { label: 'Doctor', command: '/doctor', description: 'Diagnose install', category: 'Info' },
-  { label: 'Permissions', command: '/permissions', description: 'Manage tools', category: 'Config' },
-  { label: 'Memory', command: '/memory', description: 'Edit memory files', category: 'Config' },
-  { label: 'Init', command: '/init', description: 'Initialize project', category: 'Config' },
-];
-
-const CATEGORIES = ['Model', 'Effort', 'Session', 'Workflow', 'Info', 'Config'];
+import React, { useEffect, useState } from 'react';
+import type { CommandDef } from './command-families';
 
 interface QuickCommandsProps {
-  onSendCommand: (command: string) => void;
+  /** Now accepts an optional submit flag. CommandsPanel forwards each
+   *  CommandDef's `submit` field (default true) so starter commands
+   *  land in the composer without auto-submitting an empty argument. */
+  onSendCommand: (command: string, submit?: boolean) => void;
+  /** Commands to render, grouped by `category`. */
+  commands: CommandDef[];
+  /** Pill order. Categories not present in `commands` collapse to empty. */
+  categories: string[];
+  /** Optional message rendered when `commands` is empty. */
+  emptyMessage?: string;
 }
 
-export function QuickCommands({ onSendCommand }: QuickCommandsProps) {
-  const [activeCategory, setActiveCategory] = useState('Model');
+export function QuickCommands({
+  onSendCommand,
+  commands,
+  categories,
+  emptyMessage,
+}: QuickCommandsProps) {
+  // Track the active category as renderer state, but reset it whenever the
+  // family changes (categories array identity flips) so we don't end up
+  // pointing at a category the new family doesn't have.
+  const [activeCategory, setActiveCategory] = useState<string>(
+    categories[0] ?? ''
+  );
   const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
 
-  const filtered = QUICK_COMMANDS.filter((c) => c.category === activeCategory);
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory(categories[0] ?? '');
+    }
+  }, [categories, activeCategory]);
+
+  if (commands.length === 0) {
+    return (
+      <div
+        style={{
+          padding: '20px 12px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          fontSize: 12,
+          color: 'var(--text-muted)',
+          textAlign: 'center',
+        }}
+      >
+        {emptyMessage ?? 'No quick commands for this profile.'}
+      </div>
+    );
+  }
+
+  const filtered = commands.filter((c) => c.category === activeCategory);
 
   return (
     <div>
@@ -53,7 +63,7 @@ export function QuickCommands({ onSendCommand }: QuickCommandsProps) {
         gap: 4,
         marginBottom: 12,
       }}>
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
@@ -81,7 +91,7 @@ export function QuickCommands({ onSendCommand }: QuickCommandsProps) {
           return (
             <button
               key={cmd.command}
-              onClick={() => onSendCommand(cmd.command)}
+              onClick={() => onSendCommand(cmd.command, cmd.submit !== false)}
               onMouseEnter={() => setHoveredCmd(cmd.command)}
               onMouseLeave={() => setHoveredCmd(null)}
               style={{

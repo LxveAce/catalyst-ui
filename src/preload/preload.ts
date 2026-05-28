@@ -145,6 +145,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setSettings: (partial: unknown) => ipcRenderer.invoke(IPC.NOTIF_SET_SETTINGS, partial),
     test: () => ipcRenderer.invoke(IPC.NOTIF_TEST),
   },
+  themes: {
+    list: () => ipcRenderer.invoke(IPC.THEMES_LIST),
+    save: (theme: unknown) => ipcRenderer.invoke(IPC.THEMES_SAVE, theme),
+    delete: (name: string) => ipcRenderer.invoke(IPC.THEMES_DELETE, name),
+  },
+  providerAuth: {
+    hasKey: (provider: string) =>
+      ipcRenderer.invoke(IPC.PROVIDER_AUTH_HAS_KEY, provider),
+    setKey: (provider: string, key: string) =>
+      ipcRenderer.invoke(IPC.PROVIDER_AUTH_SET_KEY, provider, key),
+    list: () => ipcRenderer.invoke(IPC.PROVIDER_AUTH_LIST),
+    delete: (provider: string) =>
+      ipcRenderer.invoke(IPC.PROVIDER_AUTH_DELETE, provider),
+    onKeyPrompt: (callback: (evt: unknown) => void) =>
+      subscribe<[unknown]>(IPC.PROVIDER_KEY_PROMPT, callback),
+    submitKey: (paneId: string, provider: string, key: string) =>
+      ipcRenderer.invoke(IPC.PROVIDER_KEY_SUBMIT, paneId, provider, key),
+    /** Detect installed status of known provider CLIs (gemini, aider, …). */
+    detectList: (force?: boolean) =>
+      ipcRenderer.invoke(IPC.PROVIDER_DETECT_LIST, Boolean(force)),
+    detectGet: (cli: string, force?: boolean) =>
+      ipcRenderer.invoke(IPC.PROVIDER_DETECT_GET, cli, Boolean(force)),
+  },
   updater: {
     getState: () => ipcRenderer.invoke(IPC.UPDATER_GET_STATE),
     getSettings: () => ipcRenderer.invoke(IPC.UPDATER_GET_SETTINGS),
@@ -183,6 +206,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cli: {
     /** Run `claude doctor` + return parsed CliStatus. */
     status: () => ipcRenderer.invoke(IPC.CLI_STATUS),
+    /** Returns cached `claude --help` capability flags. Used by the
+     *  picker to badge the Claude (Chat) entry. Probed once per app
+     *  launch — fast on subsequent calls. */
+    capabilities: () => ipcRenderer.invoke(IPC.CLI_CAPABILITIES),
     /** Re-run the Phase 4 npm install using the bundled runtime. */
     install: () => ipcRenderer.invoke(IPC.CLI_INSTALL),
     /** Subscribe to live npm install output (one event per line). */
@@ -224,6 +251,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (name: string) => ipcRenderer.invoke(IPC.OLLAMA_DELETE, name),
     onPullProgress: (callback: (evt: unknown) => void) =>
       subscribe<[unknown]>(IPC.OLLAMA_PULL_PROGRESS, callback),
+    /** Cat 7: daemon lifecycle for autostart. */
+    daemonState: () => ipcRenderer.invoke(IPC.OLLAMA_DAEMON_STATE),
+    daemonStart: () => ipcRenderer.invoke(IPC.OLLAMA_DAEMON_START),
+    daemonStop: () => ipcRenderer.invoke(IPC.OLLAMA_DAEMON_STOP),
+    daemonRestart: () => ipcRenderer.invoke(IPC.OLLAMA_DAEMON_RESTART),
+    onDaemonStateChanged: (callback: (state: unknown) => void) =>
+      subscribe<[unknown]>(IPC.OLLAMA_DAEMON_STATE_CHANGED, callback),
+  },
+  gpuPrefs: {
+    get: () => ipcRenderer.invoke(IPC.GPU_PREFS_GET),
+    set: (patch: unknown) => ipcRenderer.invoke(IPC.GPU_PREFS_SET, patch),
   },
   hardware: {
     detect: (force = false) => ipcRenderer.invoke(IPC.HARDWARE_DETECT, force),

@@ -160,6 +160,37 @@ interface Window {
       ) => Promise<import('./shared/types').NotificationSettings>;
       test: () => Promise<boolean>;
     };
+    themes: {
+      list: () => Promise<import('./shared/types').CustomTheme[]>;
+      save: (theme: import('./shared/types').CustomTheme) => Promise<import('./shared/types').CustomTheme[]>;
+      delete: (name: string) => Promise<import('./shared/types').CustomTheme[]>;
+    };
+    providerAuth: {
+      hasKey: (provider: import('./shared/types').ProviderId) => Promise<boolean>;
+      setKey: (
+        provider: import('./shared/types').ProviderId,
+        key: string
+      ) => Promise<import('./shared/types').ProviderAuthEntry[]>;
+      list: () => Promise<import('./shared/types').ProviderAuthEntry[]>;
+      delete: (
+        provider: import('./shared/types').ProviderId
+      ) => Promise<import('./shared/types').ProviderAuthEntry[]>;
+      onKeyPrompt: (
+        cb: (evt: import('./shared/types').ProviderKeyPromptEvent) => void
+      ) => () => void;
+      submitKey: (
+        paneId: string,
+        provider: import('./shared/types').ProviderId,
+        key: string
+      ) => Promise<boolean>;
+      detectList: (
+        force?: boolean
+      ) => Promise<import('./shared/types').ProviderCliDetectResult[]>;
+      detectGet: (
+        cli: string,
+        force?: boolean
+      ) => Promise<import('./shared/types').ProviderCliDetectResult>;
+    };
     updater: {
       getState: () => Promise<import('./shared/types').UpdaterState>;
       getSettings: () => Promise<import('./shared/types').UpdaterSettings>;
@@ -238,6 +269,7 @@ interface Window {
     };
     cli: {
       status: () => Promise<import('./shared/types').CliStatus>;
+      capabilities: () => Promise<import('./shared/types').CliCapabilities>;
       install: () => Promise<{ ok: boolean; output: string; error: string | null }>;
       onInstallProgress: (cb: (line: string) => void) => () => void;
       getOnboarding: () => Promise<import('./shared/types').CliOnboardingState>;
@@ -271,6 +303,19 @@ interface Window {
       onPullProgress: (
         cb: (evt: import('./shared/types').OllamaPullProgressEvent) => void
       ) => () => void;
+      daemonState: () => Promise<import('./shared/types').OllamaDaemonState>;
+      daemonStart: () => Promise<{ ok: boolean; error: string | null }>;
+      daemonStop: () => Promise<import('./shared/types').OllamaDaemonState>;
+      daemonRestart: () => Promise<{ ok: boolean; error: string | null }>;
+      onDaemonStateChanged: (
+        cb: (state: import('./shared/types').OllamaDaemonState) => void
+      ) => () => void;
+    };
+    gpuPrefs: {
+      get: () => Promise<import('./shared/types').GpuPrefs>;
+      set: (
+        patch: Partial<import('./shared/types').GpuPrefs>
+      ) => Promise<import('./shared/types').GpuPrefs>;
     };
     hardware: {
       detect: (force?: boolean) => Promise<import('./shared/types').HardwareProfile>;
