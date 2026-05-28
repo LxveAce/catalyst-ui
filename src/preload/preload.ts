@@ -212,6 +212,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke(IPC.HF_IMPORT_AND_LAUNCH, repoId, quant, cwd ?? null, !!research),
     getResearchLog: () => ipcRenderer.invoke(IPC.HF_GET_RESEARCH_LOG),
     clearResearchLog: () => ipcRenderer.invoke(IPC.HF_CLEAR_RESEARCH_LOG),
+    download: (repoId: string, fileName: string) =>
+      ipcRenderer.invoke(IPC.HF_DOWNLOAD, repoId, fileName),
+    cancelDownload: (repoId: string, fileName: string) =>
+      ipcRenderer.invoke(IPC.HF_CANCEL_DOWNLOAD, repoId, fileName),
+    onDownloadProgress: (cb: (event: unknown) => void) => {
+      const handler = (_event: unknown, payload: unknown) => cb(payload);
+      ipcRenderer.on('hf:download-progress', handler);
+      return () => ipcRenderer.removeListener('hf:download-progress', handler);
+    },
   },
   tray: {
     getSettings: () => ipcRenderer.invoke(IPC.TRAY_GET_SETTINGS),

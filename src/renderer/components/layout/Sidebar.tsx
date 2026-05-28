@@ -6,10 +6,11 @@ interface SidebarProps {
   onPanelChange: (panel: SidebarPanel) => void;
 }
 
-const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
+const panels: { id: SidebarPanel; label: string; description?: string; icon: React.ReactNode }[] = [
   {
     id: 'terminal',
     label: 'Terminal',
+    description: 'Embedded CLI tabs — Claude, Ollama, Aider, Gemini, and more.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="4 17 10 11 4 5" />
@@ -20,6 +21,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'commands',
     label: 'Commands',
+    description: 'Curated slash-commands and shortcuts that mirror the active tab.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="8" />
@@ -30,6 +32,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'resources',
     label: 'Resources',
+    description: 'Live RAM, CPU, GPU, and disk usage by bucket.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -41,6 +44,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'files',
     label: 'Files',
+    description: 'Project tree navigator with recent-projects + dotfile toggle.',
     icon: (
       // Folder glyph for the project file-tree panel (3.0.0-beta.3).
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -51,6 +55,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'cost',
     label: 'Cost',
+    description: 'Token costs across providers — today, this week, all-time.',
     icon: (
       // Currency-style glyph: outlined coin with an "$"-like S, kept stroke-only
       // to match the other sidebar icons.
@@ -65,6 +70,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'compact',
     label: 'Compact',
+    description: 'Auto-compact hooks for Claude sessions — saves tokens before limits hit.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -76,6 +82,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'lmm',
     label: 'LMM',
+    description: 'Lincoln Manifold Method journal: RAW → NODES → REFLECT → SYNTH.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12z" />
@@ -86,6 +93,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'github',
     label: 'GitHub',
+    description: 'Pull request list, issue triage, repo navigation via Octokit.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
@@ -95,6 +103,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'sync',
     label: 'Cloud Sync',
+    description: 'Back up your Claude conversation vault to a private GitHub repo.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
@@ -104,6 +113,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'auth',
     label: 'Account',
+    description: 'Provider API keys + CLI OAuth status. Anthropic / OpenAI / Gemini / OpenRouter.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -114,6 +124,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'models',
     label: 'Models',
+    description: 'Local + API model catalog. Pull, launch, GPU routing, hardware tier hints.',
     icon: (
       // Cube-grid glyph signalling "catalog of model boxes".
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -127,6 +138,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'hf',
     label: 'Hugging Face',
+    description: 'Browse the Hub, import GGUF to Ollama, manage local cache, opt-in research catalogs.',
     icon: (
       // Stylized smiley glyph — universal HF iconography (stroke-only
       // to match the rest of the sidebar).  Renders distinctly enough
@@ -142,6 +154,7 @@ const panels: { id: SidebarPanel; label: string; icon: React.ReactNode }[] = [
   {
     id: 'settings',
     label: 'Settings',
+    description: 'Themes, hotkeys, updater, accessibility, danger zone.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="3" />
@@ -171,6 +184,7 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
             panelId={panel.id}
             icon={panel.icon}
             label={panel.label}
+            description={panel.description}
             active={activePanel === panel.id}
             onClick={() => onPanelChange(panel.id)}
           />
@@ -191,6 +205,7 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
             panelId={panel.id}
             icon={panel.icon}
             label={panel.label}
+            description={panel.description}
             active={activePanel === panel.id}
             onClick={() => onPanelChange(panel.id)}
           />
@@ -200,10 +215,11 @@ export function Sidebar({ activePanel, onPanelChange }: SidebarProps) {
   );
 }
 
-function SidebarButton({ panelId, icon, label, active, onClick }: {
+function SidebarButton({ panelId, icon, label, description, active, onClick }: {
   panelId: string;
   icon: React.ReactNode;
   label: string;
+  description?: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -245,7 +261,7 @@ function SidebarButton({ panelId, icon, label, active, onClick }: {
         {icon}
       </button>
 
-      {showTooltip && !active && (
+      {showTooltip && (
         <div style={{
           position: 'absolute',
           left: 52,
@@ -253,18 +269,22 @@ function SidebarButton({ panelId, icon, label, active, onClick }: {
           transform: 'translateY(-50%)',
           background: 'var(--bg-elevated)',
           color: 'var(--text-primary)',
-          padding: '4px 10px',
+          padding: description ? '6px 10px' : '4px 10px',
           borderRadius: 'var(--radius-sm)',
           fontSize: 12,
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
           boxShadow: 'var(--shadow-md)',
           border: '1px solid var(--border)',
           zIndex: 100,
           pointerEvents: 'none',
           animation: 'fadeIn 0.15s ease',
+          maxWidth: 280,
         }}>
-          {label}
+          <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</div>
+          {description && (
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+              {description}
+            </div>
+          )}
         </div>
       )}
     </div>

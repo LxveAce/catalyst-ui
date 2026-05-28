@@ -1432,6 +1432,33 @@ function setupHuggingFace() {
     getHuggingFace().clearAuditLog();
     return true;
   });
+
+  ipcMain.handle(
+    IPC.HF_DOWNLOAD,
+    async (_event, repoIdRaw: unknown, fileNameRaw: unknown) => {
+      if (typeof repoIdRaw !== 'string') {
+        return { ok: false, destPath: null, bytesWritten: 0, error: 'repoId must be a string' };
+      }
+      if (typeof fileNameRaw !== 'string') {
+        return { ok: false, destPath: null, bytesWritten: 0, error: 'fileName must be a string' };
+      }
+      // Broadcast progress to every open window so popouts can listen too.
+      const windowSink = BrowserWindow.getAllWindows();
+      return getHuggingFace().downloadFile({
+        repoId: repoIdRaw,
+        fileName: fileNameRaw,
+        windowSink,
+      });
+    }
+  );
+
+  ipcMain.handle(
+    IPC.HF_CANCEL_DOWNLOAD,
+    (_event, repoIdRaw: unknown, fileNameRaw: unknown): boolean => {
+      if (typeof repoIdRaw !== 'string' || typeof fileNameRaw !== 'string') return false;
+      return getHuggingFace().cancelDownload(repoIdRaw, fileNameRaw);
+    }
+  );
 }
 
 function setupTray() {
