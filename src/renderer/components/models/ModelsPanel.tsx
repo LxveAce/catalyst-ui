@@ -1241,13 +1241,18 @@ function ModelCard({
             onClick={onPull}
             disabled={busy || !ollamaReady}
             style={primaryBtnStyle(!ollamaReady ? 'Install Ollama first' : undefined)}
-            title={!ollamaReady ? 'Install Ollama first' : undefined}
+            title={!ollamaReady ? 'Install Ollama first' : `Download this model with Ollama. Streams progress below; size: ${model.vramGB ?? '?'} GB approximate.`}
           >
             Pull
           </button>
         )}
         {pulling && (
-          <button type="button" onClick={onCancelPull} style={btnStyle}>Cancel pull</button>
+          <button
+            type="button"
+            onClick={onCancelPull}
+            style={btnStyle}
+            title="Cancel the in-flight Ollama pull."
+          >Cancel pull</button>
         )}
         {model.category === 'local' && installed && (
           <>
@@ -1256,6 +1261,7 @@ function ModelCard({
               onClick={onLaunch}
               disabled={busy}
               style={primaryBtnStyle()}
+              title="Spawn this model in a new terminal tab and route input/output through the chat skin."
             >
               Launch in app
             </button>
@@ -1264,13 +1270,19 @@ function ModelCard({
               onClick={onDelete}
               disabled={busy}
               style={btnStyle}
+              title="Remove this model from Ollama (frees disk). Re-pull to use it again."
             >
               Delete
             </button>
           </>
         )}
         {model.category === 'api' && (
-          <button type="button" onClick={onLaunch} style={primaryBtnStyle()}>
+          <button
+            type="button"
+            onClick={onLaunch}
+            style={primaryBtnStyle()}
+            title="Launch this API model. Prompts for an API key if you don't have one saved."
+          >
             Launch in app
           </button>
         )}
@@ -1279,6 +1291,7 @@ function ModelCard({
           onClick={onCopy}
           style={recentlyCopied ? { ...btnStyle, color: '#22c55e', borderColor: '#22c55e' } : btnStyle}
           aria-live="polite"
+          title="Copy the equivalent CLI command to your clipboard so you can run it in a regular shell."
         >
           {recentlyCopied ? '✓ Copied!' : 'Copy command'}
         </button>

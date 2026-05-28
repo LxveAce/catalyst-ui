@@ -123,8 +123,30 @@ export function EmbeddedTerminal({
     const offData = window.electronAPI.terminal.onData(paneId, (data: string) => {
       term.write(data);
     });
+    // v4.0.2: detect fast-exits with non-zero code and surface a
+    // profile-aware hint.  For the Claude (Chat) profile specifically,
+    // the most common cause of an exit-1 within a couple seconds is
+    // that the local Claude CLI doesn't understand the stream-json
+    // flags — point the user at the upgrade command instead of leaving
+    // them with a cryptic "exit code 1".
+    const spawnedAt = Date.now();
     const offExit = window.electronAPI.terminal.onExit(paneId, (code: number) => {
+      const ms = Date.now() - spawnedAt;
       term.write(`\r\n\x1b[2m[process exited with code ${code}]\x1b[0m\r\n`);
+      if (code !== 0 && ms < 6000 && profile === 'api.anthropic.claude-chat') {
+        term.write(`\x1b[33m\r\n[The Claude (Chat) profile spawns the CLI with stream-json flags\r\n`);
+        term.write(` (--print --input-format=stream-json --output-format=stream-json --verbose).\r\n`);
+        term.write(` An exit within ${Math.round(ms / 1000)}s usually means your local Claude CLI\r\n`);
+        term.write(` doesn't recognise one of those flags.  Try:\r\n`);
+        term.write('\x1b[0m\r\n');
+        term.write(`   \x1b[36mclaude --version\x1b[0m   (check what you have)\r\n`);
+        term.write(`   \x1b[36mnpm install -g @anthropic-ai/claude-code@latest\x1b[0m   (upgrade)\r\n`);
+        term.write(`\r\n\x1b[2mThen relaunch Claude (Chat).  Regular Claude tabs work without these flags.\x1b[0m\r\n`);
+      } else if (code !== 0 && ms < 3000 && profile && profile !== 'claude') {
+        term.write(`\x1b[33m\r\n[Fast exit (${ms}ms) with non-zero code suggests the CLI rejected something at startup.\r\n`);
+        term.write(` Try the same command in a regular terminal to see the underlying error:\r\n`);
+        term.write('\x1b[0m\r\n');
+      }
     });
 
     // Probe whether the PTY actually exists, with a soft retry before
