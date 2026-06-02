@@ -12,6 +12,10 @@ interface TerminalPanelProps {
   cwd?: string | null;
   /** True when this is the currently focused pane (multi-pane mode). */
   active?: boolean;
+  /** When true, the Claude PTY is spawned with --dangerously-skip-permissions
+   *  (set by the "Claude (skip permissions)" picker entry). Only read on the
+   *  first spawn; reattach to an alive PTY keeps its original launch flags. */
+  skipPermissions?: boolean;
   onPidChange?: (paneId: string, pid: number) => void;
   /** Registers a `sendText` function so external callers (palette, snippets)
    *  can inject text into *this* pane. */
@@ -25,6 +29,7 @@ export function TerminalPanel({
   paneId,
   cwd,
   active,
+  skipPermissions,
   onPidChange,
   registerSender,
   onFocus,
@@ -184,7 +189,7 @@ export function TerminalPanel({
     // 'ready' / 'data' burst. The backend tolerates being asked to spawn a
     // paneId that's already alive (idempotent — old PTY is killed first).
     void window.electronAPI.terminal
-      .spawn(paneId, cwd ?? null)
+      .spawn(paneId, cwd ?? null, skipPermissions === true)
       .catch(() => {
         // Spawn errors are surfaced as no 'ready' event; user can hit Restart.
       });

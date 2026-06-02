@@ -30,9 +30,12 @@ function paneSubscribe<TArgs extends unknown[]>(
 
 contextBridge.exposeInMainWorld('electronAPI', {
   terminal: {
-    spawn: (paneId: string, cwd?: string | null) =>
-      ipcRenderer.invoke(IPC.TERMINAL_SPAWN, paneId, cwd ?? null),
+    spawn: (paneId: string, cwd?: string | null, skipPermissions?: boolean) =>
+      ipcRenderer.invoke(IPC.TERMINAL_SPAWN, paneId, cwd ?? null, skipPermissions === true),
     kill: (paneId: string) => ipcRenderer.invoke(IPC.TERMINAL_KILL, paneId),
+    listShells: () => ipcRenderer.invoke(IPC.TERMINAL_LIST_SHELLS),
+    launchShell: (shellId: string, cwd?: string | null) =>
+      ipcRenderer.invoke(IPC.TERMINAL_LAUNCH_SHELL, shellId, cwd ?? null),
     onData: (paneId: string, callback: (data: string) => void) =>
       paneSubscribe<[string]>(IPC.TERMINAL_DATA, paneId, callback),
     onExit: (paneId: string, callback: (code: number) => void) =>

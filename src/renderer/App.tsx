@@ -152,6 +152,7 @@ export function App() {
             // `terminal.spawn` is idempotent so reattach is safe; mark them
             // ready immediately so the TerminalPanel mounts and reconnects.
             ready: true,
+            skipPermissions: t.skipPermissions === true,
           }));
           setTabs(restoredTabs.length > 0 ? restoredTabs : DEFAULT_TABS);
           setActivePanel(restored.activePanel as SidebarPanel);
@@ -224,6 +225,7 @@ export function App() {
           label: t.label,
           paneId: t.paneId,
           profile: t.profile,
+          ...(t.skipPermissions ? { skipPermissions: true } : {}),
         }));
       const persistedActiveTabId =
         activeTabId && persistedTabs.some((t) => t.id === activeTabId)
@@ -394,6 +396,7 @@ export function App() {
         paneId: t.paneId,
         profile: t.profile,
         ready: true,
+        skipPermissions: t.skipPermissions === true,
       }));
       setTabs(restored.length > 0 ? restored : DEFAULT_TABS);
       setActiveTabId(s.activeTabId ?? restored[0]?.id ?? null);

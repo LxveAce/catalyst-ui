@@ -11,6 +11,13 @@ export const IPC = {
   TERMINAL_RESTART: 'terminal:restart',
   TERMINAL_SPAWN: 'terminal:spawn',
   TERMINAL_KILL: 'terminal:kill',
+  /** List the system shells detected on this machine (CMD / PowerShell /
+   *  pwsh / Git Bash / WSL on Windows; bash / zsh / fish / login shell on
+   *  POSIX). Returns ShellProfile[]. Cached after the first call. */
+  TERMINAL_LIST_SHELLS: 'terminal:list-shells',
+  /** Launch a detected shell profile into a fresh PTY. Returns
+   *  ShellLaunchResult with the assigned `shell:<id>-<ts>` paneId. */
+  TERMINAL_LAUNCH_SHELL: 'terminal:launch-shell',
 
   SESSION_GET: 'session:get',
   SESSION_SET: 'session:set',

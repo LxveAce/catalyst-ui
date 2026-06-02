@@ -35,6 +35,7 @@ import { PtyKeyInterceptor } from './pty-key-interceptor';
 import { providerDetect } from './provider-detect';
 import { readGpuPrefs, writeGpuPrefs } from './gpu-prefs';
 import { readCliFlags, writeCliFlags, type CliFlags } from './cli-flags';
+import { detectShellProfiles, getShellProfile } from './shell-profiles';
 import {
   listDir as projectListDir,
   readRecentProjects,
@@ -50,6 +51,7 @@ import type {
   ModelDefinition,
   ModelLaunchResult,
   ModelPopoutResult,
+  ShellLaunchResult,
 } from '../shared/types';
 
 if (require('electron-squirrel-startup')) {
@@ -378,11 +380,13 @@ function setupTerminal() {
   ipcMain.on(IPC.TERMINAL_RESTART, (_event, paneId: unknown) => {
     if (!PtyRegistry.isValidPaneId(paneId)) return;
     suppressedRestartPanes.add(paneId);
-    // Restart is a *hard* lifecycle transition (kill + spawn). spawn()'s
-    // reattach-if-alive shortcut would skip the kill, so we must kill first.
+    // Restart is a *hard* lifecycle transition (kill + spawn). Use the
+    // registry's restart() so the pane respawns with its ORIGINAL launch
+    // params (model command/args, Claude --dangerously-skip-permissions, cwd)
+    // and category — a bare spawn() here would respawn the bundled Claude CLI
+    // on every pane, dropping a model/shell command or the skip-perms choice.
     try {
-      ptyRegistry.kill(paneId);
-      ptyRegistry.spawn(paneId);
+      ptyRegistry.restart(paneId);
     } catch {
       // Surfaces via missing 'ready' event on the renderer.
     }
@@ -397,7 +401,7 @@ function setupTerminal() {
 
   ipcMain.handle(
     IPC.TERMINAL_SPAWN,
-    (_event, paneId: unknown, cwd: unknown) => {
+    (_event, paneId: unknown, cwd: unknown, skipPermissions: unknown) => {
       if (!PtyRegistry.isValidPaneId(paneId)) {
         throw new Error('invalid paneId');
       }
@@ -407,7 +411,11 @@ function setupTerminal() {
       // ResourceMonitor's claude bucket. Model PTYs spawned via
       // MODELS_LAUNCH explicitly set category='model' instead.
       ptyRegistry.setPaneCategory(paneId, 'claude');
-      ptyRegistry.spawn(paneId, safeCwd);
+      // Per-launch `--dangerously-skip-permissions` — set by the
+      // "Claude (skip permissions)" picker entry. PtyManager OR-combines this
+      // with the global Settings toggle; it ONLY applies to Claude PTYs (no
+      // opts.command), never to model PTYs.
+      ptyRegistry.spawn(paneId, safeCwd, { skipPermissions: skipPermissions === true });
       return true;
     }
   );
@@ -418,6 +426,46 @@ function setupTerminal() {
     syncResourcePids();
     return true;
   });
+
+  // --- system shell profiles (Catalyst UI: open CMD / PowerShell / Git Bash
+  //     / WSL / bash / zsh / … as a tab, alongside Claude + model profiles).
+  ipcMain.handle(IPC.TERMINAL_LIST_SHELLS, () => detectShellProfiles());
+
+  ipcMain.handle(
+    IPC.TERMINAL_LAUNCH_SHELL,
+    (_event, shellId: unknown, cwd: unknown): ShellLaunchResult => {
+      if (typeof shellId !== 'string') {
+        return { ok: false, paneId: null, error: 'shellId must be a string' };
+      }
+      const profile = getShellProfile(shellId);
+      if (!profile) {
+        return { ok: false, paneId: null, error: `Unknown shell: ${shellId}` };
+      }
+      const safeCwd =
+        typeof cwd === 'string' && cwd.length > 0 && cwd.length <= 4096 ? cwd : undefined;
+      const safeIdPart = profile.id.replace(/[^A-Za-z0-9_\-:]/g, '_').slice(0, 40);
+      const paneId = `shell:${safeIdPart}-${Date.now().toString(36)}`.slice(0, 64);
+      try {
+        // Shells go in the 'other' resource bucket — they're neither Claude
+        // nor a catalog model. They use opts.command, so PtyManager never
+        // injects Claude's --dangerously-skip-permissions flag.
+        ptyRegistry.setPaneCategory(paneId, 'other');
+        ptyRegistry.spawn(paneId, safeCwd, {
+          command: profile.command,
+          args: profile.args,
+          label: profile.name,
+        });
+        syncResourcePids();
+        return { ok: true, paneId, error: null };
+      } catch (e) {
+        return {
+          ok: false,
+          paneId: null,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+    }
+  );
 }
 
 function setupResources() {

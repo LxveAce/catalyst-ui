@@ -29,6 +29,7 @@ const VALID_PANEL_IDS = new Set([
   'settings',
   'models',
   'files',
+  'hf',
 ]);
 
 interface PersistedSession {
@@ -147,7 +148,12 @@ export class SessionService {
       seenPanes.add(paneId);
 
       const label = rawLabel && rawLabel.length <= MAX_LABEL_LEN ? rawLabel : 'Claude';
-      out.push({ id, label, paneId, profile });
+      const tab: PersistedTab = { id, label, paneId, profile };
+      // Preserve the per-launch skip-permissions choice so the tab label
+      // stays accurate across a restart/reattach (the flag itself only
+      // applies at spawn time).
+      if (t.skipPermissions === true) tab.skipPermissions = true;
+      out.push(tab);
     }
     // Empty input → defaults (one Claude tab). Prevents a renderer race where
     // a transient empty save would lock the user out until manual reset.

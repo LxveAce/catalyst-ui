@@ -754,6 +754,11 @@ export interface PersistedTab {
   paneId: string;
   /** Profile id: 'claude' for the bundled Claude CLI; model id otherwise. */
   profile: string;
+  /** Claude tabs launched via the "Claude (skip permissions)" picker entry
+   *  carry this so the per-launch `--dangerously-skip-permissions` choice is
+   *  reflected in the tab label after a reattach. The flag itself is only
+   *  applied at spawn time; a reattached PTY keeps whatever it spawned with. */
+  skipPermissions?: boolean;
 }
 
 export type SessionPanelId =
@@ -780,6 +785,32 @@ export interface SessionState {
   tabs: PersistedTab[];
   /** Id of the currently focused tab, or null if there are no tabs. */
   activeTabId: string | null;
+}
+
+/**
+ * A launchable system shell / terminal profile (Command Prompt, PowerShell,
+ * pwsh, Git Bash, WSL on Windows; bash / zsh / fish / the login shell on
+ * macOS + Linux). Detected at runtime by `shell-profiles.ts` — only shells
+ * actually present on the machine are returned, so the picker never offers a
+ * profile that would fail to spawn.
+ */
+export interface ShellProfile {
+  /** Stable id, e.g. 'cmd', 'powershell', 'pwsh', 'git-bash', 'wsl', 'bash'. */
+  id: string;
+  /** Display name shown in the profile picker, e.g. 'PowerShell'. */
+  name: string;
+  /** Resolved path (or bare command) to the shell binary. */
+  command: string;
+  /** argv passed to the shell (e.g. ['-NoLogo'] for PowerShell). */
+  args: string[];
+}
+
+/** Result of launching a {@link ShellProfile} into a PTY. Mirrors the shape
+ *  of {@link ModelLaunchResult} minus the model-specific commandLine. */
+export interface ShellLaunchResult {
+  ok: boolean;
+  paneId: string | null;
+  error: string | null;
 }
 
 // Hotkeys + tray (Phase 7d) ---------------------------------------------------

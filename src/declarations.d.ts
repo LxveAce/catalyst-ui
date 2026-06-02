@@ -57,8 +57,17 @@ declare module 'systeminformation' {
 interface Window {
   electronAPI: {
     terminal: {
-      spawn: (paneId: string, cwd?: string | null) => Promise<boolean>;
+      spawn: (
+        paneId: string,
+        cwd?: string | null,
+        skipPermissions?: boolean
+      ) => Promise<boolean>;
       kill: (paneId: string) => Promise<boolean>;
+      listShells: () => Promise<import('./shared/types').ShellProfile[]>;
+      launchShell: (
+        shellId: string,
+        cwd?: string | null
+      ) => Promise<import('./shared/types').ShellLaunchResult>;
       onData: (paneId: string, cb: (data: string) => void) => () => void;
       onExit: (paneId: string, cb: (code: number) => void) => () => void;
       onReady: (paneId: string, cb: (pid: number) => void) => () => void;

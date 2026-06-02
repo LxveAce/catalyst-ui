@@ -29,6 +29,11 @@ export interface PtySpawnOpts {
   env?: Record<string, string>;
   /** Human-readable label for logs (e.g. "Qwen2.5 Coder 7B"). */
   label?: string;
+  /** Per-launch `--dangerously-skip-permissions` for Claude PTYs. OR-combined
+   *  with the global cli-flags.json toggle. Ignored when `command` is set
+   *  (model PTYs never receive the flag). Set by the renderer's
+   *  "Claude (skip permissions)" picker entry. */
+  skipPermissions?: boolean;
 }
 
 export class PtyManager extends EventEmitter {
@@ -67,7 +72,10 @@ export class PtyManager extends EventEmitter {
     // command + args from ModelDefinition.
     if (!opts?.command) {
       const flags = readCliFlags();
-      if (flags.dangerouslySkipPermissions) {
+      // Global Settings toggle OR the per-launch picker choice. Guard against
+      // double-adding if the flag is somehow already present.
+      const wantSkip = flags.dangerouslySkipPermissions || opts?.skipPermissions === true;
+      if (wantSkip && !args.includes('--dangerously-skip-permissions')) {
         args = ['--dangerously-skip-permissions', ...args];
       }
     }

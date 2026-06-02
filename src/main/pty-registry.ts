@@ -21,6 +21,10 @@ export class PtyRegistry extends EventEmitter {
   /** Per-pane category — set at spawn time. Defaults to 'claude' for
    *  the existing terminal flow (no opts.command → spawns claude). */
   private paneCategory = new Map<string, PaneCategory>();
+  /** Per-pane launch parameters, remembered so {@link restart} can respawn
+   *  the SAME thing (model command/args, Claude --dangerously-skip-permissions,
+   *  cwd) instead of falling back to a bare bundled-Claude spawn. */
+  private lastSpawn = new Map<string, { cwd?: string; opts?: PtySpawnOpts }>();
   /** Tracks per-pane listeners so dispose is symmetric (no leaks on close).
    *  Renamed from `listeners` to avoid clobbering the EventEmitter method. */
   private paneListeners = new Map<
@@ -151,6 +155,8 @@ export class PtyRegistry extends EventEmitter {
 
     this.panes.set(paneId, mgr);
     this.paneListeners.set(paneId, { onData, onExit, onReady });
+    // Remember the launch params so restart() can reproduce them exactly.
+    this.lastSpawn.set(paneId, { cwd, opts });
 
     try {
       mgr.spawn(cwd, opts);
@@ -160,6 +166,26 @@ export class PtyRegistry extends EventEmitter {
       throw e;
     }
     return true;
+  }
+
+  /**
+   * Hard restart: kill the PTY and respawn it with the SAME launch parameters
+   * (cwd, command/args, Claude `--dangerously-skip-permissions`) and resource
+   * category it was originally spawned with.
+   *
+   * Without remembering these, a restart respawned the bundled Claude CLI on
+   * EVERY pane — silently dropping a model/shell pane's command and a Claude
+   * tab's per-launch skip-permissions choice. Falls back to a bare spawn when
+   * nothing was remembered (e.g. a pane created before this bookkeeping
+   * existed), preserving the old behavior.
+   */
+  restart(paneId: string): boolean {
+    // Capture BEFORE kill() — dispose() clears both maps for this pane.
+    const remembered = this.lastSpawn.get(paneId);
+    const category = this.paneCategory.get(paneId);
+    this.kill(paneId);
+    if (category) this.setPaneCategory(paneId, category);
+    return this.spawn(paneId, remembered?.cwd, remembered?.opts);
   }
 
   /** Resolved command-line for a pane, or empty string if not spawned. */
@@ -218,5 +244,6 @@ export class PtyRegistry extends EventEmitter {
     this.panes.delete(paneId);
     this.paneListeners.delete(paneId);
     this.paneCategory.delete(paneId);
+    this.lastSpawn.delete(paneId);
   }
 }
