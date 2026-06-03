@@ -152,6 +152,18 @@ const panels: { id: SidebarPanel; label: string; description?: string; icon: Rea
     ),
   },
   {
+    id: 'brain',
+    label: 'Brain',
+    description: 'Catalyst Brain — your Obsidian-compatible .md knowledge folder. Read, edit (with diff preview), and link notes.',
+    icon: (
+      // Brain/neural glyph — stroke-only to match the sidebar set.
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 1 5 3 3 0 0 0 4 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z" />
+        <path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-1 5 3 3 0 0 1-4 3 3 3 0 0 1-3-3" />
+      </svg>
+    ),
+  },
+  {
     id: 'settings',
     label: 'Settings',
     description: 'Themes, hotkeys, updater, accessibility, danger zone.',

@@ -774,7 +774,8 @@ export type SessionPanelId =
   | 'settings'
   | 'models'
   | 'files'
-  | 'hf';
+  | 'hf'
+  | 'brain';
 
 export interface SessionState {
   version: number;
@@ -1085,6 +1086,311 @@ export interface OllamaDaemonState {
   state: 'stopped' | 'starting' | 'running' | 'failed';
   ownedByStudio: boolean;
   lastError: string | null;
+}
+
+// ===========================================================================
+// Catalyst Brain (Obsidian integration, P1 — Brain Folder Service)
+//
+// "Brain" = the Obsidian-COMPATIBLE knowledge layer: a folder of plain `.md`
+// notes (YAML frontmatter + wikilinks) that Catalyst reads/writes directly,
+// no Obsidian binary required. NOTE the deliberate naming split: "vault" stays
+// reserved for the existing compact-controller JSON sync (cloud-sync.ts) — the
+// Brain is never called a "vault" in IPC/types/UI. See docs/OBSIDIAN_INTEGRATION.md.
+// ===========================================================================
+
+/** Persisted Brain configuration. */
+export interface BrainConfig {
+  /** Absolute path to the Brain folder (an Obsidian-format `.md` folder), or
+   *  null when the user hasn't chosen one yet. */
+  folder: string | null;
+  /** True when `folder` is set AND currently exists as a directory on disk. */
+  ready: boolean;
+}
+
+/** A parsed `[[wikilink]]` occurrence inside a note body. */
+export interface Wikilink {
+  /** The full matched token, e.g. `[[Note#Heading|Alias]]`. */
+  raw: string;
+  /** Link target (note name / path), e.g. `Note`. */
+  target: string;
+  /** Optional `#heading` fragment. */
+  heading?: string;
+  /** Optional `|alias` display text. */
+  alias?: string;
+}
+
+/** Lightweight listing entry — cheap (stat-only), no content read. */
+export interface BrainNoteSummary {
+  /** POSIX-style path relative to the Brain root (the stable note id). */
+  relPath: string;
+  /** Display title — basename without `.md` (full metadata via readNote). */
+  title: string;
+  /** Bytes on disk. */
+  size: number;
+  /** ISO timestamp of last modification. */
+  modified: string;
+}
+
+export interface BrainListResult {
+  root: string | null;
+  notes: BrainNoteSummary[];
+  /** True when the walk hit MAX_NOTES and stopped early. */
+  truncated: boolean;
+  error: 'no-brain-folder' | 'not-found' | 'access-denied' | null;
+}
+
+/** A fully-read note: frontmatter (raw + light-parsed) + body + extracted refs. */
+export interface BrainNote {
+  relPath: string;
+  /** SHA-256 of the raw file content at read time — pass back to writeNote as
+   *  `expectedHash` for optimistic-concurrency (detects external edits). */
+  hash: string;
+  /** Raw frontmatter block WITHOUT the `---` fences, or null if none. Preserved
+   *  verbatim so edits never lose unknown YAML fields. */
+  frontmatterRaw: string | null;
+  /** Light parse of common frontmatter fields (display/filter only — not a full
+   *  YAML parse). Unknown/complex fields live only in frontmatterRaw. */
+  frontmatter: { title?: string; tags?: string[]; aliases?: string[]; [k: string]: unknown };
+  /** Note body (everything after the frontmatter block). */
+  body: string;
+  /** Markdown headings (`#`..`######`) in order. */
+  headings: Array<{ level: number; text: string }>;
+  /** All `[[wikilinks]]` found in the body. */
+  links: Wikilink[];
+  size: number;
+  modified: string;
+}
+
+/** One line of a simple prefix/suffix diff for write previews. */
+export interface BrainDiffLine {
+  type: 'same' | 'add' | 'del';
+  text: string;
+}
+
+/** Diff-before-write preview for a create/overwrite/append/delete. */
+export interface BrainWritePreview {
+  relPath: string;
+  /** True if the target already exists. */
+  exists: boolean;
+  /** Existing content (null when the file doesn't exist). */
+  oldContent: string | null;
+  /** Proposed content (null for a delete preview). */
+  newContent: string | null;
+  /** True when newContent === oldContent (a no-op write). */
+  identical: boolean;
+  /** Simple line diff (common-prefix/suffix + changed middle). */
+  diff: BrainDiffLine[];
+  error: 'no-brain-folder' | 'outside-root' | 'invalid-path' | null;
+}
+
+export interface BrainWriteResult {
+  ok: boolean;
+  relPath: string | null;
+  /** Hash of the freshly-written content (use for subsequent edits). */
+  hash: string | null;
+  error:
+    | 'no-brain-folder'
+    | 'outside-root'
+    | 'invalid-path'
+    | 'already-exists'
+    | 'not-found'
+    | 'conflict'
+    | 'write-failed'
+    | null;
+}
+
+/**
+ * Canonical Brain entry (P2 — the unification schema). Every journaling stream
+ * (LMM cycles, snippets, cost, session logs, security reviews, …) and every
+ * model funnels through this one shape, written as a schema-stamped `.md` under
+ * `_catalyst/<source>/<id>.md`. One contract = the streams become mutually
+ * readable (and Obsidian's graph links them). `id` is the idempotency key —
+ * re-writing the same id overwrites in place.
+ */
+export interface BrainEntry {
+  /** Stable id (idempotent overwrite); slugified into the filename. */
+  id: string;
+  /** Human title (frontmatter `title`). */
+  title: string;
+  /** Origin stream/agent, e.g. 'lmm' | 'snippet' | 'cost' | 'session-log' |
+   *  'security-review' | 'manual' | a model name. Slugified into the subfolder. */
+  source: string;
+  /** Markdown body. */
+  body: string;
+  type?: string;
+  project?: string;
+  /** ISO timestamps. */
+  created?: string;
+  updated?: string;
+  /** Which model/agent/human authored it. */
+  author?: string;
+  status?: string;
+  tags?: string[];
+  /** Wikilink targets — also appended to the body so Obsidian's graph connects. */
+  links?: string[];
+}
+
+/** Result of mirroring the journaling streams into the Brain. */
+export interface BrainMirrorResult {
+  ok: boolean;
+  written: number;
+  failed: number;
+  /** Count written per source (e.g. `{ lmm: 3, snippet: 12, cost: 1 }`). */
+  bySource: Record<string, number>;
+  error: 'no-brain-folder' | null;
+}
+
+// ===========================================================================
+// Catalyst Brain — RAG index (P3). Chunk the Brain notes, embed each chunk via
+// an Ollama embedding model, persist the vectors in userData, and answer
+// semantic queries by cosine similarity. Realizes BACKLOG #4.
+// ===========================================================================
+
+export interface BrainIndexStatus {
+  /** True once an index has been built for the current folder. */
+  built: boolean;
+  folder: string | null;
+  /** Ollama embedding model the index was/will be built with. */
+  model: string;
+  /** Distinct notes represented in the index. */
+  notes: number;
+  /** Total embedded chunks. */
+  chunks: number;
+  /** Embedding dimensionality (0 until built). */
+  dim: number;
+  /** ISO time the index was last built, or null. */
+  updatedAt: string | null;
+  /** True if the build hit the chunk cap and stopped early. */
+  truncated: boolean;
+}
+
+export type BrainIndexError =
+  | 'no-brain-folder'
+  | 'ollama-unreachable'
+  | 'model-missing'
+  | 'no-notes'
+  | 'not-built'
+  | 'failed';
+
+export interface BrainIndexResult {
+  ok: boolean;
+  status: BrainIndexStatus | null;
+  error: BrainIndexError | null;
+}
+
+export interface BrainSearchHit {
+  relPath: string;
+  title: string;
+  /** The matched chunk text (trimmed for display). */
+  snippet: string;
+  /** Cosine similarity, 0..1. */
+  score: number;
+  chunkIndex: number;
+}
+
+export interface BrainSearchResult {
+  ok: boolean;
+  hits: BrainSearchHit[];
+  error: BrainIndexError | null;
+}
+
+// ===========================================================================
+// Catalyst Brain — interop (P4). Bring-your-own Obsidian: open notes via the
+// obsidian:// URI, and store the (optional) Local REST API plugin key so
+// MCP-capable models can drive a running vault. Catalyst never ships Obsidian.
+// ===========================================================================
+
+/** Status of the stored Local REST API credential (raw key never exposed). */
+export interface BrainRestStatus {
+  hasKey: boolean;
+  baseUrl: string;
+  /** Whether the OS keychain (safeStorage) is available to encrypt the key. */
+  encryptionAvailable: boolean;
+}
+
+export interface BrainRestTestResult {
+  ok: boolean;
+  status: number | null;
+  error: 'no-key' | 'self-signed-cert' | 'unreachable' | string | null;
+}
+
+/** Result of a Local REST API call against a live Obsidian vault. */
+export interface BrainRestCallResult {
+  ok: boolean;
+  status: number | null;
+  /** Parsed JSON (when the plugin returns JSON) or raw text. */
+  data: unknown;
+  error: 'no-key' | 'bad-url' | 'self-signed-cert' | 'unreachable' | 'timeout' | string | null;
+}
+
+/** Result of an `obsidian://` open attempt. */
+export interface BrainOpenResult {
+  ok: boolean;
+  /** The obsidian:// URI we asked the OS to open (for display), or null. */
+  uri: string | null;
+  error: 'no-brain-folder' | 'outside-root' | 'failed' | null;
+}
+
+// ===========================================================================
+// Catalyst Brain — other public Obsidian file formats (P-extra): Canvas
+// (.canvas = MIT JSON Canvas) and Bases (.base = YAML). Read-only, against the
+// public specs — Catalyst understands the whole vault, not just `.md`.
+// ===========================================================================
+
+export interface BrainCanvasNode {
+  id: string;
+  /** 'text' | 'file' | 'link' | 'group' per the JSON Canvas spec. */
+  type: string;
+  text?: string;
+  file?: string;
+  url?: string;
+  label?: string;
+}
+
+export interface BrainCanvas {
+  relPath: string;
+  nodes: BrainCanvasNode[];
+  edgeCount: number;
+}
+
+export interface BrainBaseDoc {
+  relPath: string;
+  /** Light top-level parse of the `.base` YAML (display only). */
+  parsed: Record<string, unknown>;
+  raw: string;
+}
+
+/** Listing of the non-`.md` Obsidian docs in the Brain. */
+export interface BrainSpecialList {
+  canvases: BrainNoteSummary[];
+  bases: BrainNoteSummary[];
+}
+
+// ===========================================================================
+// Catalyst Brain — wikilink graph (backlinks). Which notes link to this one,
+// and where this note's [[links]] resolve. Pure filesystem; the Obsidian graph
+// without Obsidian.
+// ===========================================================================
+
+export interface BrainBacklink {
+  relPath: string;
+  title: string;
+}
+
+export interface BrainOutLink {
+  /** The raw link target text (e.g. `Note`, `folder/Note`). */
+  target: string;
+  /** Resolved note relPath, or null when the target doesn't match a note. */
+  relPath: string | null;
+}
+
+export interface BrainLinksResult {
+  ok: boolean;
+  /** Notes that link TO this note. */
+  backlinks: BrainBacklink[];
+  /** This note's outgoing wikilinks (resolved + unresolved). */
+  outgoing: BrainOutLink[];
+  error: 'no-brain-folder' | null;
 }
 
 // The full ElectronAPI shape lives in src/declarations.d.ts as an ambient

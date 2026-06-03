@@ -77,6 +77,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setCwd: (cwd: string) => ipcRenderer.invoke(IPC.GIT_SET_CWD, cwd),
     pickDir: () => ipcRenderer.invoke(IPC.GIT_PICK_DIR),
   },
+  brain: {
+    getConfig: () => ipcRenderer.invoke(IPC.BRAIN_GET_CONFIG),
+    pickFolder: () => ipcRenderer.invoke(IPC.BRAIN_PICK_FOLDER),
+    setFolder: (folder: string | null) => ipcRenderer.invoke(IPC.BRAIN_SET_FOLDER, folder),
+    listNotes: () => ipcRenderer.invoke(IPC.BRAIN_LIST_NOTES),
+    readNote: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_READ_NOTE, relPath),
+    previewWrite: (relPath: string, content: string) =>
+      ipcRenderer.invoke(IPC.BRAIN_PREVIEW_WRITE, relPath, content),
+    previewDelete: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_PREVIEW_DELETE, relPath),
+    writeNote: (relPath: string, content: string, expectedHash?: string) =>
+      ipcRenderer.invoke(IPC.BRAIN_WRITE_NOTE, relPath, content, expectedHash ?? null),
+    createNote: (relPath: string, content: string) =>
+      ipcRenderer.invoke(IPC.BRAIN_CREATE_NOTE, relPath, content),
+    appendNote: (relPath: string, text: string) =>
+      ipcRenderer.invoke(IPC.BRAIN_APPEND_NOTE, relPath, text),
+    deleteNote: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_DELETE_NOTE, relPath),
+    writeEntry: (entry: unknown) => ipcRenderer.invoke(IPC.BRAIN_WRITE_ENTRY, entry),
+    mirrorStreams: () => ipcRenderer.invoke(IPC.BRAIN_MIRROR_STREAMS),
+    indexStatus: () => ipcRenderer.invoke(IPC.BRAIN_INDEX_STATUS),
+    indexRebuild: (model?: string) => ipcRenderer.invoke(IPC.BRAIN_INDEX_REBUILD, model ?? null),
+    indexQuery: (text: string, k?: number) => ipcRenderer.invoke(IPC.BRAIN_INDEX_QUERY, text, k ?? 8),
+    openInObsidian: (relPath?: string) => ipcRenderer.invoke(IPC.BRAIN_OPEN_IN_OBSIDIAN, relPath ?? null),
+    restStatus: () => ipcRenderer.invoke(IPC.BRAIN_REST_STATUS),
+    restSet: (baseUrl: string, key: string) => ipcRenderer.invoke(IPC.BRAIN_REST_SET, baseUrl, key),
+    restClear: () => ipcRenderer.invoke(IPC.BRAIN_REST_CLEAR),
+    restTest: () => ipcRenderer.invoke(IPC.BRAIN_REST_TEST),
+    restList: (dir?: string) => ipcRenderer.invoke(IPC.BRAIN_REST_LIST, dir ?? null),
+    restGetFile: (filePath: string) => ipcRenderer.invoke(IPC.BRAIN_REST_GET_FILE, filePath),
+    restSearch: (query: string) => ipcRenderer.invoke(IPC.BRAIN_REST_SEARCH, query),
+    restAppend: (filePath: string, content: string) => ipcRenderer.invoke(IPC.BRAIN_REST_APPEND, filePath, content),
+    restPut: (filePath: string, content: string) => ipcRenderer.invoke(IPC.BRAIN_REST_PUT, filePath, content),
+    restDeleteFile: (filePath: string) => ipcRenderer.invoke(IPC.BRAIN_REST_DELETE_FILE, filePath),
+    links: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_LINKS, relPath),
+    listSpecial: () => ipcRenderer.invoke(IPC.BRAIN_LIST_SPECIAL),
+    readCanvas: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_READ_CANVAS, relPath),
+    readBase: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_READ_BASE, relPath),
+  },
   github: {
     authState: () => ipcRenderer.invoke(IPC.GITHUB_AUTH_STATE),
     setToken: (token: string, allowPlaintext = false) =>

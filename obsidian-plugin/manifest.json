@@ -1,0 +1,10 @@
+{
+  "id": "catalyst-brain-bridge",
+  "name": "Catalyst Brain Bridge",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Companion plugin for Catalyst UI's Brain. Tag notes for Catalyst, see Brain status, and jump between Obsidian and Catalyst.",
+  "author": "LxveAce",
+  "authorUrl": "https://github.com/LxveAce/catalyst-ui",
+  "isDesktopOnly": true
+}

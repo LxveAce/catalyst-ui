@@ -30,6 +30,7 @@ const VALID_PANEL_IDS = new Set([
   'models',
   'files',
   'hf',
+  'brain',
 ]);
 
 interface PersistedSession {

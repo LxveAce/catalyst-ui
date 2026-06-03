@@ -256,4 +256,51 @@ export const IPC = {
    *  Payload = { paneId, provider, key }. Main writes the key to PTY stdin
    *  and persists via provider-auth:set-key. */
   PROVIDER_KEY_SUBMIT: 'provider-auth:key-submit',
+
+  // Catalyst Brain — Obsidian-compatible knowledge folder (P1, Brain Folder
+  // Service). Scoped read/write of `.md`+YAML+wikilinks; diff-before-write.
+  // Distinct from the compact-controller "vault" JSON sync.
+  BRAIN_GET_CONFIG: 'brain:get-config',
+  BRAIN_PICK_FOLDER: 'brain:pick-folder',
+  BRAIN_SET_FOLDER: 'brain:set-folder',
+  BRAIN_LIST_NOTES: 'brain:list-notes',
+  BRAIN_READ_NOTE: 'brain:read-note',
+  /** Diff-before-write preview for an overwrite/create. */
+  BRAIN_PREVIEW_WRITE: 'brain:preview-write',
+  /** Diff-before-write preview for a delete. */
+  BRAIN_PREVIEW_DELETE: 'brain:preview-delete',
+  BRAIN_WRITE_NOTE: 'brain:write-note',
+  BRAIN_CREATE_NOTE: 'brain:create-note',
+  BRAIN_APPEND_NOTE: 'brain:append-note',
+  BRAIN_DELETE_NOTE: 'brain:delete-note',
+  /** P2 — write one canonical BrainEntry through the unification bus into the
+   *  managed `_catalyst/` subtree (idempotent by id). */
+  BRAIN_WRITE_ENTRY: 'brain:write-entry',
+  /** P2 — mirror the journaling streams (LMM cycles, snippets, cost, …) into
+   *  the Brain as schema-stamped notes. Returns BrainMirrorResult. */
+  BRAIN_MIRROR_STREAMS: 'brain:mirror-streams',
+  /** P3 — RAG index over the Brain (embed via Ollama; vectors in userData). */
+  BRAIN_INDEX_STATUS: 'brain:index-status',
+  BRAIN_INDEX_REBUILD: 'brain:index-rebuild',
+  BRAIN_INDEX_QUERY: 'brain:index-query',
+  /** P4 — interop. Open a note (or the vault) in Obsidian via obsidian://. */
+  BRAIN_OPEN_IN_OBSIDIAN: 'brain:open-in-obsidian',
+  /** P4 — Local REST API key (safeStorage; raw key never returned). */
+  BRAIN_REST_STATUS: 'brain:rest-status',
+  BRAIN_REST_SET: 'brain:rest-set',
+  BRAIN_REST_CLEAR: 'brain:rest-clear',
+  BRAIN_REST_TEST: 'brain:rest-test',
+  /** Live-vault operations via the Local REST API (mcp-obsidian tool set). */
+  BRAIN_REST_LIST: 'brain:rest-list',
+  BRAIN_REST_GET_FILE: 'brain:rest-get-file',
+  BRAIN_REST_SEARCH: 'brain:rest-search',
+  BRAIN_REST_APPEND: 'brain:rest-append',
+  BRAIN_REST_PUT: 'brain:rest-put',
+  BRAIN_REST_DELETE_FILE: 'brain:rest-delete-file',
+  /** Wikilink graph — backlinks + resolved outgoing links for a note. */
+  BRAIN_LINKS: 'brain:links',
+  /** Other Obsidian formats — list/read Canvas (.canvas) + Bases (.base). */
+  BRAIN_LIST_SPECIAL: 'brain:list-special',
+  BRAIN_READ_CANVAS: 'brain:read-canvas',
+  BRAIN_READ_BASE: 'brain:read-base',
 } as const;

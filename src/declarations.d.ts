@@ -104,6 +104,92 @@ interface Window {
       setCwd: (cwd: string) => Promise<string>;
       pickDir: () => Promise<string | null>;
     };
+    brain: {
+      getConfig: () => Promise<import('./shared/types').BrainConfig>;
+      pickFolder: () => Promise<import('./shared/types').BrainConfig>;
+      setFolder: (
+        folder: string | null
+      ) => Promise<import('./shared/types').BrainConfig>;
+      listNotes: () => Promise<import('./shared/types').BrainListResult>;
+      readNote: (
+        relPath: string
+      ) => Promise<import('./shared/types').BrainNote | { error: string }>;
+      previewWrite: (
+        relPath: string,
+        content: string
+      ) => Promise<import('./shared/types').BrainWritePreview>;
+      previewDelete: (
+        relPath: string
+      ) => Promise<import('./shared/types').BrainWritePreview>;
+      writeNote: (
+        relPath: string,
+        content: string,
+        expectedHash?: string
+      ) => Promise<import('./shared/types').BrainWriteResult>;
+      createNote: (
+        relPath: string,
+        content: string
+      ) => Promise<import('./shared/types').BrainWriteResult>;
+      appendNote: (
+        relPath: string,
+        text: string
+      ) => Promise<import('./shared/types').BrainWriteResult>;
+      deleteNote: (
+        relPath: string
+      ) => Promise<import('./shared/types').BrainWriteResult>;
+      writeEntry: (
+        entry: import('./shared/types').BrainEntry
+      ) => Promise<import('./shared/types').BrainWriteResult>;
+      mirrorStreams: () => Promise<import('./shared/types').BrainMirrorResult>;
+      indexStatus: () => Promise<import('./shared/types').BrainIndexStatus>;
+      indexRebuild: (
+        model?: string
+      ) => Promise<import('./shared/types').BrainIndexResult>;
+      indexQuery: (
+        text: string,
+        k?: number
+      ) => Promise<import('./shared/types').BrainSearchResult>;
+      openInObsidian: (
+        relPath?: string
+      ) => Promise<import('./shared/types').BrainOpenResult>;
+      restStatus: () => Promise<import('./shared/types').BrainRestStatus>;
+      restSet: (
+        baseUrl: string,
+        key: string
+      ) => Promise<import('./shared/types').BrainRestStatus>;
+      restClear: () => Promise<import('./shared/types').BrainRestStatus>;
+      restTest: () => Promise<import('./shared/types').BrainRestTestResult>;
+      restList: (
+        dir?: string
+      ) => Promise<import('./shared/types').BrainRestCallResult>;
+      restGetFile: (
+        filePath: string
+      ) => Promise<import('./shared/types').BrainRestCallResult>;
+      restSearch: (
+        query: string
+      ) => Promise<import('./shared/types').BrainRestCallResult>;
+      restAppend: (
+        filePath: string,
+        content: string
+      ) => Promise<import('./shared/types').BrainRestCallResult>;
+      restPut: (
+        filePath: string,
+        content: string
+      ) => Promise<import('./shared/types').BrainRestCallResult>;
+      restDeleteFile: (
+        filePath: string
+      ) => Promise<import('./shared/types').BrainRestCallResult>;
+      links: (
+        relPath: string
+      ) => Promise<import('./shared/types').BrainLinksResult>;
+      listSpecial: () => Promise<import('./shared/types').BrainSpecialList>;
+      readCanvas: (
+        relPath: string
+      ) => Promise<import('./shared/types').BrainCanvas | { error: string }>;
+      readBase: (
+        relPath: string
+      ) => Promise<import('./shared/types').BrainBaseDoc | { error: string }>;
+    };
     github: {
       authState: () => Promise<import('./shared/types').GitHubAuthState>;
       setToken: (

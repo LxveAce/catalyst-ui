@@ -18,6 +18,7 @@ import { HFPanel } from './components/hf/HFPanel';
 import { PanelResizeHandle } from './components/layout/PanelResizeHandle';
 import { PopoutView } from './components/models/PopoutView';
 import { FileTreePanel } from './components/project/FileTreePanel';
+import { BrainPanel } from './components/brain/BrainPanel';
 import { ApiKeyModal } from './components/auth/ApiKeyModal';
 import { TerminalTabs, type TerminalTab } from './components/terminal/TerminalTabs';
 import {
@@ -48,7 +49,8 @@ export type SidebarPanel =
   | 'settings'
   | 'models'   // v3.0 multi-model scaffold
   | 'files'    // 3.0.0-beta.3 file directory navigator
-  | 'hf';      // v4.0.0 Hugging Face hub
+  | 'hf'       // v4.0.0 Hugging Face hub
+  | 'brain';   // Catalyst Brain — Obsidian-compatible knowledge layer
 
 /** Bootstrap tab used until session-state hydrates. Mirrors the main-side
  *  defaults() in session-service.ts so the same paneId reattaches if a PTY
@@ -729,6 +731,8 @@ function RightPanel({
       return <ModelsPanel />;
     case 'hf':
       return <HFPanel />;
+    case 'brain':
+      return <BrainPanel onSendCommand={onSendCommand} />;
     case 'files':
       return <FileTreePanel />;
     default:

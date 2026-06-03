@@ -12,6 +12,11 @@ import { SnippetsService } from './snippets-service';
 import { NotificationsService } from './notifications-service';
 import { UpdaterService } from './updater-service';
 import { SessionService } from './session-service';
+import { BrainService } from './brain-service';
+import { BrainWriter } from './brain-writer';
+import { BrainIndex } from './brain-index';
+import { BrainRestAuth } from './brain-rest-auth';
+import { BrainGraph } from './brain-graph';
 import { HotkeysService } from './hotkeys-service';
 import { TrayService } from './tray-service';
 import { AccessibilityService } from './accessibility-service';
@@ -1076,6 +1081,216 @@ function setupGit() {
   });
 }
 
+function setupBrain() {
+  const svc = BrainService.instance();
+  ipcMain.handle(IPC.BRAIN_GET_CONFIG, () => svc.getConfig());
+  ipcMain.handle(IPC.BRAIN_PICK_FOLDER, async () => {
+    if (!mainWindow) return svc.getConfig();
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Choose your Catalyst Brain folder (an Obsidian-compatible .md folder)',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: svc.getConfig().folder ?? undefined,
+    });
+    if (result.canceled || result.filePaths.length === 0) return svc.getConfig();
+    return svc.setFolder(result.filePaths[0]);
+  });
+  ipcMain.handle(IPC.BRAIN_SET_FOLDER, (_e, folder: unknown) =>
+    svc.setFolder(typeof folder === 'string' ? folder : null)
+  );
+  ipcMain.handle(IPC.BRAIN_LIST_NOTES, () => svc.listNotes());
+  ipcMain.handle(IPC.BRAIN_READ_NOTE, (_e, rel: unknown) =>
+    svc.readNote(typeof rel === 'string' ? rel : '')
+  );
+  ipcMain.handle(IPC.BRAIN_PREVIEW_WRITE, (_e, rel: unknown, content: unknown) =>
+    svc.previewWrite(
+      typeof rel === 'string' ? rel : '',
+      typeof content === 'string' ? content : ''
+    )
+  );
+  ipcMain.handle(IPC.BRAIN_PREVIEW_DELETE, (_e, rel: unknown) =>
+    svc.previewDelete(typeof rel === 'string' ? rel : '')
+  );
+  ipcMain.handle(
+    IPC.BRAIN_WRITE_NOTE,
+    (_e, rel: unknown, content: unknown, expectedHash: unknown) =>
+      svc.writeNote(
+        typeof rel === 'string' ? rel : '',
+        typeof content === 'string' ? content : '',
+        typeof expectedHash === 'string' ? expectedHash : undefined
+      )
+  );
+  ipcMain.handle(IPC.BRAIN_CREATE_NOTE, (_e, rel: unknown, content: unknown) =>
+    svc.createNote(
+      typeof rel === 'string' ? rel : '',
+      typeof content === 'string' ? content : ''
+    )
+  );
+  ipcMain.handle(IPC.BRAIN_APPEND_NOTE, (_e, rel: unknown, text: unknown) =>
+    svc.appendNote(typeof rel === 'string' ? rel : '', typeof text === 'string' ? text : '')
+  );
+  ipcMain.handle(IPC.BRAIN_DELETE_NOTE, (_e, rel: unknown) =>
+    svc.deleteNote(typeof rel === 'string' ? rel : '')
+  );
+
+  // P2 — unification bus.
+  ipcMain.handle(IPC.BRAIN_WRITE_ENTRY, (_e, entry: unknown) =>
+    BrainWriter.instance().writeEntry(entry as import('../shared/types').BrainEntry)
+  );
+  ipcMain.handle(
+    IPC.BRAIN_MIRROR_STREAMS,
+    async (): Promise<import('../shared/types').BrainMirrorResult> => {
+      if (!svc.getConfig().ready) {
+        return { ok: false, written: 0, failed: 0, bySource: {}, error: 'no-brain-folder' };
+      }
+      const writer = BrainWriter.instance();
+      const bySource: Record<string, number> = {};
+      let written = 0;
+      let failed = 0;
+      const bump = (src: string, ok: boolean) => {
+        if (ok) {
+          written++;
+          bySource[src] = (bySource[src] ?? 0) + 1;
+        } else {
+          failed++;
+        }
+      };
+
+      // LMM cycles → one note each (RAW/NODES/REFLECT/SYNTH sections).
+      try {
+        for (const sum of getLMM().listCycles()) {
+          const c = getLMM().getCycle(sum.id);
+          if (!c) continue;
+          const body = (['raw', 'nodes', 'reflect', 'synth'] as const)
+            .map((p) => `## ${p.toUpperCase()}\n\n${c.phases[p]?.trim() || '_(empty)_'}`)
+            .join('\n\n');
+          const r = await writer.writeEntry({
+            id: `lmm-${c.id}`,
+            title: c.title || c.id,
+            source: 'lmm',
+            type: 'lmm-cycle',
+            created: c.created,
+            updated: c.modified,
+            author: 'lmm',
+            status: c.currentPhase,
+            tags: ['lmm', ...c.filledPhases],
+            body,
+          });
+          bump('lmm', r.ok);
+        }
+      } catch {
+        // Stream unavailable — skip, don't fail the whole mirror.
+      }
+
+      // Snippets → one note each.
+      try {
+        for (const s of getSnippets().list()) {
+          const r = await writer.writeEntry({
+            id: `snippet-${s.id}`,
+            title: s.name,
+            source: 'snippet',
+            type: 'snippet',
+            created: s.createdAt,
+            updated: s.modifiedAt,
+            tags: ['snippet'],
+            body: '```\n' + s.body + '\n```',
+          });
+          bump('snippet', r.ok);
+        }
+      } catch {
+        // skip
+      }
+
+      // Cost → a single rolling summary note.
+      try {
+        const status = await getCost().getStatus();
+        const r = await writer.writeEntry({
+          id: 'cost-summary',
+          title: 'Cost summary',
+          source: 'cost',
+          type: 'cost-summary',
+          tags: ['cost'],
+          body: '```json\n' + JSON.stringify(status, null, 2) + '\n```',
+        });
+        bump('cost', r.ok);
+      } catch {
+        // skip
+      }
+
+      return { ok: failed === 0, written, failed, bySource, error: null };
+    }
+  );
+
+  // P3 — RAG index.
+  ipcMain.handle(IPC.BRAIN_INDEX_STATUS, () => BrainIndex.instance().status());
+  ipcMain.handle(IPC.BRAIN_INDEX_REBUILD, (_e, model: unknown) =>
+    BrainIndex.instance().rebuild(typeof model === 'string' ? model : undefined)
+  );
+  ipcMain.handle(IPC.BRAIN_INDEX_QUERY, (_e, text: unknown, k: unknown) =>
+    BrainIndex.instance().query(
+      typeof text === 'string' ? text : '',
+      typeof k === 'number' && Number.isFinite(k) ? k : 8
+    )
+  );
+
+  // P4 — interop.
+  ipcMain.handle(
+    IPC.BRAIN_OPEN_IN_OBSIDIAN,
+    async (_e, rel: unknown): Promise<import('../shared/types').BrainOpenResult> => {
+      const abs = svc.absPathFor(typeof rel === 'string' ? rel : undefined);
+      if (!abs) {
+        return { ok: false, uri: null, error: svc.getConfig().ready ? 'outside-root' : 'no-brain-folder' };
+      }
+      // obsidian://open?path=<abs> opens the file/folder by absolute path if it
+      // belongs to a vault the user has registered in Obsidian. The path comes
+      // from absPathFor (guarded), never raw renderer input.
+      const uri = `obsidian://open?path=${encodeURIComponent(abs)}`;
+      try {
+        await shell.openExternal(uri);
+        return { ok: true, uri, error: null };
+      } catch {
+        return { ok: false, uri, error: 'failed' };
+      }
+    }
+  );
+  ipcMain.handle(IPC.BRAIN_REST_STATUS, () => BrainRestAuth.instance().status());
+  ipcMain.handle(IPC.BRAIN_REST_SET, (_e, baseUrl: unknown, key: unknown) =>
+    BrainRestAuth.instance().setKey(
+      typeof baseUrl === 'string' ? baseUrl : '',
+      typeof key === 'string' ? key : ''
+    )
+  );
+  ipcMain.handle(IPC.BRAIN_REST_CLEAR, () => BrainRestAuth.instance().clear());
+  ipcMain.handle(IPC.BRAIN_REST_TEST, () => BrainRestAuth.instance().test());
+  ipcMain.handle(IPC.BRAIN_REST_LIST, (_e, dir: unknown) =>
+    BrainRestAuth.instance().listFiles(typeof dir === 'string' ? dir : undefined)
+  );
+  ipcMain.handle(IPC.BRAIN_REST_GET_FILE, (_e, p: unknown) =>
+    BrainRestAuth.instance().getFile(typeof p === 'string' ? p : '')
+  );
+  ipcMain.handle(IPC.BRAIN_REST_SEARCH, (_e, q: unknown) =>
+    BrainRestAuth.instance().search(typeof q === 'string' ? q : '')
+  );
+  ipcMain.handle(IPC.BRAIN_REST_APPEND, (_e, p: unknown, c: unknown) =>
+    BrainRestAuth.instance().append(typeof p === 'string' ? p : '', typeof c === 'string' ? c : '')
+  );
+  ipcMain.handle(IPC.BRAIN_REST_PUT, (_e, p: unknown, c: unknown) =>
+    BrainRestAuth.instance().put(typeof p === 'string' ? p : '', typeof c === 'string' ? c : '')
+  );
+  ipcMain.handle(IPC.BRAIN_REST_DELETE_FILE, (_e, p: unknown) =>
+    BrainRestAuth.instance().deleteFile(typeof p === 'string' ? p : '')
+  );
+  ipcMain.handle(IPC.BRAIN_LINKS, (_e, rel: unknown) =>
+    BrainGraph.instance().links(typeof rel === 'string' ? rel : '')
+  );
+  ipcMain.handle(IPC.BRAIN_LIST_SPECIAL, () => svc.listSpecial());
+  ipcMain.handle(IPC.BRAIN_READ_CANVAS, (_e, rel: unknown) =>
+    svc.readCanvas(typeof rel === 'string' ? rel : '')
+  );
+  ipcMain.handle(IPC.BRAIN_READ_BASE, (_e, rel: unknown) =>
+    svc.readBase(typeof rel === 'string' ? rel : '')
+  );
+}
+
 function setupGitHub() {
   ipcMain.handle(IPC.GITHUB_AUTH_STATE, () => getGitHub().getAuthState());
   ipcMain.handle(
@@ -1595,6 +1810,7 @@ app.whenReady().then(() => {
   setupResources();
   setupCompact();
   setupGit();
+  setupBrain();
   setupGitHub();
   setupLMM();
   setupAuth();
