@@ -25,6 +25,8 @@ import { CostService } from './cost-service';
 import { CliService } from './cli-service';
 import { ModelRegistry } from './model-registry';
 import { OllamaService, type OllamaPullProgressEvent } from './ollama-service';
+import { setupCompareIPC } from './compare-service';
+import { setupNotesIPC } from './notes-service';
 import { detectHardware } from './hardware-detection';
 import { detectProject } from './project-language-detect';
 import { probeDisk } from './disk-info';
@@ -708,6 +710,9 @@ function setupOllama() {
   svc.on('daemon-state', (state) => {
     safeSend(IPC.OLLAMA_DAEMON_STATE_CHANGED, state);
   });
+
+  // Blind Model Compare — parallel Ollama generation.
+  setupCompareIPC(ipcMain);
 }
 
 /**
@@ -1841,6 +1846,7 @@ app.whenReady().then(() => {
   setupHotkeys();
   setupAccessibility();
   setupHuggingFace();
+  setupNotesIPC(ipcMain, app);
   setupTray();
 
   // Kick off the auto-updater after a short grace period so the window

@@ -1393,6 +1393,9 @@ export interface BrainLinksResult {
   error: 'no-brain-folder' | null;
 }
 
+export interface Note { id: string; title: string; content: string; tags: string[]; pinned: boolean; createdAt: number; updatedAt: number; }
+export interface CompareResult { model: string; response: string; durationMs: number; error?: string; }
+
 // The full ElectronAPI shape lives in src/declarations.d.ts as an ambient
 // Window typing. Don't redeclare it here — keep this file for serializable
 // IPC payload types only.

@@ -325,6 +325,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onDaemonStateChanged: (callback: (state: unknown) => void) =>
       subscribe<[unknown]>(IPC.OLLAMA_DAEMON_STATE_CHANGED, callback),
   },
+  notes: {
+    list: () => ipcRenderer.invoke(IPC.NOTES_LIST),
+    create: (data: unknown) => ipcRenderer.invoke(IPC.NOTES_CREATE, data),
+    update: (id: string, data: unknown) => ipcRenderer.invoke(IPC.NOTES_UPDATE, id, data),
+    delete: (id: string) => ipcRenderer.invoke(IPC.NOTES_DELETE, id),
+  },
+  compare: {
+    run: (prompt: string, models: string[]) =>
+      ipcRenderer.invoke(IPC.COMPARE_RUN, prompt, models),
+  },
   gpuPrefs: {
     get: () => ipcRenderer.invoke(IPC.GPU_PREFS_GET),
     set: (patch: unknown) => ipcRenderer.invoke(IPC.GPU_PREFS_SET, patch),

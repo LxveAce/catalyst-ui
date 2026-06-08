@@ -35,6 +35,13 @@ import type {
   SessionState,
 } from '../shared/types';
 import { applyTheme, findThemePreset, parseThemeKey, type ThemePreset } from './theme-presets';
+import { NotesPanel } from "./components/notes/NotesPanel";
+import { ComparePanel } from "./components/compare/ComparePanel";
+import { BackgroundCanvas } from "./components/layout/BackgroundCanvas";
+import { ToastContainer } from "./components/layout/ToastContainer";
+import { ShortcutsOverlay } from "./components/layout/ShortcutsOverlay";
+import { loadThemeExtras, type ThemeExtras } from "./theme-presets";
+import { registerMenuDismiss, dismissTopMenu } from "./esc-menu-stack";
 
 export type SidebarPanel =
   | 'terminal'
@@ -50,7 +57,9 @@ export type SidebarPanel =
   | 'models'   // v3.0 multi-model scaffold
   | 'files'    // 3.0.0-beta.3 file directory navigator
   | 'hf'       // v4.0.0 Hugging Face hub
-  | 'brain';   // Catalyst Brain — Obsidian-compatible knowledge layer
+  | 'brain'    // Catalyst Brain — Obsidian-compatible knowledge layer
+  | 'notes'    // Quick notes with markdown, tags, and search
+  | 'compare'; // Blind side-by-side model comparison
 
 /** Bootstrap tab used until session-state hydrates. Mirrors the main-side
  *  defaults() in session-service.ts so the same paneId reattaches if a PTY
@@ -117,6 +126,20 @@ export function App() {
   const [pidByPane, setPidByPane] = useState<Record<string, number>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [bindings, setBindings] = useState<HotkeyBinding[]>([]);
+  const [themeExtras, setThemeExtras] = useState<ThemeExtras>(() => loadThemeExtras());
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  useEffect(() => { const h = () => setThemeExtras(loadThemeExtras()); window.addEventListener("theme-extras-changed", h); return () => window.removeEventListener("theme-extras-changed", h); }, []);
+
+  useEffect(() => {
+    if (!paletteOpen) return;
+    return registerMenuDismiss(() => setPaletteOpen(false));
+  }, [paletteOpen]);
+
+  useEffect(() => {
+    if (!shortcutsOpen) return;
+    return registerMenuDismiss(() => setShortcutsOpen(false));
+  }, [shortcutsOpen]);
 
   // The PTY currently driven by snippet inserts, palette text-injection, and
   // the StatusBar PID readout. Derived rather than stored: keeping it in sync
@@ -221,7 +244,7 @@ export function App() {
       // Only Claude tabs are persisted — model PTYs can't survive a restart
       // and we don't want to silently re-trigger downloads / GPU loads.
       const persistedTabs: PersistedTab[] = tabs
-        .filter((t) => t.profile === 'claude' && !!t.paneId)
+        .filter((t) => t.profile === 'claude' && !!t.paneId && !t.incognito)
         .map((t) => ({
           id: t.id,
           label: t.label,
@@ -345,6 +368,22 @@ export function App() {
       paneId,
       profile: 'claude',
       ready: true,
+    };
+    setTabs((prev) => [...prev, next]);
+    setActiveTabId(id);
+    setActivePanel('terminal');
+  }, []);
+
+  const handleNewIncognitoTab = useCallback(() => {
+    const id = `tab_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const paneId = `p_${id.slice(4)}`;
+    const next: TerminalTab = {
+      id,
+      label: 'Claude (Incognito)',
+      paneId,
+      profile: 'claude',
+      ready: true,
+      incognito: true,
     };
     setTabs((prev) => [...prev, next]);
     setActiveTabId(id);
@@ -499,6 +538,13 @@ export function App() {
         dispatchAction('palette.open');
         return;
       }
+      if (e.key === 'Escape' && dismissTopMenu()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      const tgt = e.target as HTMLElement;
+      if (e.key === "?" && tgt.tagName !== "INPUT" && tgt.tagName !== "TEXTAREA" && !tgt.isContentEditable) { e.preventDefault(); setShortcutsOpen(v => !v); return; }
       if (chordMap.size === 0) return;
       const chord = chordFromEvent(e);
       if (!chord) return;
@@ -564,6 +610,7 @@ export function App() {
       width: '100vw',
       background: 'var(--bg-primary)',
     }}>
+      <BackgroundCanvas pattern={themeExtras.bgPattern} intensity={themeExtras.bgIntensity} />
       <TitleBar />
 
       <div style={{
@@ -642,6 +689,7 @@ export function App() {
         onSendToTerminal={sendToActive}
         onRestartTerminal={handleRestartTerminal}
         onNewClaudeTab={handleNewClaudeTab}
+        onNewIncognitoTab={handleNewIncognitoTab}
         onCloseTab={handleCloseActiveTab}
         onFocusNextTab={() => handleFocusTab(1)}
         onFocusPrevTab={() => handleFocusTab(-1)}
@@ -687,6 +735,9 @@ export function App() {
           onDismiss={() => setInterceptedPrompt(null)}
         />
       )}
+
+      <ToastContainer />
+      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }
@@ -735,6 +786,10 @@ function RightPanel({
       return <BrainPanel onSendCommand={onSendCommand} />;
     case 'files':
       return <FileTreePanel />;
+    case 'notes':
+      return <NotesPanel />;
+    case 'compare':
+      return <ComparePanel />;
     default:
       return <PlaceholderPanel panel={panel} />;
   }

@@ -446,6 +446,14 @@ interface Window {
         cb: (state: import('./shared/types').OllamaDaemonState) => void
       ) => () => void;
     };
+    compare: {
+      run: (prompt: string, models: string[]) => Promise<Array<{
+        model: string;
+        response: string;
+        durationMs: number;
+        error?: string;
+      }>>;
+    };
     gpuPrefs: {
       get: () => Promise<import('./shared/types').GpuPrefs>;
       set: (

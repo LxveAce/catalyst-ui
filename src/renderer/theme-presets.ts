@@ -10,6 +10,18 @@ export interface ThemePreset {
   custom?: boolean;
 }
 
+export interface ThemeExtras {
+  density: "compact" | "comfortable" | "spacious";
+  fontFamily: "system" | "mono" | "inter" | "fira";
+  bgPattern: "none" | "dots" | "grid" | "rain" | "particles";
+  bgIntensity: number;
+  frostedGlass: boolean;
+}
+
+export const DEFAULT_THEME_EXTRAS: ThemeExtras = {
+  density: "comfortable", fontFamily: "system", bgPattern: "none", bgIntensity: 30, frostedGlass: false,
+};
+
 export const THEME_PRESETS: ThemePreset[] = [
   {
     name: 'Purple',
@@ -220,4 +232,59 @@ function darken(hex: string, amount: number): string {
   const ng = Math.round(g * (1 - k));
   const nb = Math.round(b * (1 - k));
   return `#${[nr, ng, nb].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+const DENSITY_MAP: Record<ThemeExtras['density'], { padding: number; gap: number; fontSize: number }> = {
+  compact: { padding: 6, gap: 4, fontSize: 12 },
+  comfortable: { padding: 10, gap: 8, fontSize: 13 },
+  spacious: { padding: 14, gap: 12, fontSize: 14 },
+};
+
+const FONT_FAMILY_MAP: Record<ThemeExtras['fontFamily'], string> = {
+  system: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+  mono: "'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace",
+  inter: "'Inter', system-ui, sans-serif",
+  fira: "'Fira Code', monospace",
+};
+
+const THEME_EXTRAS_KEY = 'catalyst-theme-extras';
+
+export function applyThemeExtras(extras: ThemeExtras): void {
+  const root = document.documentElement;
+  const d = DENSITY_MAP[extras.density] ?? DENSITY_MAP.comfortable;
+  root.style.setProperty('--density-padding', `${d.padding}px`);
+  root.style.setProperty('--density-gap', `${d.gap}px`);
+  root.style.setProperty('--density-font-size', `${d.fontSize}px`);
+  document.body.style.fontFamily = FONT_FAMILY_MAP[extras.fontFamily] ?? FONT_FAMILY_MAP.system;
+  if (extras.frostedGlass) {
+    document.body.classList.add('frosted-glass');
+  } else {
+    document.body.classList.remove('frosted-glass');
+  }
+}
+
+export function loadThemeExtras(): ThemeExtras {
+  try {
+    const raw = localStorage.getItem(THEME_EXTRAS_KEY);
+    if (!raw) return { ...DEFAULT_THEME_EXTRAS };
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === 'object' && parsed !== null &&
+      ['compact', 'comfortable', 'spacious'].includes(parsed.density) &&
+      ['system', 'mono', 'inter', 'fira'].includes(parsed.fontFamily) &&
+      ['none', 'dots', 'grid', 'rain', 'particles'].includes(parsed.bgPattern) &&
+      typeof parsed.bgIntensity === 'number' && parsed.bgIntensity >= 0 && parsed.bgIntensity <= 100 &&
+      typeof parsed.frostedGlass === 'boolean'
+    ) {
+      return parsed as ThemeExtras;
+    }
+    return { ...DEFAULT_THEME_EXTRAS };
+  } catch {
+    return { ...DEFAULT_THEME_EXTRAS };
+  }
+}
+
+export function saveThemeExtras(extras: ThemeExtras): void {
+  localStorage.setItem(THEME_EXTRAS_KEY, JSON.stringify(extras));
+  window.dispatchEvent(new Event('theme-extras-changed'));
 }

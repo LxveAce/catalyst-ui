@@ -50,6 +50,9 @@ export interface TerminalTab {
    *  carry this; it's threaded to TerminalPanel → terminal.spawn so the PTY
    *  is launched with `--dangerously-skip-permissions`. */
   skipPermissions?: boolean;
+  /** Incognito tabs are not persisted across restarts and show a visual
+   *  indicator. Inspired by Odysseus's ephemeral session mode. */
+  incognito?: boolean;
 }
 
 export interface TerminalTabsProps {
@@ -153,24 +156,23 @@ export function TerminalTabs({
     return () => clearTimeout(t);
   }, [capNotice]);
 
-  const addClaudeTab = useCallback((skipPermissions: boolean = false) => {
+  const addClaudeTab = useCallback((skipPermissions: boolean = false, incognito: boolean = false) => {
     if (tabs.length >= MAX_TABS_RENDERER) {
       setCapNotice(`Tab limit reached (${MAX_TABS_RENDERER}). Close a tab first.`);
       return;
     }
     const id = `tab_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const paneId = `p_${id.slice(4)}`;
+    const label = incognito ? 'Claude (Incognito)' : skipPermissions ? 'Claude ⚠' : 'Claude';
     const next: TerminalTab = {
       id,
-      // The ⚠ in the label is the at-a-glance signal that this tab is running
-      // with --dangerously-skip-permissions.
-      label: skipPermissions ? 'Claude ⚠' : 'Claude',
+      label,
       paneId,
       profile: 'claude',
       ready: true,
       ...(skipPermissions ? { skipPermissions: true } : {}),
+      ...(incognito ? { incognito: true } : {}),
     };
-    // Updater form: rapid `+` clicks must not drop tabs added between renders.
     onTabsChange((prev) => [...prev, next]);
     onActiveChange(id);
   }, [tabs.length, onTabsChange, onActiveChange]);
@@ -357,6 +359,7 @@ export function TerminalTabs({
           shells={shells}
           onAddClaude={() => addClaudeTab(false)}
           onAddClaudeSkip={() => addClaudeTab(true)}
+          onAddClaudeIncognito={() => addClaudeTab(false, true)}
           onAddModel={(m) => { setPickerOpen(false); void addModelTab(m); }}
           onAddShell={(s) => { setPickerOpen(false); void addShellTab(s); }}
         />
@@ -526,6 +529,13 @@ function Tab({
           whiteSpace: 'nowrap',
         }}
       >
+        {tab.incognito && (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }} aria-hidden="true" title="Incognito — not persisted">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+            <circle cx="12" cy="12" r="3" />
+            <line x1="2" y1="2" x2="22" y2="22" />
+          </svg>
+        )}
         {tab.label}
       </span>
       <button
@@ -571,6 +581,7 @@ function NewTabButtons({
   shells,
   onAddClaude,
   onAddClaudeSkip,
+  onAddClaudeIncognito,
   onAddModel,
   onAddShell,
 }: {
@@ -583,6 +594,7 @@ function NewTabButtons({
   shells: ShellProfile[];
   onAddClaude: () => void;
   onAddClaudeSkip: () => void;
+  onAddClaudeIncognito: () => void;
   onAddModel: (m: ModelDefinition) => void;
   onAddShell: (s: ShellProfile) => void;
 }) {
@@ -636,6 +648,7 @@ function NewTabButtons({
           shells={shells}
           onPickClaude={() => { setPickerOpen(false); onAddClaude(); }}
           onPickClaudeSkip={() => { setPickerOpen(false); onAddClaudeSkip(); }}
+          onPickClaudeIncognito={() => { setPickerOpen(false); onAddClaudeIncognito(); }}
           onPickModel={onAddModel}
           onPickShell={onAddShell}
           onClose={() => setPickerOpen(false)}
@@ -653,6 +666,7 @@ function ProfilePicker({
   shells,
   onPickClaude,
   onPickClaudeSkip,
+  onPickClaudeIncognito,
   onPickModel,
   onPickShell,
   onClose,
@@ -664,6 +678,7 @@ function ProfilePicker({
   shells: ShellProfile[];
   onPickClaude: () => void;
   onPickClaudeSkip: () => void;
+  onPickClaudeIncognito: () => void;
   onPickModel: (m: ModelDefinition) => void;
   onPickShell: (s: ShellProfile) => void;
   onClose: () => void;
@@ -798,6 +813,45 @@ function ProfilePicker({
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
             Launches with --dangerously-skip-permissions
+          </div>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={onPickClaudeIncognito}
+        title="Incognito session — not saved across restarts"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 14px',
+          background: 'var(--bg-secondary)',
+          border: 'none',
+          borderBottom: '1px solid var(--border)',
+          color: 'var(--text-primary)',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          textAlign: 'left',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'var(--bg-secondary)';
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            Claude (Incognito)
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+              <circle cx="12" cy="12" r="3" />
+              <line x1="2" y1="2" x2="22" y2="22" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+            Session not persisted across restarts
           </div>
         </div>
       </button>

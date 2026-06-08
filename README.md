@@ -20,89 +20,155 @@
 
 ## Quick install
 
-Download from the [**latest release**](https://github.com/LxveAce/claude-code-studio/releases/latest)
+Download from the [**latest release**](https://github.com/LxveAce/catalyst-ui/releases/latest)
 and double-click. The installer downloads Node + the Claude CLI for you and
 launches the app — sign in to Claude in the first-launch modal, done.
 
-- **Windows:** `Claude-Code-Studio-3.0.0-Windows.exe` (NSIS one-click silent install)
-- **macOS Apple Silicon:** `Claude-Code-Studio-3.0.0-Mac.dmg` (drag to Applications)
-- **Linux:** `Claude-Code-Studio-3.0.0-Linux-Universal.AppImage` (portable),
+- **Windows:** `Catalyst-UI-4.0.3-Windows.exe` (NSIS one-click silent install)
+- **macOS Apple Silicon:** `Catalyst-UI-4.0.3-Mac.dmg` (drag to Applications)
+- **Linux:** `Catalyst-UI-4.0.3-Linux-Universal.AppImage` (portable),
   `-Linux-Debian.deb` (Debian/Ubuntu), or `-Linux-Fedora.rpm` (Fedora/RHEL)
 
 Per-platform install details, SmartScreen/Gatekeeper workarounds, and the
-build-from-source instructions are in [Installing v3.0](#installing-v30) below.
+build-from-source instructions are in [Installing](#installing) below.
+
+> Upgrading from Claude Code Studio v3.x? It's an in-place upgrade — all your
+> settings carry over. See [`docs/MIGRATING_FROM_CCS.md`](./docs/MIGRATING_FROM_CCS.md).
 
 ---
 
 ## Overview
 
-Catalyst UI (formerly Claude Code Studio) embeds the Claude Code CLI in a
-polished Electron desktop app, alongside an integrated Hugging Face Hub
-browser and Ollama bridge.  The core is a genuine terminal (node-pty +
-xterm.js) running `claude` — the sidebar adds tooling around it without
-getting in the way of the terminal-first workflow.
+Catalyst UI embeds the Claude Code CLI in a polished Electron desktop app,
+alongside an integrated Hugging Face Hub browser, Ollama model bridge, and
+an Obsidian-compatible knowledge layer.  The core is a genuine terminal
+(node-pty + xterm.js) running `claude` — the sidebar adds tooling around it
+without getting in the way of the terminal-first workflow.
 
 ## Features
 
-- **Embedded terminal** — real PTY running `claude`, with split panes and
-  session persistence.
-- **Multi-model catalog (v3.0)** — 33-model curated catalog of local +
-  API models (Qwen, DeepSeek, Llama, Gemma, Granite, Phi, Mistral,
-  embeddings). Hardware-tier auto-detect, cwd-aware recommendations
-  (frontend vs backend), in-panel terminal + pop-out windows for
-  launched models, first-run picker that pre-pulls your hardware's
-  defaults. Ollama is detected at runtime; if missing, the app surfaces
-  a one-click install link (not bundled in the installer). See
-  [docs/MULTI_MODEL.md](./docs/MULTI_MODEL.md).
-- **File directory navigator (v3.0)** — sidebar panel with lazy folder
-  tree, recent projects, show/hide dotfiles. Path-traversal guarded.
-- **Resource monitor** — live CPU / RAM / GPU; v3.0 splits the per-process
-  bucket into Claude PTYs, model PTYs, and the Ollama daemon so the
-  numbers stay accurate when running local models.
-- **`--dangerously-skip-permissions` toggle (v3.0)** — Settings → Claude
-  CLI. Auto-injects the flag when spawning Claude; never touches model
-  PTYs. Off by default; turn on only in trusted projects.
-- **Danger Zone (v3.0)** — Settings → bottom. Reset User Data wipes the
-  JSON state files Studio wrote (keeps Chromium profile). Uninstall is
-  cross-platform: Windows spawns NSIS uninstaller, macOS opens Finder
-  at /Applications, Linux detects pkg format and shows the right hint.
-- **Compact controller** — reads/toggles the compact-controller hooks and state.
-- **GitHub integration** — repos, commits, branches, PRs, and issues; PAT stored
-  encrypted via Electron `safeStorage`.
-- **LMM journaling** — in-app panel for the Lincoln Manifold Method workflow.
-- **Auth + settings sync** — optional account with cross-device settings sync.
-- **Vault sync** — push compact-controller vaults to a private GitHub repo.
-- **Command palette, snippets & notifications** — fuzzy palette, snippet store,
-  desktop notifications.
-- **Auto-updater, system tray & rebindable hotkeys.**
-- **Token cost tracker** — per-session estimates with a daily budget.
-- **Theming** — dark base with six accent presets.
+### Terminal & CLI
 
-See [`docs/HANDOFF.md`](./docs/HANDOFF.md) for the per-phase breakdown.
+- **Embedded terminal** — real PTY running `claude`, with a
+  Windows-Terminal-style **tab strip** and session persistence. `+`
+  opens a profile picker (Claude / Claude skip-permissions / Ollama / Aider /
+  Gemini / system shells); tabs pop out into their own windows.
+- **Claude (Chat) profile** — runs Claude in non-interactive stream-json
+  mode rendered as a structured chat (text / tool-use / tool-result / thinking
+  blocks) via the chat skin overlay.
+- **Shell profiles** — launch any detected system shell (PowerShell, Bash,
+  Git Bash, WSL, Zsh, Fish) as a terminal tab alongside Claude.
+
+### Model Management
+
+- **Multi-model catalog** — 33-model curated catalog of local + API models
+  (Qwen, DeepSeek, Llama, Gemma, Granite, Phi, Mistral, embeddings).
+  Hardware-tier auto-detect, cwd-aware recommendations (frontend vs backend),
+  in-panel terminal + pop-out windows for launched models, first-run picker
+  that pre-pulls your hardware's defaults.
+- **Hugging Face Hub browser** — Browse / Cached / Research sub-tabs: live
+  Hub search with hardware-aware GGUF fit badges, a one-click **GGUF →
+  Ollama import & launch** bridge, direct GGUF downloads with progress,
+  chat template viewer, and a disclaimer-gated Research catalog with audit log.
+- **Ollama bridge** — detect, pull, delete, start/stop/restart the daemon.
+  Pull progress streams in real-time with cancel support.
+- **Blind model compare** — select 2–4 Ollama models, enter a prompt, and
+  see responses side-by-side. Blind mode hides model names for unbiased
+  evaluation; reveal when ready.
+
+### Knowledge & Productivity
+
+- **Catalyst Brain** — Obsidian-compatible `.md` knowledge folder. Read, edit
+  (with diff-before-write preview), create, and delete notes with YAML
+  frontmatter + `[[wikilinks]]` preserved. Includes RAG semantic search
+  (Ollama embeddings), wikilink graph with backlinks, `obsidian://` URI
+  interop, and Canvas/Bases file support.
+- **Notes** — quick-capture notes with markdown rendering, tags, search,
+  pinning, and sort. Stored locally in your user data directory.
+- **LMM journaling** — in-app Lincoln Manifold Method workflow
+  (RAW → NODES → REFLECT → SYNTHESIZE).
+- **Snippets** — persistent text snippets insertable via the command palette.
+
+### DevOps & Monitoring
+
+- **GitHub integration** — repos, commits, branches, PRs, and issues; PAT
+  stored encrypted via Electron `safeStorage`.
+- **Resource monitor** — live CPU / RAM / GPU gauges split by process bucket
+  (Claude PTYs, model PTYs, Ollama daemon).
+- **Token cost tracker** — per-session input/output token estimates with
+  daily budgets and 30–90 day rolling history.
+- **Compact controller** — reads/toggles the compact-controller hooks and
+  session state.
+
+### Customization & UX
+
+- **Theming** — dark base with 13 built-in accent presets (Purple, Blue,
+  Emerald, Rose, Amber, Cyan, Slate, Indigo, Crimson, Forest, Magenta,
+  Midnight, Solarized) plus custom theme creation via hex color picker.
+- **Background patterns** — optional animated canvas backgrounds (dots,
+  grid, digital rain, particles) with adjustable intensity.
+- **Layout density** — compact, comfortable, or spacious spacing presets.
+- **Font selection** — system, monospace (Fira Code), Inter, or Fira Code.
+- **Frosted glass** — optional backdrop-filter blur on panels.
+- **Accessibility** — 10 toggles: high-contrast, font scale, reduce motion,
+  color-blind palettes (protanopia / deuteranopia / tritanopia), large focus
+  ring, 44px targets, dyslexia font, screen reader mode, keyboard hints.
+- **Resizable right panel** — 420px default, drag to resize (280–800),
+  double-click to reset; persisted across restarts.
+- **Keyboard shortcuts overlay** — press `?` to see all keybindings.
+- **Toast notifications** — in-app event notifications for sync errors,
+  budget alerts, update availability, and PTY exits.
+- **Command palette** — fuzzy search across panels, themes, snippets,
+  terminal actions. `Ctrl+Shift+P` / `Cmd+Shift+P`.
+- **Rebindable hotkeys** — customize key chords for all actions.
+- **System tray** — minimize to tray on close.
+- **Incognito tabs** — open ephemeral Claude sessions via the profile
+  picker or command palette; not persisted across restarts.
+- **Command palette history** — press arrow-up on an empty palette input
+  to recall previously executed commands.
+- **Escape menu stack** — overlays dismiss in LIFO order; pressing
+  Escape always closes the topmost overlay first.
+
+### Cloud & Sync
+
+- **Auth + settings sync** — optional account with cross-device settings sync.
+- **Vault sync** — push compact-controller vaults to a private GitHub repo
+  with append-only upload and per-file backoff.
+- **Multi-provider API keys** — universal key store for Anthropic, OpenAI,
+  Gemini, and OpenRouter. Encrypted via `safeStorage` (DPAPI on Windows,
+  Keychain on macOS, libsecret on Linux).
+
+### Platform
+
+- **Auto-updater** — stable and beta channels via GitHub Releases.
+- **Cross-platform** — Windows (NSIS), macOS (DMG), Linux (AppImage/deb/rpm).
+- **First-run bootstrap** — installs Node + Claude CLI automatically.
+- **`--dangerously-skip-permissions` toggle** — Settings → Claude CLI.
+  Auto-injects the flag when spawning Claude; off by default.
 
 ## Platform support
 
-v3.0 ships on **Windows**, **macOS** (Apple Silicon), and **Linux**
+Catalyst UI ships on **Windows**, **macOS** (Apple Silicon), and **Linux**
 (AppImage / .deb / .rpm). All three include the same bootstrap that
 installs Node + the Claude CLI for you — no manual prereqs.
 
-v1.0 was Windows-only via Squirrel.Windows. v1.0 users see
-[`docs/MIGRATING_FROM_V1.md`](./docs/MIGRATING_FROM_V1.md) for the
-one-time uninstall + reinstall path (same migration applies whether
-you're moving to v2 or jumping straight to v3 — both use the new
-electron-builder pipeline).
+Upgrading from Claude Code Studio v3.x is an in-place upgrade (settings carry
+over) — see [`docs/MIGRATING_FROM_CCS.md`](./docs/MIGRATING_FROM_CCS.md). v1.0
+was Windows-only via Squirrel.Windows; v1.0 users see
+[`docs/MIGRATING_FROM_V1.md`](./docs/MIGRATING_FROM_V1.md) for the one-time
+uninstall + reinstall path.
 
-## Installing v3.0
+## Installing
 
 Download the right asset for your OS from the
-[latest release](https://github.com/LxveAce/claude-code-studio/releases/latest)
+[latest release](https://github.com/LxveAce/catalyst-ui/releases/latest)
 and follow the per-platform steps below.
 
 ### Windows
 
-1. Download `Claude-Code-Studio-3.0.0-Windows.exe`.
+1. Download `Catalyst-UI-4.0.3-Windows.exe`.
 2. Double-click. The NSIS installer downloads Node + the Claude CLI,
-   then launches Studio. ~30 seconds total. No further setup needed.
+   then launches Catalyst UI. ~30 seconds total. No further setup needed.
 
 **SmartScreen warning** (first install, until code-signing is added in
 a future release):
@@ -111,10 +177,10 @@ a future release):
 
 ### macOS (Apple Silicon, Intel via Rosetta)
 
-1. Download `Claude-Code-Studio-3.0.0-Mac.dmg` (Apple Silicon native;
+1. Download `Catalyst-UI-4.0.3-Mac.dmg` (Apple Silicon native;
    runs on Intel Macs via Rosetta).
-2. Open the DMG, drag **Claude Code Studio** into **Applications**.
-3. Eject the DMG, open Studio from Launchpad / Spotlight.
+2. Open the DMG, drag **Catalyst UI** into **Applications**.
+3. Eject the DMG, open Catalyst UI from Launchpad / Spotlight.
 4. First launch: an onboarding modal downloads Node + the Claude CLI
    into `~/Library/Application Support/Claude Code Studio/runtime/`.
    Click **Sign in to Claude** — the in-session `/login` command opens
@@ -122,7 +188,7 @@ a future release):
 
 **Gatekeeper warning** (first launch, until notarization is added in a
 future release):
-- macOS may say *"Claude Code Studio cannot be opened because the
+- macOS may say *"Catalyst UI cannot be opened because the
   developer cannot be verified."*
 - Right-click the app icon → **Open** → confirm in the dialog. Required
   only once.
@@ -138,11 +204,11 @@ your distro.
 
 #### AppImage (works on any distro, no install needed)
 
-1. Download `Claude-Code-Studio-3.0.0-Linux-Universal.AppImage`.
+1. Download `Catalyst-UI-4.0.3-Linux-Universal.AppImage`.
 2. Make it executable and run:
    ```bash
-   chmod +x Claude-Code-Studio-3.0.0-Linux-Universal.AppImage
-   ./Claude-Code-Studio-3.0.0-Linux-Universal.AppImage
+   chmod +x Catalyst-UI-4.0.3-Linux-Universal.AppImage
+   ./Catalyst-UI-4.0.3-Linux-Universal.AppImage
    ```
 3. First launch: onboarding modal downloads Node + Claude CLI into
    `~/.config/Claude Code Studio/runtime/`. Sign in via the modal.
@@ -153,8 +219,8 @@ If you want a desktop entry + menu integration, drop the AppImage into
 #### Debian / Ubuntu
 
 ```bash
-wget https://github.com/LxveAce/claude-code-studio/releases/latest/download/Claude-Code-Studio-3.0.0-Linux-Debian.deb
-sudo dpkg -i Claude-Code-Studio-3.0.0-Linux-Debian.deb
+wget https://github.com/LxveAce/catalyst-ui/releases/latest/download/Catalyst-UI-4.0.3-Linux-Debian.deb
+sudo dpkg -i Catalyst-UI-4.0.3-Linux-Debian.deb
 sudo apt-get install -f   # resolve missing deps if any
 ```
 
@@ -164,8 +230,8 @@ modal as the AppImage.
 #### Fedora / RHEL / CentOS
 
 ```bash
-wget https://github.com/LxveAce/claude-code-studio/releases/latest/download/Claude-Code-Studio-3.0.0-Linux-Fedora.rpm
-sudo dnf install ./Claude-Code-Studio-3.0.0-Linux-Fedora.rpm
+wget https://github.com/LxveAce/catalyst-ui/releases/latest/download/Catalyst-UI-4.0.3-Linux-Fedora.rpm
+sudo dnf install ./Catalyst-UI-4.0.3-Linux-Fedora.rpm
 ```
 
 (Or `sudo rpm -i` if you prefer rpm directly.)
@@ -179,15 +245,13 @@ covers `linux-x64` with glibc 2.17+. If you're on a very old distro
 
 Every install path ends at the same first-launch flow:
 
-1. Studio checks for an existing Claude CLI on PATH or bundled runtime.
+1. Catalyst UI checks for an existing Claude CLI on PATH or bundled runtime.
 2. If missing: onboarding modal shows **Install Claude CLI** button.
    Click → modal streams the install log → ~30-60 seconds → done.
 3. If unauthenticated: modal shows **Sign in to Claude**. Click →
    `/login` is sent to the running Claude session in the embedded
    terminal → Claude opens your browser → complete OAuth → modal
-   dismisses. (v3 switched from `claude login` to `/login` because the
-   PTY auto-spawns Claude — sending the bare shell command would just
-   be chat text the running Claude session would respond to.)
+   dismisses.
 4. Subsequent launches skip the modal entirely (unless the CLI is
    broken or `~/.claude.json` is gone).
 
@@ -203,25 +267,20 @@ Every install path ends at the same first-launch flow:
 - **For `npm run dist` (NSIS installer build, Windows-only):** Windows
   Developer Mode enabled (Settings → Privacy & Security → For
   Developers). Without it, the 7za extraction of electron-builder's
-  `winCodeSign-2.6.0.7z` fails on macOS dylib symlinks. CI runners
-  enable Dev Mode explicitly in `release.yml`; local builds need it
-  on or the 7za wrapper at `docs/SESSION_LOG_2026-05-26_v3.0.0_release.md`.
+  `winCodeSign-2.6.0.7z` fails on macOS dylib symlinks.
 
 ### Getting started
 
 ```bash
-git clone https://github.com/LxveAce/claude-code-studio.git
-cd claude-code-studio
+git clone https://github.com/LxveAce/catalyst-ui.git
+cd catalyst-ui
 npm install            # runs the node-pty patch postinstall
 npm start              # dev: Vite + Electron with HMR
 ```
 
 ### Build outputs
 
-The build pipeline is electron-builder with per-OS targets. forge is
-kept in scripts as a legacy escape hatch (the Squirrel.Windows pipeline
-used for v1.0). Slated for removal once enough users have migrated past
-v3.0.
+The build pipeline is electron-builder with per-OS targets.
 
 ```bash
 # Cross-platform
@@ -241,36 +300,36 @@ npm run dist:all
 npm run dist:publish        # Windows
 npm run dist:publish:mac    # macOS
 npm run dist:publish:linux  # Linux
-
-# Legacy forge pipeline (v1.0 Squirrel — escape hatch)
-npm run package             # unpacked under out/
-npm run make                # Squirrel installer under out/make/squirrel.windows/
-npm run publish             # forge publish — Squirrel only
 ```
 
 > All pipelines need Node 22 — see [Developer prerequisites](#developer-prerequisites).
 
 ## Tech stack
 
-Electron 42 · React 19 · Vite · TypeScript · node-pty · xterm.js ·
-systeminformation · Octokit · electron-forge.
+Electron 42 · React 19 · Vite · TypeScript 6.0 · node-pty · xterm.js ·
+systeminformation · Octokit · @huggingface/hub · electron-builder
 
 ## Project structure
 
 ```
-src/        Application source (main / preload / renderer / shared)
-scripts/    Build helpers (node-pty patch)
-docs/       Documentation — HANDOFF, BACKLOG, ship cert, security reviews
-journal/    Per-source-file LMM analyses (one .lmm.md per source file)
+src/
+  main/       43 backend services (PTY, models, GitHub, Brain, sync, ...)
+  preload/    Preload scripts (IPC bridge to renderer)
+  renderer/   React 19 UI (App.tsx + 16 sidebar panel modules)
+  shared/     TypeScript types + IPC channel definitions
+scripts/      Build helpers (node-pty patch)
+docs/         Documentation, release notes, security reviews
+build/        Installer assets (NSIS script, branding BMPs)
 ```
 
 ## Documentation
 
-- [`docs/HANDOFF.md`](./docs/HANDOFF.md) — development handoff & current state
-- [`docs/BACKLOG.md`](./docs/BACKLOG.md) — post-v1.0 ideas & known bugs
-- [`docs/SHIPPING_CERTIFICATION.md`](./docs/SHIPPING_CERTIFICATION.md) — v1.0 ship certification
+- [`docs/STATUS.md`](./docs/STATUS.md) — **always-current pickup doc** (start here)
+- [`CHANGELOG.md`](./CHANGELOG.md) — per-release history
+- [`docs/MIGRATING_FROM_CCS.md`](./docs/MIGRATING_FROM_CCS.md) — Claude Code Studio → Catalyst UI rebrand & upgrade
+- [`docs/BACKLOG.md`](./docs/BACKLOG.md) — open ideas & known bugs
+- [`docs/HANDOFF.md`](./docs/HANDOFF.md) — historical v1→v3 phased development plan
 - [`docs/security-reviews/`](./docs/security-reviews/) — per-phase self-red-team reviews
-- [`journal/`](./journal/) — per-source-file LMM analyses (one `.lmm.md` per file)
 
 ## Contributing
 

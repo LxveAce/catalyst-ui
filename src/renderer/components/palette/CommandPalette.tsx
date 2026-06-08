@@ -19,12 +19,31 @@ interface CommandPaletteProps {
   onSwitchPanel: (panel: SidebarPanel) => void;
   onSendToTerminal: (text: string, submit: boolean) => void;
   onRestartTerminal: () => void;
-  // Tab actions (replaces the Phase 7c split-pane actions).
   onNewClaudeTab: () => void;
+  onNewIncognitoTab?: () => void;
   onCloseTab: () => void;
   onFocusNextTab: () => void;
   onFocusPrevTab: () => void;
   onResetTabs: () => void;
+}
+
+const PALETTE_HISTORY_KEY = 'ccs-palette-history';
+const MAX_PALETTE_HISTORY = 20;
+
+function loadPaletteHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(PALETTE_HISTORY_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((s): s is string => typeof s === 'string').slice(0, MAX_PALETTE_HISTORY) : [];
+  } catch { return []; }
+}
+
+function pushPaletteHistory(title: string): void {
+  const history = loadPaletteHistory().filter(h => h !== title);
+  history.unshift(title);
+  if (history.length > MAX_PALETTE_HISTORY) history.length = MAX_PALETTE_HISTORY;
+  try { localStorage.setItem(PALETTE_HISTORY_KEY, JSON.stringify(history)); } catch { /* ignore */ }
 }
 
 export function CommandPalette({
@@ -34,6 +53,7 @@ export function CommandPalette({
   onSendToTerminal,
   onRestartTerminal,
   onNewClaudeTab,
+  onNewIncognitoTab,
   onCloseTab,
   onFocusNextTab,
   onFocusPrevTab,
@@ -43,6 +63,7 @@ export function CommandPalette({
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [editorOpen, setEditorOpen] = useState<{ initial: Snippet | null } | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [historyIdx, setHistoryIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -58,8 +79,8 @@ export function CommandPalette({
     if (open) {
       setQuery('');
       setActiveIdx(0);
+      setHistoryIdx(-1);
       void refreshSnippets();
-      // focus next tick so the modal mounts first
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [open, refreshSnippets]);
@@ -166,6 +187,14 @@ export function CommandPalette({
         keywords: 'new tab claude open spawn',
         run: () => onNewClaudeTab(),
       },
+      ...(onNewIncognitoTab ? [{
+        id: 'tab:new-incognito',
+        title: 'New incognito tab',
+        subtitle: 'Open a Claude session that won\'t persist across restarts',
+        group: 'Tabs',
+        keywords: 'new tab incognito private ephemeral',
+        run: () => onNewIncognitoTab(),
+      }] : []),
       {
         id: 'tab:close',
         title: 'Close tab',
@@ -214,6 +243,7 @@ export function CommandPalette({
     onSendToTerminal,
     onRestartTerminal,
     onNewClaudeTab,
+    onNewIncognitoTab,
     onCloseTab,
     onFocusNextTab,
     onFocusPrevTab,
@@ -245,9 +275,23 @@ export function CommandPalette({
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setActiveIdx((i) => Math.min(i + 1, visible.length - 1));
+        if (historyIdx >= 0) {
+          setHistoryIdx(-1);
+          setQuery('');
+        } else {
+          setActiveIdx((i) => Math.min(i + 1, visible.length - 1));
+        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        if (query === '' || historyIdx >= 0) {
+          const history = loadPaletteHistory();
+          if (history.length > 0) {
+            const next = Math.min(historyIdx + 1, history.length - 1);
+            setHistoryIdx(next);
+            setQuery(history[next]);
+            return;
+          }
+        }
         setActiveIdx((i) => Math.max(i - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -259,7 +303,7 @@ export function CommandPalette({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, visible, activeIdx]);
+  }, [open, visible, activeIdx, query, historyIdx]);
 
   // Scroll active item into view.
   useEffect(() => {
@@ -270,6 +314,7 @@ export function CommandPalette({
 
   const runAction = useCallback(
     async (a: PaletteAction) => {
+      pushPaletteHistory(a.title);
       try {
         await a.run();
       } catch {

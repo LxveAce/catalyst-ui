@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { THEME_PRESETS, applyTheme, findThemePreset, parseThemeKey, type ThemePreset } from '../../theme-presets';
+import { THEME_PRESETS, applyTheme, findThemePreset, parseThemeKey, loadThemeExtras, saveThemeExtras, applyThemeExtras, DEFAULT_THEME_EXTRAS, type ThemePreset, type ThemeExtras } from '../../theme-presets';
 import type {
   CustomTheme,
   HotkeyAction,
@@ -54,6 +54,20 @@ export function SettingsPanel() {
   const [recordingAction, setRecordingAction] = useState<HotkeyAction | null>(
     null
   );
+  const [themeExtras, setThemeExtras] = useState<ThemeExtras>(() => {
+    const loaded = loadThemeExtras();
+    applyThemeExtras(loaded);
+    return loaded;
+  });
+
+  const updateExtras = useCallback((patch: Partial<ThemeExtras>) => {
+    setThemeExtras((prev) => {
+      const next = { ...prev, ...patch };
+      saveThemeExtras(next);
+      applyThemeExtras(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     // Read the persisted theme name to seed the `activeTheme` highlighted
@@ -397,6 +411,235 @@ export function SettingsPanel() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Appearance */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Appearance
+        </div>
+
+        {/* Density */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Density
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['compact', 'comfortable', 'spacious'] as const).map((d) => {
+              const isActive = themeExtras.density === d;
+              const barHeights = d === 'compact' ? [4, 6, 4] : d === 'comfortable' ? [6, 10, 6] : [8, 14, 8];
+              return (
+                <button
+                  key={d}
+                  onClick={() => updateExtras({ density: d })}
+                  style={{
+                    flex: 1,
+                    padding: '8px 6px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 2, alignItems: 'end' }}>
+                    {barHeights.map((h, i) => (
+                      <div key={i} style={{
+                        width: 3,
+                        height: h,
+                        borderRadius: 1,
+                        background: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                      }} />
+                    ))}
+                  </div>
+                  <span style={{
+                    fontSize: 10,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    textTransform: 'capitalize',
+                  }}>
+                    {d}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Font */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Font
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {([
+              { key: 'system' as const, label: 'System', family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+              { key: 'mono' as const, label: 'Mono', family: "'Fira Code', monospace" },
+              { key: 'inter' as const, label: 'Inter', family: "'Inter', system-ui, sans-serif" },
+              { key: 'fira' as const, label: 'Fira Code', family: "'Fira Code', monospace" },
+            ]).map((f) => {
+              const isActive = themeExtras.fontFamily === f.key;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => updateExtras({ fontFamily: f.key })}
+                  style={{
+                    flex: 1,
+                    minWidth: 70,
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontFamily: f.family,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Background Pattern */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Background Pattern
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {(['none', 'dots', 'grid', 'rain', 'particles'] as const).map((p) => {
+              const isActive = themeExtras.bgPattern === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => updateExtras({ bgPattern: p })}
+                  style={{
+                    padding: '10px 4px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span style={{
+                    fontSize: 10,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    textTransform: 'capitalize',
+                  }}>
+                    {p}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {themeExtras.bgPattern !== 'none' && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 4,
+              }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Pattern Intensity</span>
+                <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 500 }}>{themeExtras.bgIntensity}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={themeExtras.bgIntensity}
+                onChange={(e) => updateExtras({ bgIntensity: Number(e.target.value) })}
+                style={{
+                  width: '100%',
+                  height: 4,
+                  cursor: 'pointer',
+                  accentColor: 'var(--accent)',
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Frosted Glass */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Frosted Glass
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                Translucent panels with backdrop blur
+              </div>
+            </div>
+            <button
+              onClick={() => updateExtras({ frostedGlass: !themeExtras.frostedGlass })}
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 10,
+                border: 'none',
+                padding: 2,
+                cursor: 'pointer',
+                background: themeExtras.frostedGlass ? 'var(--accent)' : 'var(--gauge-grey, rgba(255,255,255,0.1))',
+                transition: 'background var(--transition-fast)',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'transform var(--transition-fast)',
+                transform: `translateX(${themeExtras.frostedGlass ? 16 : 0}px)`,
+              }} />
+            </button>
+          </div>
         </div>
       </div>
 

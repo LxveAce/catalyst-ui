@@ -208,6 +208,15 @@ export const IPC = {
   /** Cancel an in-flight download.  Returns true if aborted. */
   HF_CANCEL_DOWNLOAD: 'hf:cancel-download',
 
+  // Quick notes with markdown, tags, and search.
+  NOTES_LIST: "notes:list",
+  NOTES_CREATE: "notes:create",
+  NOTES_UPDATE: "notes:update",
+  NOTES_DELETE: "notes:delete",
+
+  // Blind Model Compare — parallel Ollama generation + blind voting.
+  COMPARE_RUN: 'compare:run',
+
   // File / project explorer (3.0.0-beta.3).
   PROJECT_LIST_DIR: 'project:list-dir',
   PROJECT_RECENT_LIST: 'project:recent-list',
