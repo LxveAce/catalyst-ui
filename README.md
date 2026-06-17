@@ -7,6 +7,7 @@
 > compact optimization, cost tracking, accessibility, and cloud sync.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/LxveAce/catalyst-ui?label=release)](https://github.com/LxveAce/catalyst-ui/releases/latest)
 ![Windows](https://img.shields.io/badge/Windows-0078D6.svg)
 ![macOS](https://img.shields.io/badge/macOS-000000.svg)
 ![Linux](https://img.shields.io/badge/Linux-FCC624.svg)
@@ -24,7 +25,7 @@ Download from the [**latest release**](https://github.com/LxveAce/catalyst-ui/re
 and double-click. The installer downloads Node + the Claude CLI for you and
 launches the app — sign in to Claude in the first-launch modal, done.
 
-- **Windows:** `Catalyst-UI-4.0.3-Windows.exe` (NSIS one-click silent install)
+- **Windows:** `Catalyst-UI-4.0.3-Windows.exe` (NSIS installer)
 - **macOS Apple Silicon:** `Catalyst-UI-4.0.3-Mac.dmg` (drag to Applications)
 - **Linux:** `Catalyst-UI-4.0.3-Linux-Universal.AppImage` (portable),
   `-Linux-Debian.deb` (Debian/Ubuntu), or `-Linux-Fedora.rpm` (Fedora/RHEL)
@@ -61,11 +62,13 @@ without getting in the way of the terminal-first workflow.
 
 ### Model Management
 
-- **Multi-model catalog** — 33-model curated catalog of local + API models
-  (Qwen, DeepSeek, Llama, Gemma, Granite, Phi, Mistral, embeddings).
-  Hardware-tier auto-detect, cwd-aware recommendations (frontend vs backend),
-  in-panel terminal + pop-out windows for launched models, first-run picker
-  that pre-pulls your hardware's defaults.
+- **Multi-model catalog** — a curated catalog of **41 models** (6 API +
+  35 local: Qwen, DeepSeek, Llama, Gemma, Granite, Phi, Mistral,
+  embeddings, and more). Hardware-tier auto-detect, cwd-aware
+  recommendations (frontend vs backend), in-panel terminal + pop-out
+  windows for launched models, and a first-run picker that pre-pulls your
+  hardware's defaults. Vetting notes live in
+  [`docs/MULTI_MODEL.md`](./docs/MULTI_MODEL.md).
 - **Hugging Face Hub browser** — Browse / Cached / Research sub-tabs: live
   Hub search with hardware-aware GGUF fit badges, a one-click **GGUF →
   Ollama import & launch** bridge, direct GGUF downloads with progress,
@@ -93,8 +96,9 @@ without getting in the way of the terminal-first workflow.
 
 - **GitHub integration** — repos, commits, branches, PRs, and issues; PAT
   stored encrypted via Electron `safeStorage`.
-- **Resource monitor** — live CPU / RAM / GPU gauges split by process bucket
-  (Claude PTYs, model PTYs, Ollama daemon).
+- **Resource monitor** — live CPU / RAM / GPU gauges, with CPU and RAM also
+  split by process bucket (Claude PTYs, model PTYs, Ollama daemon). GPU is
+  reported system-wide.
 - **Token cost tracker** — per-session input/output token estimates with
   daily budgets and 30–90 day rolling history.
 - **Compact controller** — reads/toggles the compact-controller hooks and
@@ -108,7 +112,7 @@ without getting in the way of the terminal-first workflow.
 - **Background patterns** — optional animated canvas backgrounds (dots,
   grid, digital rain, particles) with adjustable intensity.
 - **Layout density** — compact, comfortable, or spacious spacing presets.
-- **Font selection** — system, monospace (Fira Code), Inter, or Fira Code.
+- **Font selection** — system, monospace, Inter, or Fira Code.
 - **Frosted glass** — optional backdrop-filter blur on panels.
 - **Accessibility** — 10 toggles: high-contrast, font scale, reduce motion,
   color-blind palettes (protanopia / deuteranopia / tritanopia), large focus
@@ -167,8 +171,9 @@ and follow the per-platform steps below.
 ### Windows
 
 1. Download `Catalyst-UI-4.0.3-Windows.exe`.
-2. Double-click. The NSIS installer downloads Node + the Claude CLI,
-   then launches Catalyst UI. ~30 seconds total. No further setup needed.
+2. Run it and follow the NSIS installer (you can choose the install
+   directory). It downloads Node + the Claude CLI, then launches Catalyst
+   UI. ~30 seconds total. No further setup needed.
 
 **SmartScreen warning** (first install, until code-signing is added in
 a future release):
@@ -194,8 +199,8 @@ future release):
   only once.
 
 **Apple Silicon vs Intel:** use the arm64 build on M-series chips for
-~30% better performance. Both run on either chip (Rosetta translates),
-but native is faster.
+better performance. It also runs on Intel Macs through Rosetta, but
+native is faster.
 
 ### Linux
 
@@ -259,15 +264,15 @@ Every install path ends at the same first-launch flow:
 
 ### Developer prerequisites
 
-- **Node.js `>=22.0.0 <24.0.0`** — Node 22 LTS is required (electron-packager
-  is not yet compatible with Node 24). `package.json` pins `engines.node`.
-  Windows users: see [`CONTRIBUTING.md`](./CONTRIBUTING.md#node-22-on-windows).
+- **Node.js `>=22.0.0 <24.0.0`** — Node 22 LTS is required; `package.json`
+  pins `engines.node` to this range. Windows users: see
+  [`CONTRIBUTING.md`](./CONTRIBUTING.md#node-22-on-windows).
 - **For node-pty native build on Windows:** Visual Studio Build Tools 2022
   with the C++ workload, plus the Windows 10/11 SDK (10.0.22621+).
 - **For `npm run dist` (NSIS installer build, Windows-only):** Windows
   Developer Mode enabled (Settings → Privacy & Security → For
   Developers). Without it, the 7za extraction of electron-builder's
-  `winCodeSign-2.6.0.7z` fails on macOS dylib symlinks.
+  `winCodeSign` archive fails on macOS dylib symlinks.
 
 ### Getting started
 
@@ -288,15 +293,14 @@ npm run dist:dir            # unpacked output under dist/ — quick smoke test
 npm run vite:build          # just the renderer/main bundles
 
 # Per-OS local builds
-npm run dist                # Windows NSIS Setup.exe (needs Dev Mode)
-npm run dist:mac            # macOS DMG + zip (must run ON a Mac)
+npm run dist                # Windows NSIS installer (needs Dev Mode)
+npm run dist:mac            # macOS DMG (must run ON a Mac)
 npm run dist:linux          # Linux AppImage + deb + rpm
 
-# Cross-build all 3 (Linux build host can produce Windows + Linux;
-# macOS build needs a Mac)
+# Build all 3 targets
 npm run dist:all
 
-# Publish to GitHub Releases (draft)
+# Publish to GitHub Releases
 npm run dist:publish        # Windows
 npm run dist:publish:mac    # macOS
 npm run dist:publish:linux  # Linux
@@ -313,23 +317,26 @@ systeminformation · Octokit · @huggingface/hub · electron-builder
 
 ```
 src/
-  main/       43 backend services (PTY, models, GitHub, Brain, sync, ...)
-  preload/    Preload scripts (IPC bridge to renderer)
-  renderer/   React 19 UI (App.tsx + 16 sidebar panel modules)
+  main/       Electron main process — backend services (PTY, models,
+              GitHub, Brain, sync, resource monitor, ...)
+  preload/    Preload script (IPC bridge to renderer)
+  renderer/   React 19 UI (App.tsx + sidebar panel modules)
   shared/     TypeScript types + IPC channel definitions
-scripts/      Build helpers (node-pty patch)
-docs/         Documentation, release notes, security reviews
+scripts/      Build helpers (node-pty patch, Vite build, runtime verify)
+docs/         Documentation, release notes, migration guides
 build/        Installer assets (NSIS script, branding BMPs)
+obsidian-plugin/  Companion Obsidian plugin for vault interop
 ```
 
 ## Documentation
 
-- [`docs/STATUS.md`](./docs/STATUS.md) — **always-current pickup doc** (start here)
 - [`CHANGELOG.md`](./CHANGELOG.md) — per-release history
+- [`docs/MULTI_MODEL.md`](./docs/MULTI_MODEL.md) — multi-model catalog & vetting notes
 - [`docs/MIGRATING_FROM_CCS.md`](./docs/MIGRATING_FROM_CCS.md) — Claude Code Studio → Catalyst UI rebrand & upgrade
+- [`docs/MIGRATING_FROM_V1.md`](./docs/MIGRATING_FROM_V1.md) — v1.0 (Squirrel) → NSIS reinstall path
 - [`docs/BACKLOG.md`](./docs/BACKLOG.md) — open ideas & known bugs
 - [`docs/HANDOFF.md`](./docs/HANDOFF.md) — historical v1→v3 phased development plan
-- [`docs/security-reviews/`](./docs/security-reviews/) — per-phase self-red-team reviews
+- Per-release notes: [`docs/RELEASE_NOTES_v4.0.0.md`](./docs/RELEASE_NOTES_v4.0.0.md) and earlier
 
 ## Contributing
 
@@ -342,3 +349,9 @@ To report a vulnerability, see [`SECURITY.md`](./SECURITY.md).
 ## License
 
 [MIT](./LICENSE) © LxveAce
+
+## Connect
+
+- **Discord:** [discord.gg/lxveace](https://discord.gg/lxveace) — questions, help, or to talk through this project
+- **GitHub:** [@LxveAce](https://github.com/LxveAce)
+- **Website:** [lxveace.com](https://lxveace.com)
