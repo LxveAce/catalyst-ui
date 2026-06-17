@@ -1,0 +1,207 @@
+name: Release
+
+# Tag-driven release. On `git push origin vX.Y.Z`, builds installers on
+# all 3 OSes and uploads ONLY the user-facing files to a GitHub release
+# (deliberately excluding auto-updater metadata + delta-update blockmaps
+# so the release page stays uncluttered).
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write  # needed to create the GitHub release + upload assets
+
+jobs:
+  publish:
+    name: Build + upload (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each OS builds locally (no electron-builder publish — we control
+          # uploads explicitly via `gh release upload` below) so the only
+          # files that land on the release are the ones we explicitly list.
+          - os: windows-latest
+            label: windows
+            build_cmd: npm run dist
+            # Globs for the user-facing installer + the latest.yml
+            # auto-updater manifest.  v4.0.0 renamed the artifact prefix
+            # from Claude-Code-Studio-* to Catalyst-UI-*; we accept BOTH
+            # so a future revert or a hotfix on the v3 branch can still
+            # publish via this workflow.
+            upload_glob: dist/Catalyst-UI-*-Windows.exe dist/Claude-Code-Studio-*-Windows.exe dist/latest.yml
+          - os: macos-latest
+            label: macos
+            build_cmd: npm run dist:mac
+            # DMG + latest-mac.yml.  Accept both v3 (Claude-Code-Studio-*)
+            # and v4 (Catalyst-UI-*) artifact names.
+            upload_glob: dist/Catalyst-UI-*-Mac.dmg dist/Claude-Code-Studio-*-Mac.dmg dist/latest-mac.yml
+          - os: ubuntu-latest
+            label: linux
+            # Three distinct installers per distro family + AppImage's
+            # latest-linux.yml.  Accept both v3 (Claude-Code-Studio-*)
+            # and v4 (Catalyst-UI-*) names.
+            build_cmd: npm run dist:linux
+            upload_glob: dist/Catalyst-UI-*-Linux-Universal.AppImage dist/Catalyst-UI-*-Linux-Debian.deb dist/Catalyst-UI-*-Linux-Fedora.rpm dist/Claude-Code-Studio-*-Linux-Universal.AppImage dist/Claude-Code-Studio-*-Linux-Debian.deb dist/Claude-Code-Studio-*-Linux-Fedora.rpm dist/latest-linux.yml
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.3"
+          cache: "npm"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Install Linux build deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libfuse2
+
+      - name: Enable Windows Developer Mode
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
+            -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -Type DWord -Force
+
+      - name: Rebuild node-pty against Electron ABI
+        continue-on-error: true
+        run: npx --no-install @electron/rebuild -m . --only node-pty
+
+      - name: Build installer (no publish)
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          ${{ matrix.build_cmd }} 2>&1 | tee dist/build.log
+
+      - name: Create release (idempotent) + upload installers
+        # Each matrix job tries to create the release; if a sibling job
+        # got there first, we tolerate "already exists" and skip to
+        # upload. Verbose echo throughout so we can see in the log what
+        # actually happened.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -e
+
+          echo "=== Release context ==="
+          echo "Tag:        $GH_RELEASE_TAG"
+          echo "Repo:       ${{ github.repository }}"
+          echo "Run ID:     ${{ github.run_id }}"
+          echo "Matrix job: ${{ matrix.label }}"
+          echo "gh version: $(gh --version | head -1)"
+
+          NOTES_FILE="docs/RELEASE_NOTES_${GH_RELEASE_TAG}.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "NOTES_FILE not found at $NOTES_FILE — falling back to inline notes"
+            NOTES_FILE=""
+          else
+            echo "NOTES_FILE: $NOTES_FILE"
+          fi
+
+          echo ""
+          echo "=== Check if release already exists ==="
+          if gh release view "$GH_RELEASE_TAG" 2>&1; then
+            echo "Release $GH_RELEASE_TAG already exists — skipping create, proceeding to upload."
+          else
+            VIEW_EXIT=$?
+            echo "gh release view exited $VIEW_EXIT — release doesn't exist, creating..."
+            echo ""
+            echo "=== Create release ==="
+            if [ -n "$NOTES_FILE" ]; then
+              # Capture create output so we can detect "already exists" race
+              if ! CREATE_OUT=$(gh release create "$GH_RELEASE_TAG" --draft --title "$GH_RELEASE_TAG" --notes-file "$NOTES_FILE" 2>&1); then
+                echo "$CREATE_OUT"
+                if echo "$CREATE_OUT" | grep -qi "already exists"; then
+                  echo "Sibling job created it first — fine, proceeding to upload."
+                else
+                  echo "FATAL: gh release create failed for non-exists reason"
+                  exit 1
+                fi
+              else
+                echo "$CREATE_OUT"
+              fi
+            else
+              if ! CREATE_OUT=$(gh release create "$GH_RELEASE_TAG" --draft --title "$GH_RELEASE_TAG" --notes "${GH_RELEASE_TAG} — see RELEASE_NOTES_${GH_RELEASE_TAG}.md" 2>&1); then
+                echo "$CREATE_OUT"
+                if echo "$CREATE_OUT" | grep -qi "already exists"; then
+                  echo "Sibling job created it first — fine, proceeding to upload."
+                else
+                  echo "FATAL: gh release create failed for non-exists reason"
+                  exit 1
+                fi
+              else
+                echo "$CREATE_OUT"
+              fi
+            fi
+          fi
+
+          echo ""
+          echo "=== Verify release now exists ==="
+          gh release view "$GH_RELEASE_TAG"
+
+          echo ""
+          echo "=== Upload installers ==="
+          shopt -s nullglob
+          UPLOADED=0
+          for f in ${{ matrix.upload_glob }}; do
+            if [ -f "$f" ]; then
+              echo "Uploading $f ($(stat -c %s "$f" 2>/dev/null || stat -f %z "$f") bytes)..."
+              gh release upload "$GH_RELEASE_TAG" "$f" --clobber
+              UPLOADED=$((UPLOADED + 1))
+            else
+              echo "SKIP (not a file): $f"
+            fi
+          done
+          if [ "$UPLOADED" -eq 0 ]; then
+            echo "ERROR: no files matched upload_glob: ${{ matrix.upload_glob }}"
+            echo "dist/ contents:"
+            ls -la dist/
+            exit 1
+          fi
+          echo "Uploaded $UPLOADED file(s) for ${{ matrix.label }}."
+
+          echo ""
+          echo "=== Final release state ==="
+          gh release view "$GH_RELEASE_TAG" --json assets --jq '.assets[].name'
+
+      - name: Push failure log to ci-logs branch (debug fallback)
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          [ -f dist/build.log ] || echo "(no build.log captured)" > dist/build.log
+          git config user.email "ci@github-actions.local"
+          git config user.name "ci-logs-bot"
+          git checkout --orphan ci-logs-tmp
+          git rm -rf . 2>/dev/null || true
+          mkdir -p "release-${{ matrix.label }}"
+          cp dist/build.log "release-${{ matrix.label }}/build.log"
+          [ -f dist/builder-debug.yml ] && cp dist/builder-debug.yml "release-${{ matrix.label }}/builder-debug.yml" || true
+          {
+            echo "Run ID: ${{ github.run_id }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Tag:    ${{ github.ref_name }}"
+            echo "Job:    release-${{ matrix.label }}"
+            echo "URL:    https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > "release-${{ matrix.label }}/meta.txt"
+          git add "release-${{ matrix.label }}/"
+          git commit -m "release-ci-log: ${{ matrix.label }} failure for ${{ github.sha }}"
+          git push -f \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            "ci-logs-tmp:ci-logs"

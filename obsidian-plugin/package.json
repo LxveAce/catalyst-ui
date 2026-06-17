@@ -1,0 +1,19 @@
+{
+  "name": "catalyst-brain-bridge",
+  "version": "0.1.0",
+  "description": "Companion Obsidian plugin for Catalyst UI's Brain.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "catalyst", "brain"],
+  "author": "LxveAce",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.23.0",
+    "obsidian": "latest",
+    "typescript": "^5.4.0"
+  }
+}

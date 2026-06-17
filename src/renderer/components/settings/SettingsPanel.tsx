@@ -1,0 +1,1390 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { THEME_PRESETS, applyTheme, findThemePreset, parseThemeKey, loadThemeExtras, saveThemeExtras, applyThemeExtras, DEFAULT_THEME_EXTRAS, type ThemePreset, type ThemeExtras } from '../../theme-presets';
+import type {
+  CustomTheme,
+  HotkeyAction,
+  HotkeyBinding,
+  HotkeySettings,
+  NotificationSettings,
+  TraySettings,
+  UpdaterSettings,
+  UpdaterState,
+} from '../../../shared/types';
+import { ACTION_LABELS, chordFromEvent } from '../../hotkeys';
+import { ThemeEditor } from './ThemeEditor';
+import { ProviderKeysList } from '../auth/ProviderKeysList';
+import { AccessibilityPanel } from './AccessibilityPanel';
+
+function hexToRgb(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r},${g},${b}`;
+}
+
+export function SettingsPanel() {
+  const [activeTheme, setActiveTheme] = useState('Purple');
+  const [hoveredTheme, setHoveredTheme] = useState<string | null>(null);
+  const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  /** Snapshot of the theme that was active when the user opened the editor —
+   * used to restore on close-without-save (live previews mutate the chrome). */
+  const [editorRestoreTheme, setEditorRestoreTheme] = useState<ThemePreset | null>(null);
+  // Version sourced from main app.getVersion() — same IPC the title bar uses,
+  // so the About row, title bar, and status bar always match. Was hardcoded
+  // "2.0.0" pre-3.0.0-beta.3, which drifted from the actual package.json.
+  const [appVersionLabel, setAppVersionLabel] = useState<string>('loading…');
+  useEffect(() => {
+    let alive = true;
+    void window.electronAPI.app.version()
+      .then((v) => { if (alive) setAppVersionLabel(v); })
+      .catch(() => { if (alive) setAppVersionLabel('unknown'); });
+    return () => { alive = false; };
+  }, []);
+  const [notif, setNotif] = useState<NotificationSettings | null>(null);
+  const [notifSupported, setNotifSupported] = useState(true);
+  const [notifError, setNotifError] = useState<string | null>(null);
+  const [updaterState, setUpdaterState] = useState<UpdaterState | null>(null);
+  const [updaterSettings, setUpdaterSettings] = useState<UpdaterSettings | null>(null);
+  const [updaterError, setUpdaterError] = useState<string | null>(null);
+  const [updaterChecking, setUpdaterChecking] = useState(false);
+  const [tray, setTray] = useState<TraySettings | null>(null);
+  const [hotkeys, setHotkeys] = useState<HotkeySettings | null>(null);
+  const [hotkeyError, setHotkeyError] = useState<string | null>(null);
+  const [recordingAction, setRecordingAction] = useState<HotkeyAction | null>(
+    null
+  );
+  const [themeExtras, setThemeExtras] = useState<ThemeExtras>(() => {
+    const loaded = loadThemeExtras();
+    applyThemeExtras(loaded);
+    return loaded;
+  });
+
+  const updateExtras = useCallback((patch: Partial<ThemeExtras>) => {
+    setThemeExtras((prev) => {
+      const next = { ...prev, ...patch };
+      saveThemeExtras(next);
+      applyThemeExtras(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    // Read the persisted theme name to seed the `activeTheme` highlighted
+    // state in the picker. We do NOT call applyTheme() here — App.tsx is
+    // the single source of truth for applying the theme on startup, so
+    // calling applyTheme() here would race with App.tsx's hydration and
+    // (because applyTheme writes localStorage) could flap the stored key.
+    // After Cat 4 audit (post-RD-pass).
+    const stored = localStorage.getItem('claude-studio-theme');
+    const parsed = parseThemeKey(stored);
+    if (parsed?.custom) {
+      setActiveTheme(`custom:${parsed.name}`);
+    } else if (parsed) {
+      const builtin = findThemePreset(parsed.name);
+      if (builtin) setActiveTheme(builtin.name);
+    }
+    // Hydrate the custom-theme list so the grid can render them.
+    void (async () => {
+      try {
+        const customs = await window.electronAPI.themes.list();
+        setCustomThemes(customs);
+      } catch {
+        // themes IPC missing — built-ins still work.
+      }
+    })();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [supported, n, us, ust] = await Promise.all([
+          window.electronAPI.notifications.supported(),
+          window.electronAPI.notifications.getSettings(),
+          window.electronAPI.updater.getSettings(),
+          window.electronAPI.updater.getState(),
+        ]);
+        if (cancelled) return;
+        setNotifSupported(supported);
+        setNotif(n);
+        setUpdaterSettings(us);
+        setUpdaterState(ust);
+      } catch (e) {
+        if (!cancelled) {
+          setUpdaterError((e as Error).message ?? String(e));
+        }
+      }
+      try {
+        setTray(await window.electronAPI.tray.getSettings());
+      } catch {
+        // tray API missing — show nothing for the tray section
+      }
+      try {
+        setHotkeys(await window.electronAPI.hotkeys.get());
+      } catch {
+        // hotkeys API missing — show nothing for the hotkeys section
+      }
+    })();
+    // Live-update when main fires update-available.
+    const unsub = window.electronAPI.updater.onAvailable(() => {
+      void (async () => {
+        try {
+          const next = await window.electronAPI.updater.getState();
+          if (!cancelled) setUpdaterState(next);
+        } catch {
+          // ignore
+        }
+      })();
+    });
+    return () => {
+      cancelled = true;
+      try {
+        unsub();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  const handleThemeChange = (preset: ThemePreset) => {
+    setActiveTheme(preset.custom ? `custom:${preset.name}` : preset.name);
+    applyTheme(preset);
+  };
+
+  const openThemeEditor = () => {
+    // Snapshot the currently-applied theme so we can restore it on
+    // close-without-save. We rebuild from the active key.
+    const stored = localStorage.getItem('claude-studio-theme');
+    const parsed = parseThemeKey(stored);
+    let snapshot: ThemePreset | null = null;
+    if (parsed?.custom) {
+      const match = customThemes.find((t) => t.name === parsed.name);
+      if (match) snapshot = { ...match, custom: true };
+    } else if (parsed) {
+      snapshot = findThemePreset(parsed.name) ?? null;
+    }
+    setEditorRestoreTheme(snapshot ?? THEME_PRESETS[0]);
+    setEditorOpen(true);
+  };
+
+  const handleCustomSave = async (theme: CustomTheme) => {
+    try {
+      const next = await window.electronAPI.themes.save(theme);
+      setCustomThemes(next);
+      // Apply the saved theme as active immediately.
+      const asPreset: ThemePreset = { ...theme, custom: true };
+      handleThemeChange(asPreset);
+      setEditorOpen(false);
+    } catch (e) {
+      alert(`Couldn't save theme: ${(e as Error).message ?? String(e)}`);
+    }
+  };
+
+  const handleCustomDelete = async (name: string) => {
+    try {
+      const next = await window.electronAPI.themes.delete(name);
+      setCustomThemes(next);
+      // If the deleted theme was active, fall back to first built-in.
+      const stored = localStorage.getItem('claude-studio-theme');
+      const parsed = parseThemeKey(stored);
+      if (parsed?.custom && parsed.name === name) {
+        const fallback = THEME_PRESETS[0];
+        setActiveTheme(fallback.name);
+        applyTheme(fallback);
+      }
+    } catch (e) {
+      alert(`Couldn't delete theme: ${(e as Error).message ?? String(e)}`);
+    }
+  };
+
+  const closeThemeEditor = () => {
+    setEditorOpen(false);
+  };
+
+  const updateNotif = async (patch: Partial<NotificationSettings>) => {
+    try {
+      const next = await window.electronAPI.notifications.setSettings(patch);
+      setNotif(next);
+      setNotifError(null);
+    } catch (e) {
+      setNotifError((e as Error).message ?? String(e));
+    }
+  };
+
+  const updateUpdater = async (patch: Partial<UpdaterSettings>) => {
+    try {
+      const next = await window.electronAPI.updater.setSettings(patch);
+      setUpdaterSettings(next);
+      setUpdaterError(null);
+    } catch (e) {
+      setUpdaterError((e as Error).message ?? String(e));
+    }
+  };
+
+  const checkForUpdatesNow = async () => {
+    setUpdaterChecking(true);
+    setUpdaterError(null);
+    try {
+      const next = await window.electronAPI.updater.checkNow();
+      setUpdaterState(next);
+    } catch (e) {
+      setUpdaterError((e as Error).message ?? String(e));
+    } finally {
+      setUpdaterChecking(false);
+    }
+  };
+
+  const updateTray = async (patch: Partial<TraySettings>) => {
+    try {
+      const next = await window.electronAPI.tray.setSettings(patch);
+      setTray(next);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleBind = useCallback(
+    async (action: HotkeyAction, chord: string | null) => {
+      setHotkeyError(null);
+      try {
+        const next = await window.electronAPI.hotkeys.setBinding(action, chord);
+        setHotkeys(next);
+        window.dispatchEvent(new Event('hotkeys-changed'));
+      } catch (e) {
+        setHotkeyError((e as Error).message ?? 'Failed to set binding.');
+      }
+    },
+    []
+  );
+
+  const handleResetHotkeys = useCallback(async () => {
+    setHotkeyError(null);
+    try {
+      const next = await window.electronAPI.hotkeys.reset();
+      setHotkeys(next);
+      window.dispatchEvent(new Event('hotkeys-changed'));
+    } catch (e) {
+      setHotkeyError((e as Error).message ?? 'Failed to reset bindings.');
+    }
+  }, []);
+
+  // While recording, capture the next valid chord and save it.
+  useEffect(() => {
+    if (!recordingAction) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setRecordingAction(null);
+        return;
+      }
+      // Ignore lone modifier keypresses; wait for a non-modifier.
+      if (
+        e.key === 'Control' ||
+        e.key === 'Shift' ||
+        e.key === 'Alt' ||
+        e.key === 'Meta'
+      ) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const chord = chordFromEvent(e);
+      if (!chord) {
+        setHotkeyError(
+          'Chord must include Ctrl, Cmd, or Alt plus a key. Try again.'
+        );
+        return;
+      }
+      const action = recordingAction;
+      setRecordingAction(null);
+      void handleBind(action, chord);
+    };
+    // Capture so we win against any panel-level listener.
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [recordingAction, handleBind]);
+
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      <h3 style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+        marginBottom: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}>
+        <div style={{
+          width: 3, height: 14, borderRadius: 2,
+          background: 'var(--accent-gradient)',
+        }} />
+        Settings
+      </h3>
+
+      {/* Accent Color */}
+      <div style={{
+        marginBottom: 20,
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+        }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+          }}>
+            Accent Color
+          </div>
+          <button
+            onClick={openThemeEditor}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              borderRadius: 'var(--radius-md)',
+              padding: '4px 10px',
+              cursor: 'pointer',
+              fontSize: 11,
+            }}
+          >
+            Edit themes…
+          </button>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 8,
+        }}>
+          {[...THEME_PRESETS, ...customThemes.map((t) => ({ ...t, custom: true }) as ThemePreset)].map((preset) => {
+            const themeKey = preset.custom ? `custom:${preset.name}` : preset.name;
+            const isActive = activeTheme === themeKey;
+            const isHovered = hoveredTheme === themeKey;
+            return (
+              <button
+                key={themeKey}
+                onClick={() => handleThemeChange(preset)}
+                onMouseEnter={() => setHoveredTheme(themeKey)}
+                onMouseLeave={() => setHoveredTheme(null)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  border: `1.5px solid ${isActive ? preset.accent : isHovered ? 'rgba(255,255,255,0.1)' : 'var(--border)'}`,
+                  background: isActive
+                    ? `linear-gradient(135deg, rgba(${hexToRgb(preset.accent)},0.15) 0%, rgba(${hexToRgb(preset.accent)},0.05) 100%)`
+                    : 'var(--bg-primary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  transition: 'all var(--transition-fast)',
+                  transform: isHovered ? 'scale(1.02)' : 'none',
+                }}
+              >
+                <div style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 8,
+                  background: preset.gradient,
+                  boxShadow: isActive ? `0 0 12px rgba(${hexToRgb(preset.accent)},0.4)` : 'none',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {isActive && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </div>
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}>
+                  {preset.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Appearance */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Appearance
+        </div>
+
+        {/* Density */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Density
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['compact', 'comfortable', 'spacious'] as const).map((d) => {
+              const isActive = themeExtras.density === d;
+              const barHeights = d === 'compact' ? [4, 6, 4] : d === 'comfortable' ? [6, 10, 6] : [8, 14, 8];
+              return (
+                <button
+                  key={d}
+                  onClick={() => updateExtras({ density: d })}
+                  style={{
+                    flex: 1,
+                    padding: '8px 6px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 2, alignItems: 'end' }}>
+                    {barHeights.map((h, i) => (
+                      <div key={i} style={{
+                        width: 3,
+                        height: h,
+                        borderRadius: 1,
+                        background: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                      }} />
+                    ))}
+                  </div>
+                  <span style={{
+                    fontSize: 10,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    textTransform: 'capitalize',
+                  }}>
+                    {d}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Font */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Font
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {([
+              { key: 'system' as const, label: 'System', family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+              { key: 'mono' as const, label: 'Mono', family: "'Fira Code', monospace" },
+              { key: 'inter' as const, label: 'Inter', family: "'Inter', system-ui, sans-serif" },
+              { key: 'fira' as const, label: 'Fira Code', family: "'Fira Code', monospace" },
+            ]).map((f) => {
+              const isActive = themeExtras.fontFamily === f.key;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => updateExtras({ fontFamily: f.key })}
+                  style={{
+                    flex: 1,
+                    minWidth: 70,
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontFamily: f.family,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Background Pattern */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Background Pattern
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {(['none', 'dots', 'grid', 'rain', 'particles'] as const).map((p) => {
+              const isActive = themeExtras.bgPattern === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => updateExtras({ bgPattern: p })}
+                  style={{
+                    padding: '10px 4px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span style={{
+                    fontSize: 10,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    textTransform: 'capitalize',
+                  }}>
+                    {p}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {themeExtras.bgPattern !== 'none' && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 4,
+              }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Pattern Intensity</span>
+                <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 500 }}>{themeExtras.bgIntensity}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={themeExtras.bgIntensity}
+                onChange={(e) => updateExtras({ bgIntensity: Number(e.target.value) })}
+                style={{
+                  width: '100%',
+                  height: 4,
+                  cursor: 'pointer',
+                  accentColor: 'var(--accent)',
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Frosted Glass */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Frosted Glass
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                Translucent panels with backdrop blur
+              </div>
+            </div>
+            <button
+              onClick={() => updateExtras({ frostedGlass: !themeExtras.frostedGlass })}
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 10,
+                border: 'none',
+                padding: 2,
+                cursor: 'pointer',
+                background: themeExtras.frostedGlass ? 'var(--accent)' : 'var(--gauge-grey, rgba(255,255,255,0.1))',
+                transition: 'background var(--transition-fast)',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'transform var(--transition-fast)',
+                transform: `translateX(${themeExtras.frostedGlass ? 16 : 0}px)`,
+              }} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Provider API keys (multi-provider plumbing — Cat 5). */}
+      <div style={{ marginBottom: 20 }}>
+        <ProviderKeysList />
+      </div>
+
+      {/* Terminal Settings */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Terminal
+        </div>
+        <SettingRow label="Font Size" value="14px" />
+        <SettingRow label="Scrollback" value="10,000 lines" />
+        <SettingRow label="Cursor Style" value="Bar" />
+        <SettingRow label="Cursor Blink" value="On" />
+      </div>
+
+      {/* Notifications */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Notifications
+        </div>
+        {!notifSupported ? (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Desktop notifications are not supported on this OS.
+          </div>
+        ) : notif ? (
+          <>
+            <ToggleRow
+              label="Enabled"
+              value={notif.enabled}
+              onChange={(v) => void updateNotif({ enabled: v })}
+            />
+            <ToggleRow
+              label="On Claude exit"
+              value={notif.notifyOnPtyExit}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnPtyExit: v })}
+            />
+            <ToggleRow
+              label="On vault sync error"
+              value={notif.notifyOnSyncError}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnSyncError: v })}
+            />
+            <ToggleRow
+              label="On update available"
+              value={notif.notifyOnUpdateAvailable}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnUpdateAvailable: v })}
+            />
+            <ToggleRow
+              label="On daily cost budget hit"
+              value={notif.notifyOnCostBudget}
+              disabled={!notif.enabled}
+              onChange={(v) => void updateNotif({ notifyOnCostBudget: v })}
+            />
+            <button
+              onClick={() => void window.electronAPI.notifications.test()}
+              style={{
+                marginTop: 6,
+                padding: '5px 10px',
+                fontSize: 11,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Send test notification
+            </button>
+            {notifError && (
+              <div style={{
+                marginTop: 6,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--danger, #ef4444)',
+                background: 'rgba(239,68,68,0.08)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                {notifError}
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      {/* Updates */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Updates
+        </div>
+        {updaterState ? (
+          <>
+            <SettingRow
+              label="Current version"
+              value={`v${updaterState.currentVersion}`}
+            />
+            <SettingRow
+              label="Status"
+              value={updaterStatusLabel(updaterState)}
+            />
+            <SettingRow
+              label="Last checked"
+              value={formatTimestamp(updaterState.lastCheckedAt)}
+            />
+            {updaterState.pendingVersion && (
+              <SettingRow
+                label="Pending install"
+                value={`v${updaterState.pendingVersion} (on next launch)`}
+              />
+            )}
+            {updaterSettings && (
+              <SettingRow
+                label="Channel"
+                value="stable"
+              />
+            )}
+            {updaterSettings && (
+              <ToggleRow
+                label="Auto-update enabled"
+                value={updaterSettings.enabled}
+                onChange={(v) => void updateUpdater({ enabled: v })}
+              />
+            )}
+            <button
+              onClick={() => void checkForUpdatesNow()}
+              disabled={updaterChecking || !updaterState.active}
+              style={{
+                marginTop: 6,
+                padding: '5px 10px',
+                fontSize: 11,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: (updaterChecking || !updaterState.active) ? 'not-allowed' : 'pointer',
+                opacity: (updaterChecking || !updaterState.active) ? 0.5 : 1,
+              }}
+            >
+              {updaterChecking ? 'Checking…' : 'Check for updates now'}
+            </button>
+            {!updaterState.active && updaterState.inactiveReason && (
+              <div style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                lineHeight: 1.4,
+              }}>
+                {inactiveReasonCopy(updaterState.inactiveReason)}
+              </div>
+            )}
+            {(updaterError || updaterState.lastError) && (
+              <div style={{
+                marginTop: 6,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--danger, #ef4444)',
+                background: 'rgba(239,68,68,0.08)',
+                borderRadius: 'var(--radius-sm)',
+                lineHeight: 1.4,
+                wordBreak: 'break-word',
+              }}>
+                {updaterError || updaterState.lastError}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Loading updater status…
+          </div>
+        )}
+      </div>
+
+      {/* System Tray */}
+      {tray && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            marginBottom: 10,
+          }}>
+            System tray
+          </div>
+          <ToggleRow
+            label="Minimize to tray on close"
+            value={tray.minimizeToTrayOnClose}
+            onChange={(v) => void updateTray({ minimizeToTrayOnClose: v })}
+          />
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+            When enabled, closing the window hides it to the system tray
+            instead of quitting. Right-click the tray icon for options.
+            Background services (cost sampler, vault sync, auto-updater)
+            keep running while hidden — notifications will accumulate until
+            you bring the window back, or until you sign out / disable them.
+          </div>
+        </div>
+      )}
+
+      {/* Accessibility — Item 10 of v3.2.1 polish.  Persisted via
+          electronAPI.accessibility; applied to document.documentElement
+          live so toggles take effect without restart. */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+        }}>
+          Accessibility
+        </div>
+        <AccessibilityPanel />
+      </div>
+
+      {/* Hotkeys */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <span>Hotkeys</span>
+          {hotkeys && (
+            <button
+              onClick={() => void handleResetHotkeys()}
+              style={{
+                padding: '3px 8px',
+                fontSize: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Reset defaults
+            </button>
+          )}
+        </div>
+        {hotkeys ? (
+          <>
+            {hotkeys.bindings.map((b) => (
+              <HotkeyRow
+                key={b.action}
+                binding={b}
+                recording={recordingAction === b.action}
+                onStartRecording={() => {
+                  setHotkeyError(null);
+                  setRecordingAction(b.action);
+                }}
+                onClear={() => void handleBind(b.action, null)}
+              />
+            ))}
+            {recordingAction && (
+              <div style={{ fontSize: 10, color: 'var(--accent-light)', marginTop: 6, lineHeight: 1.4 }}>
+                Press a key combination. Esc to cancel.
+              </div>
+            )}
+            {hotkeyError && (
+              <div
+                role="alert"
+                style={{ fontSize: 10, color: '#ff8888', marginTop: 6, lineHeight: 1.4 }}
+              >
+                {hotkeyError}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Loading…</div>
+        )}
+      </div>
+
+      {/* Claude CLI */}
+      <div style={{
+        padding: '14px 16px',
+        background: 'var(--bg-primary)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)',
+      }}>
+        <div style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+        }}>
+          Claude CLI
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+          The first-launch onboarding helps install or sign in to the Claude
+          Code CLI. If you dismissed it, you can re-show it here.
+        </div>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await window.electronAPI.cli.resetOnboarding();
+              alert('Re-shown on next restart. Close and reopen Catalyst UI.');
+            } catch {
+              alert('Could not reset onboarding state.');
+            }
+          }}
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            color: 'var(--text-primary)',
+            padding: '6px 12px',
+            fontSize: 11,
+            borderRadius: 6,
+            cursor: 'pointer',
+          }}
+        >
+          Re-show CLI onboarding
+        </button>
+
+        <ClaudeCliFlagsSection />
+      </div>
+
+      <DangerZoneSection />
+
+      {/* About */}
+      <div style={{
+        padding: '14px 16px',
+        background: 'var(--bg-primary)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)',
+      }}>
+        <div style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+        }}>
+          About
+        </div>
+        <SettingRow label="App Version" value={appVersionLabel} />
+        <SettingRow label="Electron" value="42.2.0" />
+        <SettingRow label="React" value="19.x" />
+        <SettingRow label="Author" value="LxveAce" />
+      </div>
+
+      {editorOpen && (
+        <ThemeEditor
+          initialThemes={customThemes}
+          onLivePreview={(p) => applyTheme(p)}
+          onRestoreActiveTheme={() => {
+            if (editorRestoreTheme) applyTheme(editorRestoreTheme);
+          }}
+          onSaveAndApply={handleCustomSave}
+          onDelete={(name) => { void handleCustomDelete(name); }}
+          onClose={closeThemeEditor}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Claude CLI auto-flag toggles (3.0.0-beta.3).
+ *
+ * Surfaces user-toggleable flags that get auto-injected into every Claude
+ * PTY at spawn time. Currently just --dangerously-skip-permissions, which
+ * bypasses Claude's per-action permission prompts. Persisted via
+ * cli-flags.json in main; PtyManager reads at spawn.
+ *
+ * Why a separate section: this is power-user, footgun-y stuff. Lumping it
+ * with the onboarding reset would imply "casual setting" — it isn't.
+ */
+function ClaudeCliFlagsSection() {
+  const [flags, setFlags] = React.useState<{ dangerouslySkipPermissions: boolean } | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    let alive = true;
+    void window.electronAPI.cliFlags.get().then((f) => {
+      if (alive) setFlags(f);
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+
+  const handleToggle = async () => {
+    if (!flags || busy) return;
+    setBusy(true);
+    try {
+      const next = await window.electronAPI.cliFlags.set({
+        dangerouslySkipPermissions: !flags.dangerouslySkipPermissions,
+      });
+      setFlags(next);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!flags) return null;
+  return (
+    <div style={{
+      marginTop: 14,
+      padding: '10px 12px',
+      background: flags.dangerouslySkipPermissions ? 'rgba(251, 191, 36, 0.08)' : 'rgba(0,0,0,0.15)',
+      border: '1px solid ' + (flags.dangerouslySkipPermissions ? 'rgba(251, 191, 36, 0.3)' : 'var(--border)'),
+      borderRadius: 6,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>
+            Auto-enable <code>--dangerously-skip-permissions</code>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+            When on, the Claude CLI spawns with permission prompts bypassed —
+            file edits and tool calls happen without confirmation. Only enable
+            in trusted projects you control. Applies on the next terminal
+            spawn or restart. Local models are never affected.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={busy}
+          style={{
+            background: flags.dangerouslySkipPermissions ? '#fbbf24' : 'transparent',
+            border: '1px solid ' + (flags.dangerouslySkipPermissions ? '#fbbf24' : 'var(--border)'),
+            color: flags.dangerouslySkipPermissions ? '#0f172a' : 'var(--text-primary)',
+            padding: '6px 14px',
+            fontSize: 11,
+            borderRadius: 6,
+            cursor: busy ? 'wait' : 'pointer',
+            fontWeight: 600,
+            minWidth: 64,
+          }}
+        >
+          {flags.dangerouslySkipPermissions ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Danger Zone — easier uninstall surface.
+ *
+ *  - "Reset user data" wipes all the JSON files Catalyst UI wrote
+ *    (settings, history, registries, debug logs) without uninstalling the
+ *    binary. Useful for "start fresh without touching Windows Settings".
+ *
+ *  - "Uninstall Catalyst UI" spawns the NSIS uninstaller and quits the
+ *    app. Windows-only; on macOS/Linux it surfaces an error and the
+ *    user uses the platform's app manager.
+ *
+ * Reset is irreversible — confirms first. Uninstall is platform-conditional.
+ */
+function DangerZoneSection() {
+  const [busyReset, setBusyReset] = React.useState(false);
+  const [busyUninstall, setBusyUninstall] = React.useState(false);
+  const [confirmReset, setConfirmReset] = React.useState(false);
+
+  const handleReset = async () => {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
+    }
+    setBusyReset(true);
+    try {
+      const result = await window.electronAPI.app.resetUserData();
+      const msg = result.ok
+        ? `Wiped ${result.removed.length} file(s). Quit and reopen Catalyst UI to start fresh.`
+        : `Wiped ${result.removed.length}; ${result.failed.length} couldn't be removed. Check %APPDATA%\\Claude Code Studio.`;
+      alert(msg);
+    } catch (e) {
+      alert(`Reset failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusyReset(false);
+      setConfirmReset(false);
+    }
+  };
+
+  const handleUninstall = async () => {
+    if (!confirm('Launch the Catalyst UI uninstaller? On Windows the app will close immediately; on macOS / Linux you\'ll see instructions for completing the uninstall manually.')) return;
+    setBusyUninstall(true);
+    try {
+      const result = await window.electronAPI.app.openUninstaller();
+      if (!result.ok) {
+        alert(`Uninstall couldn't start: ${result.error ?? 'unknown error'}`);
+      } else if (result.notice) {
+        // macOS / Linux path — surfaces platform-specific manual steps.
+        alert(result.notice);
+      }
+      // Windows path: ok && !notice → uninstaller spawned + app quits. No alert.
+    } catch (e) {
+      alert(`Uninstall couldn't start: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusyUninstall(false);
+    }
+  };
+
+  return (
+    <div style={{
+      padding: '14px 16px',
+      background: 'rgba(239, 68, 68, 0.06)',
+      borderRadius: 'var(--radius-md)',
+      border: '1px solid rgba(239, 68, 68, 0.25)',
+    }}>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 600,
+        color: '#fca5a5',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+      }}>
+        Danger Zone
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+        Irreversible actions. The Reset button wipes settings, history,
+        registries, and debug logs (the JSON files Studio wrote) without
+        removing the binary — handy if the app misbehaves. The Uninstall
+        button launches the platform uninstaller and quits the app.
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={busyReset}
+          style={{
+            background: confirmReset ? '#ef4444' : 'transparent',
+            border: '1px solid #ef4444',
+            color: confirmReset ? '#fff' : '#fca5a5',
+            padding: '6px 14px',
+            fontSize: 11,
+            borderRadius: 6,
+            cursor: busyReset ? 'wait' : 'pointer',
+            fontWeight: confirmReset ? 600 : 400,
+          }}
+        >
+          {busyReset ? 'Wiping…' : confirmReset ? 'Click again to confirm' : 'Reset user data'}
+        </button>
+        <button
+          type="button"
+          onClick={handleUninstall}
+          disabled={busyUninstall}
+          style={{
+            background: 'transparent',
+            border: '1px solid #ef4444',
+            color: '#fca5a5',
+            padding: '6px 14px',
+            fontSize: 11,
+            borderRadius: 6,
+            cursor: busyUninstall ? 'wait' : 'pointer',
+          }}
+        >
+          {busyUninstall ? 'Launching…' : 'Uninstall Catalyst UI'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function updaterStatusLabel(s: UpdaterState): string {
+  if (s.pendingVersion) return `Update v${s.pendingVersion} ready`;
+  if (s.active) return 'Active — checking automatically';
+  switch (s.inactiveReason) {
+    case 'dev-mode': return 'Inactive (dev mode)';
+    case 'unsupported-platform': return 'Inactive (platform not supported)';
+    case 'disabled': return 'Disabled in settings';
+    case 'unsigned': return 'Inactive (unsigned build)';
+    case 'init-error': return 'Inactive (init error)';
+    default: return 'Inactive';
+  }
+}
+
+function inactiveReasonCopy(reason: NonNullable<UpdaterState['inactiveReason']>): string {
+  switch (reason) {
+    case 'dev-mode':
+      return 'Auto-update is skipped when running from "npm start". Build a packaged installer to test the full flow.';
+    case 'unsupported-platform':
+      return 'Auto-update via Squirrel is only supported on Windows and macOS.';
+    case 'disabled':
+      return 'Auto-update is disabled. Toggle "Auto-update enabled" above and restart the app to re-enable.';
+    case 'unsigned':
+      return 'Auto-update requires a signed build on this platform.';
+    case 'init-error':
+      return 'The updater failed to initialize. See last error above.';
+  }
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return 'Never';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    // Render local date+time in a compact form.
+    const date = d.toLocaleDateString();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
+  } catch {
+    return 'Unknown';
+  }
+}
+
+function SettingRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      padding: '5px 0',
+      fontSize: 12,
+    }}>
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{value}</span>
+    </div>
+  );
+}
+
+function HotkeyRow({
+  binding,
+  recording,
+  onStartRecording,
+  onClear,
+}: {
+  binding: HotkeyBinding;
+  recording: boolean;
+  onStartRecording: () => void;
+  onClear: () => void;
+}) {
+  const label = ACTION_LABELS[binding.action];
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 0',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 0 }}>
+        {label}
+      </span>
+      <button
+        onClick={onStartRecording}
+        style={{
+          minWidth: 110,
+          padding: '4px 8px',
+          fontSize: 11,
+          border: `1px solid ${recording ? 'var(--accent)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-sm)',
+          background: recording ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+          color: recording ? 'var(--accent-light)' : 'var(--text-secondary)',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+        }}
+      >
+        {recording ? 'Press keys…' : binding.chord ?? '(unbound)'}
+      </button>
+      {binding.chord && !recording && (
+        <button
+          onClick={onClear}
+          title="Clear binding"
+          style={{
+            padding: '4px 6px',
+            fontSize: 11,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '5px 0',
+      fontSize: 12,
+      opacity: disabled ? 0.5 : 1,
+    }}>
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <button
+        onClick={() => !disabled && onChange(!value)}
+        disabled={disabled}
+        style={{
+          width: 32,
+          height: 18,
+          borderRadius: 9,
+          border: 'none',
+          padding: 1.5,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          background: value ? 'var(--accent)' : 'var(--gauge-grey)',
+          transition: 'background var(--transition-base)',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{
+          width: 15,
+          height: 15,
+          borderRadius: '50%',
+          background: '#fff',
+          transition: 'transform var(--transition-base)',
+          transform: `translateX(${value ? 14 : 0}px)`,
+        }} />
+      </button>
+    </div>
+  );
+}

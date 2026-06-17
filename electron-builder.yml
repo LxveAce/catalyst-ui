@@ -1,0 +1,164 @@
+appId: com.lxveace.claude-code-studio
+productName: Catalyst UI
+copyright: Copyright © 2026 LxveAce
+# appId intentionally retained as `claude-code-studio` so v3.2.1 installs
+# upgrade in place — Windows NSIS keys off appId to decide
+# upgrade-vs-parallel-install.  Display name is "Catalyst UI" everywhere
+# user-facing; the appId is internal plumbing.
+
+# IMPORTANT: builder output goes to dist/ to avoid colliding with forge's out/
+# (per Phase 1 red-team M3). Both pipelines coexist until Phase 8.
+directories:
+  output: dist
+  buildResources: build
+
+# The runtime expects main to be at .vite/build/index.js — that's what
+# scripts/build-vite.mjs produces. Builder reads package.json's `main`
+# but we restate it here for clarity.
+extraMetadata:
+  main: .vite/build/index.js
+
+files:
+  - ".vite/**/*"
+  - "package.json"
+  # Vite externals declared in vite.main.config.ts must be on disk because
+  # the bundled main process emits bare require() for them. Builder
+  # auto-includes production deps from package.json by default, so
+  # node-pty and systeminformation come along automatically.
+
+asar: true
+# node-pty on Windows LoadLibraryW's sibling DLLs (winpty.dll,
+# winpty-agent.exe, conpty.dll, OpenConsole.exe) — those have to live on
+# disk, not inside the asar. Same reasoning as forge.config.ts.
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+
+# We rebuild node-pty ourselves via the postinstall script
+# (scripts/patch-node-pty.js + electron-rebuild). Letting builder rebuild
+# again would undo our patches.
+npmRebuild: false
+
+# Anthropic CLI install + bundled Node runtime happen at install time via
+# the NSIS bootstrap script (Phase 4). For Phase 2 we ship the existing
+# app behavior — assumes claude is on PATH.
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # icon: build/icon.ico  # uncommented in Phase 5 once asset exists
+  # Version-stamped OS-only filename: Catalyst-UI-2.0.0-Windows.exe
+  artifactName: "Catalyst-UI-${version}-Windows.${ext}"
+
+# macOS — DMG drag-to-Applications + zip for the auto-updater.
+# Bootstrap (Node + Claude CLI) happens on first launch via the existing
+# CliAuthOnboarding modal, NOT during install — DMGs don't have a post-
+# install hook the way NSIS does, and Apple's gatekeeper would flag any
+# attempt to download + execute binaries during a drag-install.
+#
+# Code signing + notarization deferred to v2.1 — requires Apple Developer
+# Program ($99/yr) + osxSign config keyed to env vars. Without signing,
+# users see "App is damaged or can't be opened" on first launch; the
+# workaround is right-click → Open → confirm in the dialog. Documented
+# in the per-OS README install section.
+mac:
+  # GitHub's `macos-latest` runner is Apple Silicon (arm64). Cross-
+  # compiling to x64 on an arm64 host requires Rosetta + extra setup.
+  # arm64-only build for v2.0; Intel Macs run via Rosetta.
+  #
+  # NOTE on targets: only dmg (no zip). The .zip was for auto-update via
+  # electron-updater. Per user request we're shipping only the single
+  # installer file per OS — auto-update is disabled for v2.0 and tracked
+  # for v2.1 (when we'll either re-enable .zip + latest-mac.yml or host
+  # them on a separate update channel).
+  target:
+    - target: dmg
+      arch: arm64
+  category: public.app-category.developer-tools
+  artifactName: "Catalyst-UI-${version}-Mac.${ext}"
+  hardenedRuntime: false
+  identity: null
+
+dmg:
+  # Standard Mac drag-to-Applications layout.
+  contents:
+    - x: 110
+      y: 150
+    - x: 250
+      y: 150
+      type: link
+      path: /Applications
+
+# Linux — AppImage (single-file portable, works on any distro) + deb
+# (Debian/Ubuntu) + rpm (Fedora/RHEL). Bootstrap via the same first-
+# launch modal pattern as macOS.
+#
+# update-electron-app didn't support Linux; electron-updater DOES for
+# AppImage (via the same latest.yml mechanism). deb/rpm rely on the
+# distro package manager — users `apt upgrade` / `dnf upgrade` instead.
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
+      arch:
+        - x64
+  category: Development
+  # Per-distro naming via the top-level appImage/deb/rpm blocks below.
+  # The linux.artifactName here is the fallback default.
+  artifactName: "Catalyst-UI-${version}-Linux.${ext}"
+
+# Per-target overrides so each Linux format names its target distro
+# in the filename — users on Fedora know to grab the .rpm,
+# Ubuntu/Debian grabs the .deb, anything else grabs the AppImage.
+appImage:
+  artifactName: "Catalyst-UI-${version}-Linux-Universal.${ext}"
+
+deb:
+  artifactName: "Catalyst-UI-${version}-Linux-Debian.${ext}"
+
+rpm:
+  artifactName: "Catalyst-UI-${version}-Linux-Fedora.${ext}"
+
+nsis:
+  # Cat 8 — real wizard mode replaces the previous silent one-click flow.
+  # Modern look + sidebar/header BMPs + custom Ollama opt-in page (defined
+  # in installer.nsh via nsDialogs).
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: "Catalyst UI"
+  artifactName: "Catalyst-UI-${version}-Windows.${ext}"
+  # Disable .exe.blockmap generation — used only for delta updates which
+  # we're not shipping in v2.0 (auto-updater disabled this release).
+  differentialPackage: false
+  # Custom NSIS script: downloads Node 22 + @anthropic-ai/claude-code into
+  # $INSTDIR\resources\runtime\, plus (Cat 8) an optional Ollama install
+  # gated by an in-installer Yes/No page. See build/installer.nsh.
+  include: build/installer.nsh
+  # Cat 8 — sidebar + header BMPs (vertical gradient using the app's
+  # accent color). Generated by build/gen-installer-assets.mjs; the
+  # committed BMPs are checked in so a fresh `npm run dist:win` works
+  # without depending on the script running first.
+  installerHeader: build/installerHeader.bmp
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
+  # installerIcon: build/installerIcon.ico   # placeholder until art lands
+  # uninstallerIcon: build/uninstallerIcon.ico
+
+publish:
+  - provider: github
+    owner: LxveAce
+    repo: catalyst-ui
+    releaseType: draft
+    # Repo rename happens in lockstep with v4.0.0; until then this
+    # config is for the FUTURE catalyst-ui repo.  Builds prior to
+    # the lockstep rename were pointed at claude-code-studio and
+    # will continue to find updates via GitHub's permanent redirect.

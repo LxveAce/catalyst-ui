@@ -1,0 +1,79 @@
+{
+  "name": "catalyst-ui",
+  "productName": "Catalyst UI",
+  "version": "4.0.3",
+  "description": "Catalyst UI (formerly Claude Code Studio) — multi-vendor AI workbench: Claude, Hugging Face, Ollama, Aider, Gemini all in one desktop app.",
+  "main": ".vite/build/index.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/patch-node-pty.js",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "vite:build": "node scripts/build-vite.mjs",
+    "dist:dir": "npm run vite:build && electron-builder --dir --publish never",
+    "dist": "npm run vite:build && electron-builder --win --publish never",
+    "dist:mac": "npm run vite:build && electron-builder --mac --publish never",
+    "dist:linux": "npm run vite:build && electron-builder --linux --publish never",
+    "dist:all": "npm run vite:build && electron-builder -mwl --publish never",
+    "dist:publish": "npm run vite:build && electron-builder --win --publish always",
+    "dist:publish:mac": "npm run vite:build && electron-builder --mac --publish always",
+    "dist:publish:linux": "npm run vite:build && electron-builder --linux --publish always"
+  },
+  "keywords": [
+    "catalyst-ui",
+    "claude",
+    "claude-code",
+    "huggingface",
+    "ollama",
+    "electron",
+    "terminal",
+    "gui"
+  ],
+  "author": {
+    "name": "LxveAce",
+    "email": "lxveace@proton.me"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0 <24.0.0"
+  },
+  "dependencies": {
+    "@huggingface/hub": "^2.13.0",
+    "@octokit/rest": "^21.0.2",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.8.3",
+    "node-pty": "^1.1.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-markdown": "^9.1.0",
+    "react-resizable-panels": "^3.0.6",
+    "react-syntax-highlighter": "^15.6.6",
+    "remark-gfm": "^4.0.1",
+    "systeminformation": "^5.31.6"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-deb": "^7.11.2",
+    "@electron-forge/maker-rpm": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
+    "@electron-forge/plugin-fuses": "^7.11.2",
+    "@electron-forge/plugin-vite": "^7.11.2",
+    "@electron-forge/publisher-github": "^7.11.2",
+    "@electron/fuses": "^1.8.0",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^6.0.2",
+    "electron": "42.2.0",
+    "electron-builder": "^26.8.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.14"
+  }
+}
