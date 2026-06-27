@@ -165,7 +165,7 @@ jobs:
         # because the run page is JS-rendered. Pushing the same content
         # to a separate `ci-logs` branch makes it readable via the
         # raw.githubusercontent.com URL with no auth:
-        # https://raw.githubusercontent.com/LxveAce/claude-code-studio/ci-logs/<label>/build.log
+        # https://raw.githubusercontent.com/LxveAce/catalyst-ui/ci-logs/<label>/build.log
         if: failure()
         shell: bash
         env:
@@ -187,7 +187,7 @@ jobs:
             echo "Commit: ${{ github.sha }}"
             echo "Branch: ${{ github.ref_name }}"
             echo "Job:    ${{ matrix.label }}"
-            echo "Run URL: https://github.com/LxveAce/claude-code-studio/actions/runs/${{ github.run_id }}"
+            echo "Run URL: https://github.com/LxveAce/catalyst-ui/actions/runs/${{ github.run_id }}"
           } > "${{ matrix.label }}/meta.txt"
           git add "${{ matrix.label }}/"
           git commit -m "ci-log: ${{ matrix.label }} for ${{ github.sha }}"
@@ -203,7 +203,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: claude-code-studio-${{ matrix.label }}-installer
+          name: catalyst-ui-${{ matrix.label }}-installer
           path: ${{ matrix.artifact_glob }}
           retention-days: 30
           if-no-files-found: warn
