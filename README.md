@@ -17,6 +17,25 @@
   <img src="./docs/assets/CCS.gif" alt="Catalyst UI — embedded terminal with sliding sidebar panels" width="800">
 </p>
 
+<!-- STATUS-ROADMAP:START -->
+## Status & Roadmap
+
+**Status:** v4.0.3 — healthy and actively releasing, with green CI/release pipelines.
+
+**In progress / known issues:**
+- v4.1.0 release cut in progress — terminal-profiles and Catalyst Brain work is on `master`, pending tagging/release.
+- macOS auto-update reliability fix in progress (Windows and Linux installers are unaffected).
+- macOS builds are currently unsigned; code signing + notarization are planned (see Roadmap).
+
+**Roadmap:**
+- Ship the v4.1.0 release (terminal-profiles + Catalyst Brain).
+- Per-provider API key management UI.
+- macOS code signing + notarization (pairs with the auto-update fix).
+- Model comparison view.
+- Embedding / RAG over sessions (largely realized via Catalyst Brain — reconcile and round out).
+- Per-model VRAM tracking.
+<!-- STATUS-ROADMAP:END -->
+
 ---
 
 ## Quick install
