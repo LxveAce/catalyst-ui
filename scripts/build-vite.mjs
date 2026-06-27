@@ -33,7 +33,7 @@ const root = path.resolve(__dirname, '..');
 const defines = {
   // For prod builds these collapse to safe values matching what forge-plugin-vite
   // emits when MAIN_WINDOW_VITE_DEV_SERVER_URL is unset. The runtime takes the
-  // loadFile branch (the `else` arm at index.ts:202) and the renderer dir name
+  // loadFile `else` branch (the no-dev-server path) in index.ts and the renderer dir name
   // gets substituted into the path literal.
   MAIN_WINDOW_VITE_DEV_SERVER_URL: 'undefined',
   MAIN_WINDOW_VITE_NAME: JSON.stringify('main_window'),

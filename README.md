@@ -163,7 +163,7 @@ without getting in the way of the terminal-first workflow.
 
 ### Platform
 
-- **Auto-updater** — stable and beta channels via GitHub Releases.
+- **Auto-updater** — stable and beta channels via GitHub Releases (Windows & Linux; macOS auto-update is currently disabled pending code-signing — see Status).
 - **Cross-platform** — Windows (NSIS), macOS (DMG), Linux (AppImage/deb/rpm).
 - **First-run bootstrap** — installs Node + Claude CLI automatically.
 - **`--dangerously-skip-permissions` toggle** — Settings → Claude CLI.
