@@ -201,7 +201,7 @@ jobs:
         # Always upload, even on build failure, so debug logs can be
         # post-mortemed via builder-debug.yml.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalyst-ui-${{ matrix.label }}-installer
           path: ${{ matrix.artifact_glob }}
