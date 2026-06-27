@@ -51,7 +51,7 @@ jobs:
             upload_glob: dist/Catalyst-UI-*-Linux-Universal.AppImage dist/Catalyst-UI-*-Linux-Debian.deb dist/Catalyst-UI-*-Linux-Fedora.rpm dist/Claude-Code-Studio-*-Linux-Universal.AppImage dist/Claude-Code-Studio-*-Linux-Debian.deb dist/Claude-Code-Studio-*-Linux-Fedora.rpm dist/latest-linux.yml
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
