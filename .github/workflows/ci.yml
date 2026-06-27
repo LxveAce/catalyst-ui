@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           # Pinned to match engines.node: >=22.0.0 <24.0.0 (electron-packager
           # incompatibility on Node 24 — see CONTRIBUTING.md).
@@ -85,7 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22.22.3"
           cache: "npm"
