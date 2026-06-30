@@ -17,6 +17,8 @@
   <img src="./docs/assets/CCS.gif" alt="Catalyst UI — embedded terminal with sliding sidebar panels" width="800">
 </p>
 
+> Provided **as is**, without warranty; you use it at your own risk. See [DISCLAIMER.md](DISCLAIMER.md).
+
 <!-- STATUS-ROADMAP:START -->
 ## Status & Roadmap
 
