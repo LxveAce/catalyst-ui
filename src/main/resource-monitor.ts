@@ -237,8 +237,10 @@ export class ResourceMonitor extends EventEmitter {
       visited.add(pid);
       const stats = byPid.get(pid);
       if (stats) {
-        cpu += stats.cpu;
-        ram += stats.mem_rss;
+        // ps can hand back an undefined cpu/rss for a pid on some Linux setups; the `|| 0` keeps a
+        // single missing value from poisoning the whole total into NaN (that's the "Claude NaN%" bug).
+        cpu += stats.cpu || 0;
+        ram += stats.mem_rss || 0;
         count++;
       }
       const children = childrenOf.get(pid);
