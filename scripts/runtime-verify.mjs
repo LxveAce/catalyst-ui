@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Runtime verification harness for Claude Code Studio.
+ * Runtime verification harness for Catalyst UI.
  *
  * Spawns the app via `npm start -- --remote-debugging-port=9222`, connects
  * to Chromium's DevTools Protocol on the main renderer page, and:
