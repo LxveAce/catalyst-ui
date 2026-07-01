@@ -11,7 +11,7 @@ import type { AccessibilitySettings, FontScale } from '../../../shared/types';
  *   - `[data-large-focus-ring="true"]` : thicker focus outlines
  *   - `[data-large-click-targets="true"]` : 44 px min interactive size
  *   - `[data-dyslexia-font="true"]` : dyslexia-friendly font stack
- *   - `[data-screen-reader-mode="true"]` : aria-live region enabled
+ *   - `[data-screen-reader-mode="true"]` : screen-reader-mode hook (live-region announcements not wired yet)
  *   - `[data-keyboard-hints="true"]` : keyboard-hints overlay visible
  *   - `[data-color-blind="<mode>"]` : color matrix SVG filter on root
  *

@@ -150,7 +150,7 @@ export function AccessibilityPanel() {
 
       <RowToggle
         label="Screen reader mode"
-        hint="Adds aria-live regions on chat output and extra aria-labels on tab focus changes."
+        hint="Placeholder — persists your preference and sets a screen-reader-mode hook on the app root. Live-region announcements on chat output aren't wired up yet."
         checked={prefs.screenReaderMode}
         onChange={(v) => void update({ screenReaderMode: v })}
       />
