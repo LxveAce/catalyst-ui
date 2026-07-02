@@ -11,6 +11,48 @@ v2 → v3 = multi-model surface).
 
 ---
 
+## [Unreleased]
+
+Documentation and honest-behavior maintenance since v4.0.3.  No new
+features and no version bump — corrects stale copy, hardens two real
+code paths, and adds project-governance docs.
+
+### Security
+- **Catalyst Brain note-path symlink escape closed.**  `resolveNotePath`
+  now resolves symlinks (realpath containment) before the
+  `startsWith(root + sep)` check — the docstring claimed containment the
+  lexical guard didn't enforce, so a symlink inside the Brain dir could
+  redirect a write outside it.
+
+### Fixed
+- **Resource monitor showed `Claude NaN%` on Linux.**  CPU/RSS totals
+  are now guarded so an undefined per-process `mem_rss` no longer
+  propagates `NaN` into the bucket readout.
+- **v4.0.3 release-notes 404 + CI drift.**  Repointed the missing
+  `RELEASE_NOTES_v4.0.3.md` reference, fixed the failing Dependabot
+  job, corrected the stale `claude-code-studio` slug in `ci.yml`
+  failure-log URLs, and cleaned assorted doc drift.
+
+### Changed
+- **Screen-reader-mode toggle relabeled as a placeholder** — chat
+  `aria-live` isn't wired yet, so the control no longer implies a
+  working feature.
+- **Accessibility audio-captions hint made version-neutral** — dropped
+  the stale "for v4.0.0" reference in the placeholder copy.
+
+### Docs
+- Added a canonical **DISCLAIMER.md** (authorized lawful use; as-is /
+  no-warranty / no-liability; not legal advice) and linked it from the
+  README.
+- Fixed a broken security-advisory URL and stale 1.0.x / product-name
+  content in the security docs.
+- Added a **Status & Roadmap** section to the README and a
+  **FORWARD-PLAN.md** session-handoff doc.
+
+### Internal
+- Fixed the stale "Claude Code Studio" product name in the
+  `runtime-verify` script header.
+
 ## [4.0.3] — 2026-05-28
 
 Bug-fix release.  v4.0.2 shipped with four issues users surfaced in
