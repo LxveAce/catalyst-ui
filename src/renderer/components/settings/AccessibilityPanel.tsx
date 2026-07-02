@@ -22,7 +22,7 @@ import { applyAccessibilityPrefs } from './accessibility-prefs';
  *   7. Screen-reader mode (aria-live regions + extra labels — stubbed)
  *   8. Keyboard hints overlay (visible inline list of bindings)
  *   9. Color-blind palettes (SVG color-matrix filters at root)
- *  10. Audio captions (placeholder for v4.0.0 audio models)
+ *  10. Audio captions (placeholder for future audio models)
  *
  * Defaults: all off so existing users see no behavior change until they opt in.
  */
@@ -177,7 +177,7 @@ export function AccessibilityPanel() {
 
       <RowToggle
         label="Audio captions"
-        hint="Placeholder — will caption HF audio model output once those land in v4.0.0."
+        hint="Placeholder — will caption HF audio model output once audio models are supported."
         checked={prefs.audioCaptions}
         onChange={(v) => void update({ audioCaptions: v })}
       />
