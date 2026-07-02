@@ -158,6 +158,25 @@ export class BrainService {
     if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
       return null;
     }
+    // Symlink-escape guard: the string checks above don't follow symlinks, so a note (or an
+    // intermediate dir) that is a symlink pointing outside the vault would still pass. Resolve the
+    // REAL path of the deepest existing ancestor (the target may be a not-yet-created file) and
+    // confirm it stays inside the real root.
+    try {
+      const realRoot = fs.realpathSync(resolvedRoot);
+      let probe = resolved;
+      while (!fs.existsSync(probe)) {
+        const parent = path.dirname(probe);
+        if (parent === probe) break;
+        probe = parent;
+      }
+      const realProbe = fs.realpathSync(probe);
+      if (realProbe !== realRoot && !realProbe.startsWith(realRoot + path.sep)) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
     // Block ignored dirs anywhere in the relative path.
     const relParts = path.relative(resolvedRoot, resolved).split(path.sep);
     if (relParts.some((seg) => IGNORE_DIRS.has(seg))) return null;
