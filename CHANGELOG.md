@@ -13,9 +13,15 @@ v2 → v3 = multi-model surface).
 
 ## [Unreleased]
 
-Documentation and honest-behavior maintenance since v4.0.3.  No new
-features and no version bump — corrects stale copy, hardens two real
+Two headline features landed on master since v4.0.3 (staged for a v4.1.0 cut), plus
+documentation and honest-behavior maintenance. Corrects stale copy, hardens two real
 code paths, and adds project-governance docs.
+
+### Added
+- **Catalyst Brain** — an Obsidian-compatible knowledge base with semantic RAG search
+  (`brain-*.ts`, `BrainPanel.tsx`). Staged for v4.1.0.
+- **Terminal profiles** — configurable shell profiles for the PTY terminal
+  (`shell-profiles.ts`). Staged for v4.1.0.
 
 ### Security
 - **Catalyst Brain note-path symlink escape closed.**  `resolveNotePath`
