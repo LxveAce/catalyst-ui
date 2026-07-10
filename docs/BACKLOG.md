@@ -317,10 +317,10 @@ same GUI shell (terminal panes, resource monitor, etc.) around each.
 ## 0. v1.1 bootstrap installer — IN DEVELOPMENT
 
 **Status:** 4 of 9 phases shipped on `feature/bootstrap-installer`. See
-[`INSTALLER_REDESIGN.md`](./INSTALLER_REDESIGN.md) and
+`INSTALLER_REDESIGN.md` and
 [`MIGRATING_FROM_V1.md`](./MIGRATING_FROM_V1.md) for the design + upgrade
 path. Per-phase journal at
-[`../journal/config/INSTALLER_REDESIGN.lmm.md`](../journal/config/INSTALLER_REDESIGN.lmm.md).
+`journal/config/INSTALLER_REDESIGN.lmm.md`.
 
 **Phases complete:** 1 (design) · 2 (forge→builder hybrid) · 3 (PtyManager
 runtime path) · 4 (NSIS bootstrap macros) · 8 (this docs update).

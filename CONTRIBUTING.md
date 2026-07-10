@@ -129,10 +129,10 @@ Forge pipeline will be removed in Phase 8 once builder is proven for v1.1.
   and verify the non-Windows branches at least compile (CI catches the
   rest via per-platform smoke builds).
 - **LMM journaling:** non-trivial work is thought through with the Lincoln
-  Manifold Method and recorded under [`journal/`](./journal/) — one
+  Manifold Method and recorded under `journal/` — one
   `<source-path>.lmm.md` analysis per file.
 - **Security self-review:** substantial features get a self-red-team pass
-  recorded under [`docs/security-reviews/`](./docs/security-reviews/), with
+  recorded under `docs/security-reviews/`, with
   Criticals + Highs fixed in the same change set and Mediums documented as
   deferred. See [`SECURITY.md`](./SECURITY.md).
 
