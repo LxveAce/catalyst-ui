@@ -107,7 +107,7 @@ Forge pipeline will be removed in Phase 8 once builder is proven for v1.1.
 - Branch from `master` using a descriptive prefix: `fix/…`, `feat/…`,
   `chore/…`, or `docs/…`.
 - **External contributors** (without push access) work from a fork and open a
-  cross-fork pull request into `LxveAce/claude-code-studio:master`.
+  cross-fork pull request into `LxveAce/catalyst-ui:master`.
 - Keep a PR focused on one concern. Open separate PRs for unrelated changes.
 - Fill in the pull request template and describe how you verified the change.
 
