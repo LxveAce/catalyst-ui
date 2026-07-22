@@ -159,7 +159,11 @@ export class PtyManager extends EventEmitter {
     this.childProcess = spawn(command, args, {
       cwd,
       env: { ...env, TERM: 'xterm-256color', FORCE_COLOR: '1' },
-      shell: true,
+      // shell:false — `command` is already an absolute path (resolveCommandPath)
+      // and args are a real argv array, exactly like the primary node-pty path
+      // (which never uses a shell). A shell would let metacharacters in a model's
+      // command/args be interpreted, so keep this fallback shell-free.
+      shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

@@ -936,10 +936,15 @@ function setupAppMeta() {
 function setupProjectExplorer() {
   ipcMain.handle(
     IPC.PROJECT_LIST_DIR,
-    async (_event, root: unknown, target: unknown) => {
-      const safeRoot = typeof root === 'string' ? root : '';
+    async (_event, _root: unknown, target: unknown) => {
+      // Anchor the listing root on the MAIN side to the app's tracked workspace
+      // cwd — never the root the renderer passes. In every legitimate flow the
+      // renderer's root already IS this cwd (project switches go through
+      // git.setCwd first; subdir expansion reuses it), so behavior is unchanged,
+      // but a compromised renderer can't pass an arbitrary root to read any dir.
+      const anchoredRoot = gitService.getCwd();
       const safeTarget = typeof target === 'string' ? target : '';
-      return projectListDir(safeRoot, safeTarget);
+      return projectListDir(anchoredRoot, safeTarget);
     }
   );
   ipcMain.handle(IPC.PROJECT_RECENT_LIST, () => readRecentProjects());
@@ -1099,9 +1104,14 @@ function setupBrain() {
     if (result.canceled || result.filePaths.length === 0) return svc.getConfig();
     return svc.setFolder(result.filePaths[0]);
   });
-  ipcMain.handle(IPC.BRAIN_SET_FOLDER, (_e, folder: unknown) =>
-    svc.setFolder(typeof folder === 'string' ? folder : null)
-  );
+  ipcMain.handle(IPC.BRAIN_SET_FOLDER, (_e, folder: unknown) => {
+    // Clear-only. The renderer may DISCONNECT the Brain (null), but pointing it
+    // at a real folder must go through the native picker (BRAIN_PICK_FOLDER) —
+    // else a compromised renderer could set an arbitrary directory as the Brain
+    // and read every .md under it. A non-null value is ignored here.
+    if (folder === null) return svc.setFolder(null);
+    return svc.getConfig();
+  });
   ipcMain.handle(IPC.BRAIN_LIST_NOTES, () => svc.listNotes());
   ipcMain.handle(IPC.BRAIN_READ_NOTE, (_e, rel: unknown) =>
     svc.readNote(typeof rel === 'string' ? rel : '')

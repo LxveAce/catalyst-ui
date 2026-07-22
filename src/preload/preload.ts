@@ -80,6 +80,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   brain: {
     getConfig: () => ipcRenderer.invoke(IPC.BRAIN_GET_CONFIG),
     pickFolder: () => ipcRenderer.invoke(IPC.BRAIN_PICK_FOLDER),
+    // setFolder is CLEAR-ONLY: pass null to disconnect the Brain. Setting a real
+    // folder must go through pickFolder (the native picker); the main process
+    // ignores a non-null path here.
     setFolder: (folder: string | null) => ipcRenderer.invoke(IPC.BRAIN_SET_FOLDER, folder),
     listNotes: () => ipcRenderer.invoke(IPC.BRAIN_LIST_NOTES),
     readNote: (relPath: string) => ipcRenderer.invoke(IPC.BRAIN_READ_NOTE, relPath),
