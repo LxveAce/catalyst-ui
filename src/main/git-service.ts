@@ -7,6 +7,29 @@ import type { GitRepoState } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
 
+// Resolve the `git` executable to an absolute path ONCE, from PATH only — never relative to a repo's
+// working directory. Passing a bare `git` to execFile lets Windows' CreateProcess search include the
+// child's cwd, so opening/cloning a hostile repo that contains a top-level `git.exe` would run THAT
+// planted binary with the app's privileges (a binary-planting RCE). Resolving against PATH up front and
+// always invoking the absolute path keeps the untrusted repo directory out of the executable search.
+function resolveGitBinary(): string | null {
+  const names = process.platform === 'win32' ? ['git.exe'] : ['git'];
+  const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = path.join(dir, name);
+      try {
+        if (fs.statSync(candidate).isFile()) return candidate;
+      } catch {
+        // not in this dir; keep looking
+      }
+    }
+  }
+  return null;
+}
+
+const GIT_BIN = resolveGitBinary();
+
 const EMPTY_STATE: GitRepoState = {
   found: false,
   root: null,
@@ -89,8 +112,9 @@ export class GitService {
   }
 
   private async runText(cwd: string, args: string[]): Promise<string> {
+    if (!GIT_BIN) return ''; // git not found on PATH — treat as an unavailable/failed command
     try {
-      const { stdout } = await execFileAsync('git', args, {
+      const { stdout } = await execFileAsync(GIT_BIN, args, {
         cwd,
         windowsHide: true,
         timeout: 5000,
