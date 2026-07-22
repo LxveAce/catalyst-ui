@@ -1,9 +1,9 @@
 # Changelog
 
-All notable changes to Claude Code Studio. Dates are when the tag was
-pushed to origin. Detailed per-release notes live in
-`docs/RELEASE_NOTES_v{version}.md` and are attached to each GitHub
-release; this file is the at-a-glance summary.
+All notable changes to Catalyst UI (formerly Claude Code Studio — renamed
+at v4.0.0). Dates are when the tag was pushed to origin. Detailed per-release
+notes live in `docs/RELEASE_NOTES_v{version}.md` and are attached to each
+GitHub release; this file is the at-a-glance summary.
 
 The project follows [semver](https://semver.org/) loosely — major bumps
 mean breaking install/migration changes (v1 → v2 = Squirrel → NSIS;

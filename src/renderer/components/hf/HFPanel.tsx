@@ -1084,7 +1084,7 @@ function CachedTab({ onErr }: { onErr: (msg: string | null) => void }) {
 }
 
 // =====================================================================
-// Research (placeholder — fully wired in PR #57)
+// Research — opt-in deep-research mode (wired in PR #57)
 // =====================================================================
 
 function ResearchTab({
