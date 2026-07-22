@@ -34,7 +34,7 @@ This is an Electron app that runs a local PTY and talks to GitHub. Areas of
 particular interest:
 
 - Renderer ↔ main IPC surface (`src/preload/preload.ts`, `src/main/`).
-- Credential handling — the GitHub PAT is encrypted at rest via Electron
+- Credential handling: the GitHub PAT is encrypted at rest via Electron
   `safeStorage` and is explicitly excluded from settings sync.
 - The `shell.openExternal` URL allowlist and navigation lockdown.
 - node-pty / terminal input handling.

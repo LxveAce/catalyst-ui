@@ -6,7 +6,7 @@ local setup, the branch/PR workflow, and the conventions this project follows.
 ## Development setup
 
 1. **Use Node 22 LTS.** `package.json` pins `engines.node` to
-   `">=22.0.0 <24.0.0"` — newer majors break electron-packager.
+   `">=22.0.0 <24.0.0"`. Newer majors break electron-packager.
    - **macOS/Linux** with [nvm](https://github.com/nvm-sh/nvm):
      ```bash
      nvm install 22 && nvm use 22
@@ -25,13 +25,13 @@ local setup, the branch/PR workflow, and the conventions this project follows.
 The official Node installer (MSI) goes system-wide; if you're already on
 Node 24 for other projects, swap with one of:
 
-- **[nvm-windows](https://github.com/coreybutler/nvm-windows)** — manages
+- **[nvm-windows](https://github.com/coreybutler/nvm-windows)** manages
   multiple versions, similar to unix nvm but on a different codebase:
   ```powershell
   nvm install 22.22.3
   nvm use 22.22.3
   ```
-- **Portable zip side-by-side** — no installer, no system change:
+- **Portable zip side-by-side** needs no installer and makes no system change:
   ```powershell
   Invoke-WebRequest 'https://nodejs.org/dist/v22.22.3/node-v22.22.3-win-x64.zip' `
     -OutFile "$env:TEMP\node22.zip"
@@ -45,16 +45,16 @@ Node 24 for other projects, swap with one of:
 Producing the full set of Linux installers (AppImage + .deb + .rpm)
 needs a few system packages on the build host (or CI runner):
 
-- **`libfuse2`** — AppImage's squashfs runtime uses FUSE.
+- **`libfuse2`:** AppImage's squashfs runtime uses FUSE.
   ```bash
   sudo apt install libfuse2
   ```
-- **`rpm`** — to build the .rpm package on a non-Fedora host (Ubuntu
+- **`rpm`:** to build the .rpm package on a non-Fedora host (Ubuntu
   build hosts don't ship rpm by default).
   ```bash
   sudo apt install rpm
   ```
-- `dpkg-deb` for .deb — preinstalled on Debian/Ubuntu.
+- `dpkg-deb` for .deb, preinstalled on Debian/Ubuntu.
 
 GitHub Actions `ubuntu-latest` has `libfuse2` installed by default;
 `rpm` is installed via the CI workflow if needed (or skip the rpm
@@ -62,16 +62,16 @@ target there).
 
 ### Windows Developer Mode (for `npm run dist`)
 
-The v1.1 NSIS installer build (`npm run dist`) needs **Windows Developer
-Mode enabled** on the build host. electron-builder downloads winCodeSign
+The v1.1 NSIS installer build (`npm run dist`) needs Windows Developer
+Mode enabled on the build host. electron-builder downloads winCodeSign
 helpers that include macOS dylib symlinks; 7za on Windows can't extract
 those without `SeCreateSymbolicLinkPrivilege`, which Developer Mode grants.
 
 **Enable once:** *Settings → Privacy & Security → For Developers →
-Developer Mode → On.* No restart required.
+Developer Mode → On.* No restart is needed.
 
 `npm run dist:dir` (unpacked output for smoke-testing) does NOT need
-this — only the full installer creation does.
+this. Only the full installer creation does.
 
 ### CI installer builds (no Dev Mode needed)
 
@@ -81,7 +81,7 @@ the NSIS installer, the GitHub Actions CI workflow at
 a `feature/*` branch. The artifact is downloadable for 30 days from the
 CI run under the name `claude-code-studio-windows-installer`.
 
-The CI build runs the same `npm run dist` we use locally — runners just
+The CI build runs the same `npm run dist` we use locally. Runners just
 have the symlink privilege by default, so the winCodeSign extraction
 issue doesn't occur there.
 
@@ -118,18 +118,18 @@ Forge pipeline will be removed in Phase 8 once builder is proven for v1.1.
 
 ## Conventions
 
-- **Code style:** TypeScript throughout. Match the surrounding code — naming,
+- **Code style:** TypeScript throughout. Match the surrounding code: naming,
   comment density, and idioms. Prefer small, readable diffs over churn.
 - **Platform parity (v2.0+):** Studio ships on Windows, macOS, and Linux.
   Any change to main-process source must consider all three. Path resolution
   for bundled runtime / CLI goes through
-  [`src/main/runtime-paths.ts`](./src/main/runtime-paths.ts) — never hard-
+  [`src/main/runtime-paths.ts`](./src/main/runtime-paths.ts). Never hard-
   code platform-specific paths in feature code. When adding a feature that
   uses external binaries or platform APIs, gate with `process.platform`
   and verify the non-Windows branches at least compile (CI catches the
   rest via per-platform smoke builds).
 - **LMM journaling:** non-trivial work is thought through with the Lincoln
-  Manifold Method and recorded under `journal/` — one
+  Manifold Method and recorded under `journal/`, one
   `<source-path>.lmm.md` analysis per file.
 - **Security self-review:** substantial features get a self-red-team pass
   recorded under `docs/security-reviews/`, with
@@ -138,13 +138,13 @@ Forge pipeline will be removed in Phase 8 once builder is proven for v1.1.
 
 ## Verifying changes
 
-There are no automated tests yet, so verify by **running the app** and
+There are no automated tests yet, so verify by running the app and
 exercising the affected behavior (`npm start`). For renderer/layout changes,
 confirm the terminal and any touched panels still work. Note in your PR what you
-checked and on which platform — the shipped build is Windows, so flag anything
+checked and on which platform. The shipped build is Windows, so flag anything
 verified only on Linux/macOS.
 
 ## Reporting bugs & requesting features
 
 Open an issue using the relevant template under `.github/ISSUE_TEMPLATE/`.
-Known bugs and spitballed ideas also live in [`docs/BACKLOG.md`](./docs/BACKLOG.md).
+Known bugs and spitballed ideas are also in [`docs/BACKLOG.md`](./docs/BACKLOG.md).
