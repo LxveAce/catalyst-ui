@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 // child's cwd, so opening/cloning a hostile repo that contains a top-level `git.exe` would run THAT
 // planted binary with the app's privileges (a binary-planting RCE). Resolving against PATH up front and
 // always invoking the absolute path keeps the untrusted repo directory out of the executable search.
-function resolveGitBinary(): string | null {
+export function resolveGitBinary(): string | null {
   const names = process.platform === 'win32' ? ['git.exe'] : ['git'];
   const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
   for (const dir of dirs) {

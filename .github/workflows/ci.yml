@@ -39,6 +39,9 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
+      - name: Unit tests
+        run: npm test
+
       - name: Vite build (smoke test the standalone Vite runner)
         run: npm run vite:build
 
