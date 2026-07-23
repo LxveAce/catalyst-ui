@@ -52,7 +52,7 @@ export interface UpdaterCallbacks {
  * Squirrel-to-NSIS migration cliff (Phase 1 H1 / Phase 7 plan):
  *   - Users on v1.0 (installed via Squirrel) will NOT receive updates via this
  *     service. They must follow MIGRATING_FROM_V1.md to uninstall + reinstall
- *     once. After that, v1.1+ updates land via electron-updater seamlessly.
+ *     once. After that, v1.1+ updates land via electron-updater.
  */
 export class UpdaterService {
   private storePath: string;
